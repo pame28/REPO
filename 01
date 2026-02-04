@@ -1,0 +1,48 @@
+Ok mira, necesito desarrollar un microservicio llamado reposicion_pin, que incluya un endpoint que permitirá atender solicitudes de resposicion y enciar un pin temporal al cliente. El proceso de este es el siguiente:
+
+Paso 01. Yo, voy a recibir los siguientes datos de CRM: 
+	Campo	Tipo Dato	Longitud	Valores Validos
+CIF	Texto	18	
+DNI	Texto	18	
+Cliente	Texto	60	
+MetodoEnvio	Numerico	1	1(SMS) o 2 (Correo)
+Telefono	Numerico	10	(sin área 504)
+OperadorTelefono	Texto	1	D(tigo) o E(claro)
+Correo	Numerico	60	
+UltimosDigitosTC	Numerico	6	
+ContenidoSMS	Texto	150	
+ContenidoCorreo	Texto	5000	
+
+Paso 02. La tarjeta será identificada mediante búsqueda por CIF y validación de los últimos seis dígitos. Es decir, de la información que yo reciba .. voy a tomar el CIF y los UltimosDigitosTC .. y voy a buscar en mi base de datos de SQl esa información.
+
+- Validaciones (estas validaciones las tomo del registro encontrado en SQL): 
+	La tarjeta con estado 20 (es el campo EstadoTarjeta)
+	fecha vencimiento posterior a la actual (es el campo FechaFinVigencia)
+	campo "estado habilitar" en blanco (es el campo EstadoHabilitar)
+	que todos los campos requeridos contengan valores válidos 
+
+
+Paso 03. Se enviará la petición de reposición de PIN a AZ7  a través de un programa del AS400 que recibirá del API el equivalente de TC y la fecha de vencimiento.
+
+Paso 04. El envío del PIN temporal se realizará según el valor enviado por CRM en el campo de MetodoEnvio: si es 1, se utilizará el servicio BIMóvil para enviar un SMS; si es 2, se usará el servicio SMTP de BANPAIS para enviar un correo electrónico con remitente ReposicionPINBP@banpais.hn y asunto "PIN temporal Banpais".
+
+
+Este es el catalogo de respuestas que debe tener el microservicio:
+
+Código: ""00"", descripción: ""Pin generado exitosamente""
+Código: ""01"", descripción: ""Tarjeta inactiva""
+Código: ""02"", descripción: ""Tarjeta vencida""
+Código: ""03, descripción: ""Formato de teléfono incorrecto""
+Código: ""04"", descripción: ""Formato de correo incorrecto""
+Código: ""05"", descripción: ""No se encontró ninguna tarjeta asociada en la cuenta""
+Código: ""06"", descripción: ""No se recibió respuesta de Autoriza""
+Código: ""07"", descripción: "" Error de envió por BIMOVIL: { Error de BI Móvil}""
+Código: ""08"", descripción: "" Error de envió por correo:{Error de correo}""
+Código: ""09"", descripción: "" Error en servicio AZ7: {descripción de error}""
+Código: ""10"", descripción: "" Error en validación en campo {nombre de campo}:  {descripción de validación de error}""
+Código: ""99"", descripción: ""Error de sistema: {descripción excepción no controlada}"""	
+
+
+
+
+Ok mira, esto es lo que tengo que desarrollar... esto actualmente ya existe, para Tarjeta de Debito, pero... se usa un .asmx con programacion estructurada, y recuerda que los microservicios que hemos estado desarrollando estamos haciendolo en capas, Dtos, Models, Repository, Service, Controllers. Ya te enviaré el código que actualmente está para tarjeta de debito, para que lo tomemos de referencia, y claro aplicarlo a la vision de microservicios, usando clean code y buenas practicas de programacion. Recuerda que estoy usando NET 10. Ahorita no quiero que me muestres codigo, sino mas bien que aclaremos las cosas que te queden inconclusas para poder aterrizarlo y empezar de lleno a desarrollar en orden.											
