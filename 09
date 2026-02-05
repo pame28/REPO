@@ -1,4 +1,61 @@
-No entiendo lo que em dices, mira mis archivos:
+namespace reposicion_pin.DTOs
+{
+    public class ResultadoValidacionDto
+    {
+        public bool EsValido { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+
+        public static ResultadoValidacionDto Ok()
+        {
+            return new ResultadoValidacionDto
+            {
+                EsValido = true,
+                Codigo = "0",
+                Descripcion = "Validación correcta"
+            };
+        }
+
+        public static ResultadoValidacionDto Error(string codigo, string descripcion)
+        {
+            return new ResultadoValidacionDto
+            {
+                EsValido = false,
+                Codigo = codigo,
+                Descripcion = descripcion
+            };
+        }
+    }
+}
+
+
+
+
+
+
+
+.------
+
+
+
+namespace reposicion_pin.DTOs
+{
+    public class ResultadoValidacionTarjetaDto
+    {
+        public string EquivalenteTC { get; set; } = string.Empty;
+        public string FechaVencimientoTC { get; set; } = string.Empty;
+        public string PinTC { get; set; } = string.Empty;
+        public string CodigoError { get; set; } = "0"; // 0 = éxito
+        public string DescripcionError { get; set; } = "Validación correcta";
+    }
+}
+
+
+
+
+
+
+_____
 
 
 using reposicion_pin.DTOs;
@@ -8,30 +65,25 @@ namespace reposicion_pin.Repository
 {
     public class AS400Repository : IAS400Repository
     {
-        // Aquí se podría inyectar un cliente AS400 real si existiera
-        // Por ahora simularemos la llamada
-
-        public async Task<ResultadoValidacionDto> ValidarTarjetaAsync(string trama)
+        // Simula la llamada al programa AS400 REIMQ07RC
+        public async Task<ResultadoValidacionTarjetaDto> ValidarTarjetaAsync(string trama)
         {
             if (string.IsNullOrWhiteSpace(trama) || trama.Length != 81)
                 throw new ArgumentException("La trama debe tener exactamente 81 caracteres.");
 
-            // Simulamos la llamada al AS400
-            await Task.Delay(100); // Simula tiempo de respuesta
+            // Simula tiempo de respuesta del AS400
+            await Task.Delay(100);
 
             // Extraemos campos según posiciones
             string equivalenteTC = trama.Substring(0, 16).Trim();
             string fechaVencimiento = trama.Substring(16, 8).Trim();
             string pinTC = trama.Substring(24, 4).Trim();
 
-            // Inicializamos resultado
             var resultado = new ResultadoValidacionTarjetaDto
             {
                 EquivalenteTC = equivalenteTC,
                 FechaVencimientoTC = fechaVencimiento,
-                PinTC = pinTC,
-                CodigoError = "0", // 0 = éxito por defecto
-                DescripcionError = "Validación correcta"
+                PinTC = pinTC
             };
 
             // Validaciones simuladas de errores según catálogo
@@ -50,7 +102,7 @@ namespace reposicion_pin.Repository
                 resultado.CodigoError = "P03";
                 resultado.DescripcionError = "TARJETA NO EXISTE";
             }
-            // P98 y P99 podrían simularse en casos de error de sistema o trama inválida
+            // P98 y P99 podrían agregarse en caso de error de sistema
 
             return resultado;
         }
@@ -61,9 +113,9 @@ namespace reposicion_pin.Repository
 
 
 
+------
 
 
--------
 
 
 using reposicion_pin.DTOs;
@@ -74,44 +126,27 @@ namespace reposicion_pin.Service
 {
     public class TarjetaService : ITarjetaService
     {
-        private readonly ITarjetaRepository _tarjetaRepository;
+        private readonly IAS400Repository _as400Repository;
 
-        public TarjetaService(ITarjetaRepository tarjetaRepository)
+        public TarjetaService(IAS400Repository as400Repository)
         {
-            _tarjetaRepository = tarjetaRepository;
+            _as400Repository = as400Repository;
         }
 
-        public async Task<ResultadoValidacionTarjetaDto> ValidarTarjetaAsync(string equivalenteTC)
+        // Devuelve el resultado genérico para toda la app
+        public async Task<ResultadoValidacionDto> ValidarTarjetaAsync(string trama)
         {
-            var resultado = new ResultadoValidacionTarjetaDto();
+            var resultadoAS400 = await _as400Repository.ValidarTarjetaAsync(trama);
 
-            var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(equivalenteTC);
-
-            if (tarjeta == null)
+            // Mapeamos al DTO genérico
+            var resultado = new ResultadoValidacionDto
             {
-                resultado.Existe = false;
-                resultado.CodigoError = "P03";
-                resultado.MensajeError = "TARJETA NO EXISTE";
-                return resultado;
-            }
-
-            if (string.IsNullOrWhiteSpace(tarjeta.EstadoHabilitar))
-            {
-                resultado.Existe = false;
-                resultado.CodigoError = "P04";
-                resultado.MensajeError = "TARJETA NO HABILITADA";
-                return resultado;
-            }
-
-            resultado.Existe = true;
-            resultado.CodigoError = "00";
-            resultado.MensajeError = "TARJETA VÁLIDA";
-            resultado.FechaVencimiento = tarjeta.FechaVencimiento;
+                EsValido = resultadoAS400.CodigoError == "0",
+                Codigo = resultadoAS400.CodigoError,
+                Descripcion = resultadoAS400.DescripcionError
+            };
 
             return resultado;
         }
     }
 }
-
-
-
