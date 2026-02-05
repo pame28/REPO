@@ -1,10 +1,117 @@
-No se puede convertir implícitamente el tipo 'reposicion_pin.DTOs.ResultadoValidacionTarjetaDto' en 'reposicion_pin.DTOs.ResultadoValidacionDto'
-"ResultadoValidacionTarjetaDto" no contiene una definición para "Existe" ni un método de extensión accesible "Existe" que acepte un primer argumento del tipo "ResultadoValidacionTarjetaDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionTarjetaDto" no contiene una definición para "MensajeError" ni un método de extensión accesible "MensajeError" que acepte un primer argumento del tipo "ResultadoValidacionTarjetaDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionTarjetaDto" no contiene una definición para "Existe" ni un método de extensión accesible "Existe" que acepte un primer argumento del tipo "ResultadoValidacionTarjetaDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionTarjetaDto" no contiene una definición para "MensajeError" ni un método de extensión accesible "MensajeError" que acepte un primer argumento del tipo "ResultadoValidacionTarjetaDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionTarjetaDto" no contiene una definición para "Existe" ni un método de extensión accesible "Existe" que acepte un primer argumento del tipo "ResultadoValidacionTarjetaDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionTarjetaDto" no contiene una definición para "MensajeError" ni un método de extensión accesible "MensajeError" que acepte un primer argumento del tipo "ResultadoValidacionTarjetaDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionTarjetaDto" no contiene una definición para "FechaVencimiento" ni un método de extensión accesible "FechaVencimiento" que acepte un primer argumento del tipo "ResultadoValidacionTarjetaDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-El elemento campo "_connectionString" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el campo como un valor que acepta valores NULL.
-Posible asignación de referencia nula.
+No entiendo lo que em dices, mira mis archivos:
+
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        // Aquí se podría inyectar un cliente AS400 real si existiera
+        // Por ahora simularemos la llamada
+
+        public async Task<ResultadoValidacionDto> ValidarTarjetaAsync(string trama)
+        {
+            if (string.IsNullOrWhiteSpace(trama) || trama.Length != 81)
+                throw new ArgumentException("La trama debe tener exactamente 81 caracteres.");
+
+            // Simulamos la llamada al AS400
+            await Task.Delay(100); // Simula tiempo de respuesta
+
+            // Extraemos campos según posiciones
+            string equivalenteTC = trama.Substring(0, 16).Trim();
+            string fechaVencimiento = trama.Substring(16, 8).Trim();
+            string pinTC = trama.Substring(24, 4).Trim();
+
+            // Inicializamos resultado
+            var resultado = new ResultadoValidacionTarjetaDto
+            {
+                EquivalenteTC = equivalenteTC,
+                FechaVencimientoTC = fechaVencimiento,
+                PinTC = pinTC,
+                CodigoError = "0", // 0 = éxito por defecto
+                DescripcionError = "Validación correcta"
+            };
+
+            // Validaciones simuladas de errores según catálogo
+            if (string.IsNullOrEmpty(equivalenteTC))
+            {
+                resultado.CodigoError = "P01";
+                resultado.DescripcionError = "EQUIVALENTE TARJETA EN BLANCO";
+            }
+            else if (string.IsNullOrEmpty(fechaVencimiento))
+            {
+                resultado.CodigoError = "P02";
+                resultado.DescripcionError = "FECHA VENCIMIENTO TARJETA EN BLANCO";
+            }
+            else if (equivalenteTC == "NOEXISTE1234567")
+            {
+                resultado.CodigoError = "P03";
+                resultado.DescripcionError = "TARJETA NO EXISTE";
+            }
+            // P98 y P99 podrían simularse en casos de error de sistema o trama inválida
+
+            return resultado;
+        }
+    }
+}
+
+
+
+
+
+
+
+-------
+
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using reposicion_pin.Service.Interface;
+
+namespace reposicion_pin.Service
+{
+    public class TarjetaService : ITarjetaService
+    {
+        private readonly ITarjetaRepository _tarjetaRepository;
+
+        public TarjetaService(ITarjetaRepository tarjetaRepository)
+        {
+            _tarjetaRepository = tarjetaRepository;
+        }
+
+        public async Task<ResultadoValidacionTarjetaDto> ValidarTarjetaAsync(string equivalenteTC)
+        {
+            var resultado = new ResultadoValidacionTarjetaDto();
+
+            var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(equivalenteTC);
+
+            if (tarjeta == null)
+            {
+                resultado.Existe = false;
+                resultado.CodigoError = "P03";
+                resultado.MensajeError = "TARJETA NO EXISTE";
+                return resultado;
+            }
+
+            if (string.IsNullOrWhiteSpace(tarjeta.EstadoHabilitar))
+            {
+                resultado.Existe = false;
+                resultado.CodigoError = "P04";
+                resultado.MensajeError = "TARJETA NO HABILITADA";
+                return resultado;
+            }
+
+            resultado.Existe = true;
+            resultado.CodigoError = "00";
+            resultado.MensajeError = "TARJETA VÁLIDA";
+            resultado.FechaVencimiento = tarjeta.FechaVencimiento;
+
+            return resultado;
+        }
+    }
+}
+
+
+
