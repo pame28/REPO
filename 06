@@ -1,3 +1,21 @@
+{
+  "cif": "123456789",
+  "dni": "0801199912345",
+  "cliente": "JUAN PEREZ",
+  "metodoEnvio": 1,
+  "telefono": "99999999",
+  "operadorTelefono": "D",
+  "correo": "",
+  "ultimosDigitosTC": "123456",
+  "contenidoSMS": "Su PIN temporal es @PIN",
+  "contenidoCorreo": ""
+}
+
+
+
+
+
+
 namespace reposicion_pin.Models
 {
     public class ResultadoValidacion
