@@ -1,15 +1,7 @@
-"ReposicionPinService" no contiene una definición para "ValidarTarjetaAsync" ni un método de extensión accesible "ValidarTarjetaAsync" que acepte un primer argumento del tipo "ReposicionPinService" (¿falta alguna directiva using o una referencia de ensamblado?)
-"string" no contiene una definición para "Descripcion" ni un método de extensión accesible "Descripcion" que acepte un primer argumento del tipo "string" (¿falta alguna directiva using o una referencia de ensamblado?)
-
-
-
-
 using reposicion_pin.DTOs;
-using reposicion_pin.Repository;
 using reposicion_pin.Repository.Interface;
-using reposicion_pin.Service.Interface;
-using System.ComponentModel.DataAnnotations;
-using System.Text.RegularExpressions;
+using System;
+using System.Threading.Tasks;
 
 namespace reposicion_pin.Service
 {
@@ -35,56 +27,55 @@ namespace reposicion_pin.Service
             {
                 // Validaciones básicas del request
                 if (string.IsNullOrWhiteSpace(request.CIF))
-                    return await ObtenerRespuestaAsync(10, "CIF vacío o inválido");
+                    return await ObtenerRespuestaDinamicaAsync(10, "CIF", "vacío o inválido");
 
                 if (string.IsNullOrWhiteSpace(request.UltimosDigitosTC))
-                    return await ObtenerRespuestaAsync(10, "UltimosDigitosTC vacío o inválido");
+                    return await ObtenerRespuestaDinamicaAsync(10, "UltimosDigitosTC", "vacío o inválido");
 
                 if (request.MetodoEnvio != 1 && request.MetodoEnvio != 2)
-                    return await ObtenerRespuestaAsync(10, "MetodoEnvio debe ser 1 (SMS) o 2 (Correo)");
+                    return await ObtenerRespuestaDinamicaAsync(10, "MetodoEnvio", "debe ser 1 (SMS) o 2 (Correo)");
 
                 if (request.MetodoEnvio == 1) // SMS
                 {
                     if (string.IsNullOrWhiteSpace(request.Telefono))
-                        return await ObtenerRespuestaAsync(3, "Telefono obligatorio para MetodoEnvio=1");
+                        return await ObtenerRespuestaDinamicaAsync(10, "Telefono", "obligatorio para MetodoEnvio=1");
                 }
                 else if (request.MetodoEnvio == 2) // Correo
                 {
                     if (string.IsNullOrWhiteSpace(request.Correo) || !request.Correo.Contains("@"))
-                        return await ObtenerRespuestaAsync(4, "Correo obligatorio y válido para MetodoEnvio=2");
+                        return await ObtenerRespuestaDinamicaAsync(10, "Correo", "obligatorio y debe ser válido para MetodoEnvio=2");
                 }
 
                 // Buscar tarjeta en BD
                 var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
 
                 if (tarjeta == null)
-                    return await ObtenerRespuestaAsync(5, "No se encontró ninguna tarjeta asociada en la cuenta");
+                    return await ObtenerRespuestaBaseAsync(5); // No se encontró tarjeta
 
                 // Validaciones de tarjeta
                 if (tarjeta.EstadoTarjeta != 20)
-                    return await ObtenerRespuestaAsync(1, "Tarjeta inactiva");
+                    return await ObtenerRespuestaBaseAsync(1); // Tarjeta inactiva
 
                 if (tarjeta.FechaFinVigencia < DateTime.Today)
-                    return await ObtenerRespuestaAsync(2, "Tarjeta vencida");
+                    return await ObtenerRespuestaBaseAsync(2); // Tarjeta vencida
 
                 if (!string.IsNullOrWhiteSpace(tarjeta.EstadoHabilitar))
-                    return await ObtenerRespuestaAsync(10, "Campo EstadoHabilitar debe estar vacío");
+                    return await ObtenerRespuestaDinamicaAsync(10, "EstadoHabilitar", "debe estar vacío");
 
                 // Todo ok, se devuelve fase 1 exitosa
-                return await ObtenerRespuestaAsync(0, "Pin generado exitosamente");
+                return await ObtenerRespuestaBaseAsync(0);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error inesperado en Fase1 de ReposicionPinService");
-                return await ObtenerRespuestaAsync(99, ex.Message);
+                return await ObtenerRespuestaDinamicaAsync(99, "Excepción", ex.Message);
             }
         }
 
-        // Método helper para obtener la descripción desde el catálogo
-        private async Task<ReposicionPinResponseDto> ObtenerRespuestaAsync(int codigo, string fallbackDescripcion = null)
+        // Devuelve mensaje base desde catálogo
+        private async Task<ReposicionPinResponseDto> ObtenerRespuestaBaseAsync(int codigo)
         {
-            string descripcion = fallbackDescripcion;
-
+            string descripcion = null;
             try
             {
                 var catalogo = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
@@ -93,14 +84,45 @@ namespace reposicion_pin.Service
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"No se pudo obtener descripción del catalogo para código {codigo}");
+                _logger.LogWarning(ex, $"No se pudo obtener descripción del catálogo para código {codigo}");
             }
 
             return new ReposicionPinResponseDto
             {
                 Codigo = codigo,
-                Descripcion = descripcion
+                Descripcion = descripcion ?? "Mensaje no disponible"
+            };
+        }
+
+        // Devuelve mensaje dinámico concatenando descripción base con info específica
+        private async Task<ReposicionPinResponseDto> ObtenerRespuestaDinamicaAsync(int codigo, string campo, string detalle)
+        {
+            string baseDesc = null;
+            try
+            {
+                var catalogo = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
+                if (catalogo != null)
+                    baseDesc = catalogo.Descripcion;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"No se pudo obtener descripción del catálogo para código {codigo}");
+            }
+
+            string mensajeFinal = $"{baseDesc ?? "Error"} en campo {campo}: {detalle}";
+
+            return new ReposicionPinResponseDto
+            {
+                Codigo = codigo,
+                Descripcion = mensajeFinal
             };
         }
     }
 }
+
+
+
+
+
+
+
