@@ -1,0 +1,16 @@
+namespace reposicion_pin.Dtos
+{
+    public class ReposicionPinRequestDto
+    {
+        public string CIF { get; set; }
+        public string DNI { get; set; }
+        public string Cliente { get; set; }
+        public int MetodoEnvio { get; set; }
+        public string Telefono { get; set; }
+        public string OperadorTelefono { get; set; }
+        public string Correo { get; set; }
+        public string UltimosDigitosTC { get; set; }
+        public string ContenidoSMS { get; set; }
+        public string ContenidoCorreo { get; set; }
+    }
+}
