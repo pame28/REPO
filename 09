@@ -30,3 +30,63 @@ namespace reposicion_pin.Service
         }
     }
 }
+
+
+
+
+
+
+
+using Dapper;
+using System.Data.SqlClient;
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+
+namespace reposicion_pin.Repository
+{
+    public class TarjetaRepository : ITarjetaRepository
+    {
+        private readonly string _connectionString;
+
+        public TarjetaRepository(string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+                throw new ArgumentException("La cadena de conexión no puede ser nula o vacía.", nameof(connectionString));
+
+            _connectionString = connectionString;
+        }
+
+        public async Task<ResultadoValidacionTarjetaDto?> ObtenerTarjetaAsync(string equivalenteTC)
+        {
+            using var conexion = new SqlConnection(_connectionString);
+
+            string query = @"
+                SELECT 
+                    EquivalenteTC,
+                    FechaFinVigencia AS FechaVencimientoTC,
+                    PIN AS PinTC,
+                    '0' AS CodigoError,
+                    'Tarjeta encontrada' AS DescripcionError
+                FROM dbo.Tarjetas
+                WHERE EquivalenteTC = @EquivalenteTC
+            ";
+
+            var tarjeta = await conexion.QueryFirstOrDefaultAsync<ResultadoValidacionTarjetaDto>(
+                query, new { EquivalenteTC = equivalenteTC }
+            );
+
+            if (tarjeta == null)
+            {
+                return new ResultadoValidacionTarjetaDto
+                {
+                    CodigoError = "P03",
+                    DescripcionError = "TARJETA NO EXISTE"
+                };
+            }
+
+            return tarjeta;
+        }
+    }
+}
+
+
