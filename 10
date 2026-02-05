@@ -1,0 +1,89 @@
+namespace reposicion_pin.DTOs
+{
+    public class ReposicionPinDto
+    {
+        public string EquivalenteTC { get; set; } = string.Empty;
+        public string NuevoPin { get; set; } = string.Empty;
+        public string CodigoError { get; set; } = string.Empty;
+        public string DescripcionError { get; set; } = string.Empty;
+        public bool Exito { get; set; }
+    }
+}
+
+
+
+
+---------
+
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+
+namespace reposicion_pin.Repository
+{
+    public class PinRepository : IPinRepository
+    {
+        public async Task<ReposicionPinDto> ReposicionarPinAsync(string equivalenteTC, string nuevoPin)
+        {
+            // Simulamos tiempo de respuesta del AS400
+            await Task.Delay(100);
+
+            var resultado = new ReposicionPinDto
+            {
+                EquivalenteTC = equivalenteTC,
+                NuevoPin = nuevoPin,
+                Exito = true,
+                CodigoError = "00",
+                DescripcionError = "PIN reposicionado correctamente"
+            };
+
+            // Ejemplos de errores simulados
+            if (string.IsNullOrEmpty(equivalenteTC))
+            {
+                resultado.Exito = false;
+                resultado.CodigoError = "P01";
+                resultado.DescripcionError = "EQUIVALENTE TARJETA EN BLANCO";
+            }
+            else if (string.IsNullOrEmpty(nuevoPin) || nuevoPin.Length != 4)
+            {
+                resultado.Exito = false;
+                resultado.CodigoError = "P02";
+                resultado.DescripcionError = "PIN INVÁLIDO";
+            }
+
+            return resultado;
+        }
+    }
+}
+
+
+
+
+
+
+-------
+
+
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using reposicion_pin.Service.Interface;
+
+namespace reposicion_pin.Service
+{
+    public class PinService : IPinService
+    {
+        private readonly IPinRepository _pinRepository;
+
+        public PinService(IPinRepository pinRepository)
+        {
+            _pinRepository = pinRepository;
+        }
+
+        public async Task<ReposicionPinDto> ReposicionarPinAsync(string equivalenteTC, string nuevoPin)
+        {
+            // Aquí podríamos agregar más validaciones o reglas de negocio
+            return await _pinRepository.ReposicionarPinAsync(equivalenteTC, nuevoPin);
+        }
+    }
+}
