@@ -1,0 +1,212 @@
+namespace reposicion_pin.Models
+{
+    public class ResultadoValidacion
+    {
+        public bool EsValido { get; set; }
+        public string Codigo { get; set; }
+        public string Descripcion { get; set; }
+
+        public static ResultadoValidacion Ok()
+        {
+            return new ResultadoValidacion
+            {
+                EsValido = true
+            };
+        }
+
+        public static ResultadoValidacion Error(string codigo, string descripcion)
+        {
+            return new ResultadoValidacion
+            {
+                EsValido = false,
+                Codigo = codigo,
+                Descripcion = descripcion
+            };
+        }
+    }
+}
+
+
+
+
+
+
+
+--------
+
+
+using System.Text.RegularExpressions;
+using reposicion_pin.Dtos;
+using reposicion_pin.Models;
+
+namespace reposicion_pin.Service
+{
+    public class ValidacionReposicionPinService
+    {
+        public ResultadoValidacion ValidarEntrada(ReposicionPinRequestDto request)
+        {
+            if (request == null)
+            {
+                return ResultadoValidacion.Error(
+                    "10",
+                    "Error en validación en campo request: request es nulo"
+                );
+            }
+
+            // MetodoEnvio
+            if (request.MetodoEnvio != 1 && request.MetodoEnvio != 2)
+            {
+                return ResultadoValidacion.Error(
+                    "10",
+                    "Error en validación en campo MetodoEnvio: valor permitido 1 (SMS) o 2 (Correo)"
+                );
+            }
+
+            // Exclusividad SMS / Correo
+            if (request.MetodoEnvio == 1)
+            {
+                if (string.IsNullOrWhiteSpace(request.Telefono))
+                {
+                    return ResultadoValidacion.Error(
+                        "10",
+                        "Error en validación en campo Telefono: es obligatorio cuando MetodoEnvio es SMS"
+                    );
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Correo))
+                {
+                    return ResultadoValidacion.Error(
+                        "10",
+                        "Error en validación en campo Correo: debe venir vacío cuando MetodoEnvio es SMS"
+                    );
+                }
+            }
+
+            if (request.MetodoEnvio == 2)
+            {
+                if (string.IsNullOrWhiteSpace(request.Correo))
+                {
+                    return ResultadoValidacion.Error(
+                        "10",
+                        "Error en validación en campo Correo: es obligatorio cuando MetodoEnvio es Correo"
+                    );
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Telefono))
+                {
+                    return ResultadoValidacion.Error(
+                        "10",
+                        "Error en validación en campo Telefono: debe venir vacío cuando MetodoEnvio es Correo"
+                    );
+                }
+            }
+
+            // Formato teléfono (solo números)
+            if (request.MetodoEnvio == 1)
+            {
+                if (!Regex.IsMatch(request.Telefono, @"^\d+$"))
+                {
+                    return ResultadoValidacion.Error(
+                        "03",
+                        "Formato de teléfono incorrecto"
+                    );
+                }
+            }
+
+            // Formato correo
+            if (request.MetodoEnvio == 2)
+            {
+                if (!EsCorreoValido(request.Correo))
+                {
+                    return ResultadoValidacion.Error(
+                        "04",
+                        "Formato de correo incorrecto"
+                    );
+                }
+            }
+
+            // Longitudes máximas (solo ejemplo, puedes ajustar)
+            if (!string.IsNullOrEmpty(request.CIF) && request.CIF.Length > 18)
+            {
+                return ResultadoValidacion.Error(
+                    "10",
+                    "Error en validación en campo CIF: longitud máxima permitida 18"
+                );
+            }
+
+            if (!string.IsNullOrEmpty(request.UltimosDigitosTC) && request.UltimosDigitosTC.Length > 6)
+            {
+                return ResultadoValidacion.Error(
+                    "10",
+                    "Error en validación en campo UltimosDigitosTC: longitud máxima permitida 6"
+                );
+            }
+
+            return ResultadoValidacion.Ok();
+        }
+
+        private bool EsCorreoValido(string correo)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(correo);
+                return addr.Address == correo;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+}
+
+
+
+
+
+
+------
+
+using Microsoft.AspNetCore.Mvc;
+using reposicion_pin.Dtos;
+using reposicion_pin.Models;
+using reposicion_pin.Service;
+
+namespace reposicion_pin.Controllers
+{
+    [ApiController]
+    [Route("api/reposicion-pin")]
+    public class ReposicionPinController : ControllerBase
+    {
+        private readonly ValidacionReposicionPinService _validacionService;
+
+        public ReposicionPinController(ValidacionReposicionPinService validacionService)
+        {
+            _validacionService = validacionService;
+        }
+
+        [HttpPost]
+        public ActionResult<ReposicionPinResponseDto> ReposicionarPin(
+            [FromBody] ReposicionPinRequestDto request)
+        {
+            ResultadoValidacion resultado = _validacionService.ValidarEntrada(request);
+
+            if (!resultado.EsValido)
+            {
+                return Ok(new ReposicionPinResponseDto
+                {
+                    Codigo = resultado.Codigo,
+                    Descripcion = resultado.Descripcion
+                });
+            }
+
+            // RESPUESTA TEMPORAL
+            return Ok(new ReposicionPinResponseDto
+            {
+                Codigo = "00",
+                Descripcion = "Validaciones correctas - paso 2"
+            });
+        }
+    }
+}
+
