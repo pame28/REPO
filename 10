@@ -1,37 +1,7 @@
-using reposicion_pin.DTOs;
-using reposicion_pin.Service.Interface;
+"ResultadoValidacionDto" no contiene una definición para "Existe" ni un método de extensión accesible "Existe" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
+"ResultadoValidacionDto" no contiene una definición para "CodigoError" ni un método de extensión accesible "CodigoError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
+"ResultadoValidacionDto" no contiene una definición para "MensajeError" ni un método de extensión accesible "MensajeError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
 
-namespace reposicion_pin.Service
-{
-    public class ReposicionPinFlujoService
-    {
-        private readonly ITarjetaService _tarjetaService;
-        private readonly IPinService _pinService;
 
-        public ReposicionPinFlujoService(ITarjetaService tarjetaService, IPinService pinService)
-        {
-            _tarjetaService = tarjetaService;
-            _pinService = pinService;
-        }
 
-        public async Task<ReposicionPinDto> EjecutarFlujoReposicionPinAsync(string equivalenteTC, string nuevoPin)
-        {
-            // 1️⃣ Validamos la tarjeta
-            var validacion = await _tarjetaService.ValidarTarjetaAsync(equivalenteTC);
-            if (!validacion.Existe)
-            {
-                return new ReposicionPinDto
-                {
-                    EquivalenteTC = equivalenteTC,
-                    Exito = false,
-                    CodigoError = validacion.CodigoError,
-                    DescripcionError = validacion.MensajeError
-                };
-            }
-
-            // 2️⃣ Reposicionamos el PIN
-            var resultadoPin = await _pinService.ReposicionarPinAsync(equivalenteTC, nuevoPin);
-            return resultadoPin;
-        }
-    }
-}
+Ay no, de nuevo estas molestando con el mismo tema, no te equivoques.
