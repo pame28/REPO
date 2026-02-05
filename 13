@@ -1,0 +1,20 @@
+Ya funciona y responde bastante bien. Sin embargo noté varias cosas:
+
+1. No se está utilizando el catalogo que nos solicitaron usar:
+
+Código: ""00"", descripción: ""Pin generado exitosamente""
+Código: ""01"", descripción: ""Tarjeta inactiva""
+Código: ""02"", descripción: ""Tarjeta vencida""
+Código: ""03, descripción: ""Formato de teléfono incorrecto""
+Código: ""04"", descripción: ""Formato de correo incorrecto""
+Código: ""05"", descripción: ""No se encontró ninguna tarjeta asociada en la cuenta""
+Código: ""06"", descripción: ""No se recibió respuesta de Autoriza""
+Código: ""07"", descripción: "" Error de envió por BIMOVIL: { Error de BI Móvil}""
+Código: ""08"", descripción: "" Error de envió por correo:{Error de correo}""
+Código: ""09"", descripción: "" Error en servicio AZ7: {descripción de error}""
+Código: ""10"", descripción: "" Error en validación en campo {nombre de campo}:  {descripción de validación de error}""
+Código: ""99"", descripción: ""Error de sistema: {descripción excepción no controlada}"""	
+
+
+Y tampoco veo las validaciones del campo MetodoEnvio.. recuerda que.. cuando viene 1 es indispensable que, el campo Telefono venga lleno... seria bueno que el de correo venga vacio, pero podria omitirse.. que piensas? que es lo correcto?
+Y si ... viene un dos .. el de Correo debe venir lleno con un correo valido va .. que ya hay una validacion para eso
