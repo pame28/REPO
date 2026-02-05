@@ -14,3 +14,55 @@ namespace reposicion_pin.Dtos
         public string ContenidoCorreo { get; set; }
     }
 }
+
+
+
+
+
+
+------
+
+
+namespace reposicion_pin.Dtos
+{
+    public class ReposicionPinResponseDto
+    {
+        public string Codigo { get; set; }
+        public string Descripcion { get; set; }
+    }
+}
+
+
+
+
+
+------
+
+
+
+using Microsoft.AspNetCore.Mvc;
+using reposicion_pin.Dtos;
+
+namespace reposicion_pin.Controllers
+{
+    [ApiController]
+    [Route("api/reposicion-pin")]
+    public class ReposicionPinController : ControllerBase
+    {
+        [HttpPost]
+        public ActionResult<ReposicionPinResponseDto> ReposicionarPin(
+            [FromBody] ReposicionPinRequestDto request)
+        {
+            // RESPUESTA MOCK TEMPORAL
+            // En el siguiente paso esto llamará al Service
+            var response = new ReposicionPinResponseDto
+            {
+                Codigo = "00",
+                Descripcion = "Servicio activo - paso 1"
+            };
+
+            return Ok(response);
+        }
+    }
+}
+
