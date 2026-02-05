@@ -1,79 +1,26 @@
-using reposicion_pin.Dto;
-using System.Threading.Tasks;
-
-namespace reposicion_pin.Interfaces.Repositories
-{
-    public interface IAs400Repository
-    {
-        /// <summary>
-        /// Envía la trama de la tarjeta al programa AS400 REIMQ07RC y devuelve el resultado de la validación.
-        /// </summary>
-        /// <param name="trama">Trama de 81 caracteres</param>
-        /// <returns>Resultado de la validación de la tarjeta</returns>
-        Task<ResultadoValidacionDto> ValidarTarjetaAsync(string trama);
-    }
-}
-
-
-
-
------
-
-
-using reposicion_pin.Dto;
-using reposicion_pin.Interfaces.Repositories;
-using System;
-using System.Threading.Tasks;
-
-namespace reposicion_pin.Repository
-{
-    public class As400Repository : IAs400Repository
-    {
-        // Aquí se podría inyectar un cliente AS400 real si existiera
-        // Por ahora simularemos la llamada
-
-        public async Task<ResultadoValidacionDto> ValidarTarjetaAsync(string trama)
-        {
-            if (string.IsNullOrWhiteSpace(trama) || trama.Length != 81)
-                throw new ArgumentException("La trama debe tener exactamente 81 caracteres.");
-
-            // Simulamos la llamada al AS400
-            await Task.Delay(100); // Simula tiempo de respuesta
-
-            // Extraemos campos según posiciones
-            string equivalenteTC = trama.Substring(0, 16).Trim();
-            string fechaVencimiento = trama.Substring(16, 8).Trim();
-            string pinTC = trama.Substring(24, 4).Trim();
-
-            // Inicializamos resultado
-            var resultado = new ResultadoValidacionDto
-            {
-                EquivalenteTC = equivalenteTC,
-                FechaVencimientoTC = fechaVencimiento,
-                PinTC = pinTC,
-                CodigoError = "0", // 0 = éxito por defecto
-                DescripcionError = "Validación correcta"
-            };
-
-            // Validaciones simuladas de errores según catálogo
-            if (string.IsNullOrEmpty(equivalenteTC))
-            {
-                resultado.CodigoError = "P01";
-                resultado.DescripcionError = "EQUIVALENTE TARJETA EN BLANCO";
-            }
-            else if (string.IsNullOrEmpty(fechaVencimiento))
-            {
-                resultado.CodigoError = "P02";
-                resultado.DescripcionError = "FECHA VENCIMIENTO TARJETA EN BLANCO";
-            }
-            else if (equivalenteTC == "NOEXISTE1234567")
-            {
-                resultado.CodigoError = "P03";
-                resultado.DescripcionError = "TARJETA NO EXISTE";
-            }
-            // P98 y P99 podrían simularse en casos de error de sistema o trama inválida
-
-            return resultado;
-        }
-    }
-}
+'ResultadoValidacionDto' no contiene una definición para 'EquivalenteTC'
+'ResultadoValidacionDto' no contiene una definición para 'FechaVencimientoTC'
+'ResultadoValidacionDto' no contiene una definición para 'PinTC'
+'ResultadoValidacionDto' no contiene una definición para 'CodigoError'
+'ResultadoValidacionDto' no contiene una definición para 'DescripcionError'
+"ResultadoValidacionDto" no contiene una definición para "CodigoError" ni un método de extensión accesible "CodigoError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
+"ResultadoValidacionDto" no contiene una definición para "DescripcionError" ni un método de extensión accesible "DescripcionError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
+"ResultadoValidacionDto" no contiene una definición para "CodigoError" ni un método de extensión accesible "CodigoError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
+"ResultadoValidacionDto" no contiene una definición para "DescripcionError" ni un método de extensión accesible "DescripcionError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
+"ResultadoValidacionDto" no contiene una definición para "CodigoError" ni un método de extensión accesible "CodigoError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
+"ResultadoValidacionDto" no contiene una definición para "DescripcionError" ni un método de extensión accesible "DescripcionError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
+El elemento propiedad "CIF" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "DNI" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "Cliente" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "Telefono" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "OperadorTelefono" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "Correo" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "UltimosDigitosTC" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "ContenidoSMS" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "ContenidoCorreo" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "Codigo" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "Descripcion" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "Codigo" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento propiedad "Descripcion" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+El elemento campo "_connectionString" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el campo como un valor que acepta valores NULL.
+Posible asignación de referencia nula.
