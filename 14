@@ -1,37 +1,200 @@
-Mira, este es el catalogo de respuestas que se creo en SQL SERVER:
+public class CatalogoRespuestaRepository : ICatalogoRespuestaRepository
+{
+    private readonly AppDbContext _context;
 
-USE [ReposicionPinTC]
-GO
+    public CatalogoRespuestaRepository(AppDbContext context)
+    {
+        _context = context;
+    }
 
-/****** Object:  Table [dbo].[CatalogoRespuestas]    Script Date: 5/2/2026 14:44:52 ******/
-SET ANSI_NULLS ON
-GO
+    public async Task<string> ObtenerDescripcionAsync(int codigo)
+    {
+        var registro = await _context.CatalogoRespuestas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Codigo == codigo);
 
-SET QUOTED_IDENTIFIER ON
-GO
-
-CREATE TABLE [dbo].[CatalogoRespuestas](
-	[Codigo] [int] NOT NULL,
-	[Descripcion] [varchar](255) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[Codigo] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
+        return registro?.Descripcion ?? "Código de respuesta no definido";
+    }
+}
 
 
 
-Codigo	Descripcion
-0	Pin generado exitosamente
-1	Tarjeta inactiva
-2	Tarjeta vencida
-3	Formato de teléfono incorrecto
-4	Formato de correo incorrecto
-5	No se encontró ninguna tarjeta asociada en la cuenta
-6	No se recibió respuesta de Autoriza
-7	Error de envió por BIMOVIL: { Error de BI Móvil}
-8	Error de envió por correo:{Error de correo}
-9	Error en servicio AZ7: {descripción de error}
-10	Error en validación en campo {nombre de campo}:  {descripción de validación de error}
-99	Error de sistema: {descripción excepción no controlada}
+
+
+
+using reposicion_pin.Repository.Interface;
+using reposicion_pin.Service.Interface;
+using reposicion_pin.Models;
+using reposicion_pin.DTOs;
+using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
+
+namespace reposicion_pin.Service
+{
+    public class ReposicionPinService : IReposicionPinService
+    {
+        private readonly ITarjetaRepository _tarjetaRepository;
+        private readonly ICatalogoRespuestaRepository _catalogoRepository;
+        private readonly IAs400AutorizaService _as400Service;
+        private readonly IEnvioNotificacionService _envioService;
+        private readonly ILogger<ReposicionPinService> _logger;
+
+        public ReposicionPinService(
+            ITarjetaRepository tarjetaRepository,
+            ICatalogoRespuestaRepository catalogoRepository,
+            IAs400AutorizaService as400Service,
+            IEnvioNotificacionService envioService,
+            ILogger<ReposicionPinService> logger)
+        {
+            _tarjetaRepository = tarjetaRepository;
+            _catalogoRepository = catalogoRepository;
+            _as400Service = as400Service;
+            _envioService = envioService;
+            _logger = logger;
+        }
+
+        // ============================================================
+        // MÉTODO PRINCIPAL
+        // ============================================================
+        public async Task<RespuestaReposicionPinDto> ProcesarReposicionPinAsync(
+            ReposicionPinRequestDto request)
+        {
+            try
+            {
+                // 1️⃣ Validaciones de request
+                var validacion = await ValidarMetodoEnvioAsync(request);
+                if (validacion != null)
+                    return validacion;
+
+                // 2️⃣ Buscar tarjeta en SQL Server
+                var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(
+                    request.CIF,
+                    request.UltimosDigitosTC);
+
+                if (tarjeta == null)
+                    return await CrearRespuestaAsync(5);
+
+                // 3️⃣ Validaciones de estado de tarjeta
+                if (tarjeta.EstadoTarjeta != 20)
+                    return await CrearRespuestaAsync(1);
+
+                if (tarjeta.FechaFinVigencia < DateTime.Today)
+                    return await CrearRespuestaAsync(2);
+
+                // 4️⃣ Llamada REAL a AS400
+                var respuestaAs400 = _as400Service.GenerarPin(new As400PinRequest
+                {
+                    CIF = tarjeta.CIF,
+                    EquivalenteTC = tarjeta.EquivalenteTC,
+                    DNI = request.DNI
+                });
+
+                if (respuestaAs400 == null)
+                    return await CrearRespuestaAsync(6);
+
+                if (respuestaAs400.CodigoError != 0)
+                {
+                    return await CrearRespuestaAsync(
+                        9,
+                        detalle: respuestaAs400.DescripcionError
+                    );
+                }
+
+                // 5️⃣ Envío de PIN (SMS o Correo)
+                var envioResultado = await _envioService.EnviarAsync(
+                    request,
+                    respuestaAs400.PinGenerado
+                );
+
+                if (!envioResultado.Exitoso)
+                {
+                    return await CrearRespuestaAsync(
+                        envioResultado.EsCorreo ? 8 : 7,
+                        detalle: envioResultado.Error
+                    );
+                }
+
+                // 6️⃣ OK
+                return await CrearRespuestaAsync(0);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error no controlado en reposición de PIN");
+
+                return await CrearRespuestaAsync(
+                    99,
+                    detalle: ex.Message
+                );
+            }
+        }
+
+        // ============================================================
+        // VALIDACIONES
+        // ============================================================
+        private async Task<RespuestaReposicionPinDto?> ValidarMetodoEnvioAsync(
+            ReposicionPinRequestDto request)
+        {
+            if (request.MetodoEnvio == 1) // SMS
+            {
+                if (string.IsNullOrWhiteSpace(request.Telefono))
+                    return await CrearRespuestaAsync(3);
+
+                if (!Regex.IsMatch(request.Telefono, @"^\d{8}$"))
+                    return await CrearRespuestaAsync(3);
+            }
+            else if (request.MetodoEnvio == 2) // Correo
+            {
+                if (string.IsNullOrWhiteSpace(request.Correo))
+                    return await CrearRespuestaAsync(4);
+
+                if (!new EmailAddressAttribute().IsValid(request.Correo))
+                    return await CrearRespuestaAsync(4);
+            }
+            else
+            {
+                return await CrearRespuestaAsync(
+                    10,
+                    campo: "MetodoEnvio",
+                    detalle: "Valor no permitido"
+                );
+            }
+
+            return null;
+        }
+
+        // ============================================================
+        // CREACIÓN DE RESPUESTAS (CATÁLOGO SQL)
+        // ============================================================
+        private async Task<RespuestaReposicionPinDto> CrearRespuestaAsync(
+            int codigo,
+            string? campo = null,
+            string? detalle = null)
+        {
+            var descripcionBase =
+                await _catalogoRepository.ObtenerDescripcionAsync(codigo);
+
+            string descripcionFinal = descripcionBase;
+
+            if (!string.IsNullOrEmpty(campo))
+                descripcionFinal = descripcionFinal.Replace(
+                    "{nombre de campo}", campo);
+
+            if (!string.IsNullOrEmpty(detalle))
+            {
+                descripcionFinal = descripcionFinal
+                    .Replace("{descripción de validación de error}", detalle)
+                    .Replace("{descripción de error}", detalle)
+                    .Replace("{Error de BI Móvil}", detalle)
+                    .Replace("{Error de correo}", detalle);
+            }
+
+            return new RespuestaReposicionPinDto
+            {
+                Codigo = codigo,
+                Descripcion = descripcionFinal
+            };
+        }
+    }
+}
+
+
