@@ -1,51 +1,11 @@
-No entiendo, ya habiamos definido asi:
-
-
-namespace reposicion_pin.DTOs
-{
-    public class ResultadoValidacionDto
-    {
-        public bool EsValido { get; set; }
-        public string Codigo { get; set; } = string.Empty;
-        public string Descripcion { get; set; } = string.Empty;
-
-        public static ResultadoValidacionDto Ok()
-        {
-            return new ResultadoValidacionDto
-            {
-                EsValido = true
-            };
-        }
-
-        public static ResultadoValidacionDto Error(string codigo, string descripcion)
-        {
-            return new ResultadoValidacionDto
-            {
-                EsValido = false,
-                Codigo = codigo,
-                Descripcion = descripcion
-            };
-        }
-    }
-}
-
-
-
-
-
-
-
-
-------
 namespace reposicion_pin.DTOs
 {
     public class ResultadoValidacionTarjetaDto
     {
-        public bool Existe { get; set; }
+        public string EquivalenteTC { get; set; } = string.Empty;
+        public string FechaVencimientoTC { get; set; } = string.Empty;
+        public string PinTC { get; set; } = string.Empty;
         public string CodigoError { get; set; } = string.Empty;
-        public string MensajeError { get; set; } = string.Empty;
-        public string FechaVencimiento { get; set; } = string.Empty;
+        public string DescripcionError { get; set; } = string.Empty;
     }
 }
-
-
