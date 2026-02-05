@@ -1,0 +1,158 @@
+namespace reposicion_pin.Models
+{
+    public class TarjetaModel
+    {
+        public string EquivalenteTC { get; set; } = string.Empty;
+        public string FechaVencimiento { get; set; } = string.Empty;
+        public string Estado { get; set; } = string.Empty;
+        public string EstadoHabilitar { get; set; } = string.Empty;
+    }
+}
+
+
+
+
+---------
+
+
+namespace reposicion_pin.Dtos
+{
+    public class ResultadoValidacionTarjetaDto
+    {
+        public bool Existe { get; set; }
+        public string CodigoError { get; set; } = string.Empty;
+        public string MensajeError { get; set; } = string.Empty;
+        public string FechaVencimiento { get; set; } = string.Empty;
+    }
+}
+
+
+
+
+
+--------
+
+
+
+using reposicion_pin.Models;
+
+namespace reposicion_pin.Interfaces.Repository
+{
+    public interface ITarjetaRepository
+    {
+        Task<TarjetaModel?> ObtenerTarjetaAsync(string equivalenteTC);
+    }
+}
+
+
+
+
+----------
+
+
+using Dapper;
+using reposicion_pin.Interfaces.Repository;
+using reposicion_pin.Models;
+using System.Data;
+using System.Data.SqlClient;
+
+namespace reposicion_pin.Repository
+{
+    public class TarjetaRepository : ITarjetaRepository
+    {
+        private readonly string _connectionString;
+
+        public TarjetaRepository(IConfiguration configuration)
+        {
+            _connectionString = configuration.GetConnectionString("DefaultConnection");
+        }
+
+        public async Task<TarjetaModel?> ObtenerTarjetaAsync(string equivalenteTC)
+        {
+            using IDbConnection db = new SqlConnection(_connectionString);
+
+            string query = @"
+                SELECT EquivalenteTC, FechaVencimiento, Estado, EstadoHabilitar
+                FROM TARJETAS
+                WHERE EquivalenteTC = @EquivalenteTC";
+
+            var tarjeta = await db.QueryFirstOrDefaultAsync<TarjetaModel>(query, new { EquivalenteTC = equivalenteTC });
+            return tarjeta;
+        }
+    }
+}
+
+
+
+
+
+-------
+
+
+
+
+using reposicion_pin.Dtos;
+
+namespace reposicion_pin.Interfaces.Service
+{
+    public interface ITarjetaService
+    {
+        Task<ResultadoValidacionTarjetaDto> ValidarTarjetaAsync(string equivalenteTC);
+    }
+}
+
+
+
+
+
+--------
+
+
+using reposicion_pin.Dtos;
+using reposicion_pin.Interfaces.Repository;
+using reposicion_pin.Interfaces.Service;
+
+namespace reposicion_pin.Service
+{
+    public class TarjetaService : ITarjetaService
+    {
+        private readonly ITarjetaRepository _tarjetaRepository;
+
+        public TarjetaService(ITarjetaRepository tarjetaRepository)
+        {
+            _tarjetaRepository = tarjetaRepository;
+        }
+
+        public async Task<ResultadoValidacionTarjetaDto> ValidarTarjetaAsync(string equivalenteTC)
+        {
+            var resultado = new ResultadoValidacionTarjetaDto();
+
+            var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(equivalenteTC);
+
+            if (tarjeta == null)
+            {
+                resultado.Existe = false;
+                resultado.CodigoError = "P03";
+                resultado.MensajeError = "TARJETA NO EXISTE";
+                return resultado;
+            }
+
+            if (string.IsNullOrWhiteSpace(tarjeta.EstadoHabilitar))
+            {
+                resultado.Existe = false;
+                resultado.CodigoError = "P04";
+                resultado.MensajeError = "TARJETA NO HABILITADA";
+                return resultado;
+            }
+
+            resultado.Existe = true;
+            resultado.CodigoError = "00";
+            resultado.MensajeError = "TARJETA VÁLIDA";
+            resultado.FechaVencimiento = tarjeta.FechaVencimiento;
+
+            return resultado;
+        }
+    }
+}
+
+
