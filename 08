@@ -1,0 +1,7 @@
+SELECT
+    EquivalenteTC,
+    CIF,
+    FechaFinVigencia,
+    EstadoTarjeta,
+    EstadoHabilitar
+FROM dbo.Tarjetas
