@@ -1,0 +1,19 @@
+Este es el programa de AS400  al que nos vamos a estar conectando:
+El programa es el REIMQ07RC(Este no es el programa final) está en la librería BPPGM, este recibe una trama de longitud 81 tipo char de la cual te detallo las posiciones:
+Campo	Posición Inicial	Posición Final	Tamaño
+Equivalente TC	1	16	16
+Fecha Vencimiento TC	17	24	8
+PIN TC	25	28	4
+Código Error	29	31	3
+Descripción Error	32	81	50
+
+Estos son los posibles errores que podria devolver el programa
+Cod Error	Descripción
+P01	EQUIVALENTE TARJETA EN BLANCO
+P02	FECHA VENCIMIENTO TARJETA EN BLANCO
+P03	TARJETA NO EXISTE
+P98	ERROR AL LLAMAR A MQ
+P99	TRAMA NO ENCONTRADA
+
+
+
