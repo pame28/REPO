@@ -1,0 +1,113 @@
+using Microsoft.EntityFrameworkCore;
+using ReposicionPinMicroservice.Models;
+
+namespace ReposicionPinMicroservice.Repository
+{
+    public class TarjetaRepository
+    {
+        private readonly AppDbContext _context;
+
+        public TarjetaRepository(AppDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<Tarjeta?> ObtenerTarjetaAsync(string cif, string ultimosDigitos)
+        {
+            return await _context.Tarjetas
+                .Where(t => t.CIF == cif && t.NumeroTarjeta.EndsWith(ultimosDigitos))
+                .FirstOrDefaultAsync();
+        }
+    }
+}
+
+
+
+
+
+
+
+
+using ReposicionPinMicroservice.Dtos;
+using ReposicionPinMicroservice.Models;
+using ReposicionPinMicroservice.Repository;
+
+namespace ReposicionPinMicroservice.Services
+{
+    public class ReposicionPinService
+    {
+        private readonly TarjetaRepository _tarjetaRepository;
+
+        public ReposicionPinService(TarjetaRepository tarjetaRepository)
+        {
+            _tarjetaRepository = tarjetaRepository;
+        }
+
+        public async Task<ReposicionPinResponseDto> ValidarTarjetaAsync(ReposicionPinRequestDto request)
+        {
+            // Validar datos de entrada
+            if (string.IsNullOrWhiteSpace(request.CIF))
+                return new ReposicionPinResponseDto { Codigo = "10", Descripcion = "Campo CIF vacío" };
+            
+            if (request.MetodoEnvio != 1 && request.MetodoEnvio != 2)
+                return new ReposicionPinResponseDto { Codigo = "10", Descripcion = "MetodoEnvio inválido" };
+
+            // Buscar tarjeta en BD
+            var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
+            if (tarjeta == null)
+                return new ReposicionPinResponseDto { Codigo = "05", Descripcion = "No se encontró ninguna tarjeta asociada en la cuenta" };
+
+            // Validaciones de tarjeta
+            if (tarjeta.EstadoTarjeta != 20)
+                return new ReposicionPinResponseDto { Codigo = "01", Descripcion = "Tarjeta inactiva" };
+
+            if (tarjeta.FechaFinVigencia <= DateTime.Now)
+                return new ReposicionPinResponseDto { Codigo = "02", Descripcion = "Tarjeta vencida" };
+
+            if (!string.IsNullOrEmpty(tarjeta.EstadoHabilitar))
+                return new ReposicionPinResponseDto { Codigo = "10", Descripcion = "Campo EstadoHabilitar no vacío" };
+
+            return new ReposicionPinResponseDto
+            {
+                Codigo = "00",
+                Descripcion = "Tarjeta válida para reposición",
+                Pin = null // aún no generado
+            };
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+using Microsoft.AspNetCore.Mvc;
+using ReposicionPinMicroservice.Dtos;
+using ReposicionPinMicroservice.Services;
+
+namespace ReposicionPinMicroservice.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class ReposicionPinController : ControllerBase
+    {
+        private readonly ReposicionPinService _service;
+
+        public ReposicionPinController(ReposicionPinService service)
+        {
+            _service = service;
+        }
+
+        [HttpPost]
+        [Route("validar-tarjeta")]
+        public async Task<ActionResult<ReposicionPinResponseDto>> ValidarTarjeta([FromBody] ReposicionPinRequestDto request)
+        {
+            var result = await _service.ValidarTarjetaAsync(request);
+            return Ok(result);
+        }
+    }
+}
