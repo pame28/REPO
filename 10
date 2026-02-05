@@ -1,7 +1,11 @@
-"ResultadoValidacionDto" no contiene una definición para "Existe" ni un método de extensión accesible "Existe" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionDto" no contiene una definición para "CodigoError" ni un método de extensión accesible "CodigoError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionDto" no contiene una definición para "MensajeError" ni un método de extensión accesible "MensajeError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-
-
-
-Ay no, de nuevo estas molestando con el mismo tema, no te equivoques.
+namespace reposicion_pin.DTOs
+{
+    public class ResultadoValidacionTarjetaDto
+    {
+        public string EquivalenteTC { get; set; } = string.Empty;
+        public string FechaVencimientoTC { get; set; } = string.Empty;
+        public string PinTC { get; set; } = string.Empty;
+        public string CodigoError { get; set; } = string.Empty;
+        public string DescripcionError { get; set; } = string.Empty;
+    }
+}
