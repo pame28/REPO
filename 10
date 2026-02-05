@@ -1,11 +1,94 @@
-namespace reposicion_pin.DTOs
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using reposicion_pin.Service.Interface;
+
+namespace reposicion_pin.Service
 {
-    public class ResultadoValidacionTarjetaDto
+    public class TarjetaService : ITarjetaService
     {
-        public string EquivalenteTC { get; set; } = string.Empty;
-        public string FechaVencimientoTC { get; set; } = string.Empty;
-        public string PinTC { get; set; } = string.Empty;
-        public string CodigoError { get; set; } = string.Empty;
-        public string DescripcionError { get; set; } = string.Empty;
+        private readonly ITarjetaRepository _tarjetaRepository;
+
+        public TarjetaService(ITarjetaRepository tarjetaRepository)
+        {
+            _tarjetaRepository = tarjetaRepository;
+        }
+
+        public async Task<ResultadoValidacionTarjetaDto> ValidarTarjetaAsync(string equivalenteTC)
+        {
+            var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(equivalenteTC);
+
+            if (tarjeta == null)
+            {
+                return new ResultadoValidacionTarjetaDto
+                {
+                    CodigoError = "P03",
+                    DescripcionError = "TARJETA NO EXISTE"
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(tarjeta.CodigoError))
+            {
+                return new ResultadoValidacionTarjetaDto
+                {
+                    EquivalenteTC = tarjeta.EquivalenteTC,
+                    FechaVencimientoTC = tarjeta.FechaVencimientoTC,
+                    PinTC = tarjeta.PinTC,
+                    CodigoError = "00",
+                    DescripcionError = "TARJETA VÁLIDA"
+                };
+            }
+
+            return tarjeta;
+        }
     }
 }
+
+
+
+
+
+
+
+
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Service.Interface;
+using reposicion_pin.Repository.Interface;
+
+namespace reposicion_pin.Service
+{
+    public class ReposicionPinFlujoService : IReposicionPinFlujoService
+    {
+        private readonly ITarjetaService _tarjetaService;
+
+        public ReposicionPinFlujoService(ITarjetaService tarjetaService)
+        {
+            _tarjetaService = tarjetaService;
+        }
+
+        public async Task<ResultadoValidacionTarjetaDto> EjecutarValidacionAsync(string trama)
+        {
+            if (string.IsNullOrWhiteSpace(trama) || trama.Length != 81)
+            {
+                return new ResultadoValidacionTarjetaDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = "TRAMA NO ENCONTRADA O INVÁLIDA"
+                };
+            }
+
+            string equivalenteTC = trama.Substring(0, 16).Trim();
+
+            // Llamamos al servicio de tarjeta
+            var resultado = await _tarjetaService.ValidarTarjetaAsync(equivalenteTC);
+
+            // Extraemos PIN y Fecha Vencimiento de la trama (simulado)
+            resultado.PinTC = trama.Substring(24, 4).Trim();
+            resultado.FechaVencimientoTC = trama.Substring(16, 8).Trim();
+
+            return resultado;
+        }
+    }
+}
+
+
