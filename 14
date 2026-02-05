@@ -1,21 +1,27 @@
+"ReposicionPinService" no contiene una definición para "ValidarTarjetaAsync" ni un método de extensión accesible "ValidarTarjetaAsync" que acepte un primer argumento del tipo "ReposicionPinService" (¿falta alguna directiva using o una referencia de ensamblado?)
+"string" no contiene una definición para "Descripcion" ni un método de extensión accesible "Descripcion" que acepte un primer argumento del tipo "string" (¿falta alguna directiva using o una referencia de ensamblado?)
+
+
+
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository;
 using reposicion_pin.Repository.Interface;
-using reposicion_pin.Models;
-using reposicion_pin.Dtos;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Threading.Tasks;
+using reposicion_pin.Service.Interface;
+using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 
 namespace reposicion_pin.Service
 {
     public class ReposicionPinService
     {
         private readonly ITarjetaRepository _tarjetaRepository;
-        private readonly ICatalogoRespuestasRepository _catalogoRepository;
+        private readonly ICatalogoRespuestaRepository _catalogoRepository;
         private readonly ILogger<ReposicionPinService> _logger;
 
         public ReposicionPinService(
             ITarjetaRepository tarjetaRepository,
-            ICatalogoRespuestasRepository catalogoRepository,
+            ICatalogoRespuestaRepository catalogoRepository,
             ILogger<ReposicionPinService> logger)
         {
             _tarjetaRepository = tarjetaRepository;
@@ -23,12 +29,12 @@ namespace reposicion_pin.Service
             _logger = logger;
         }
 
-        public async Task<RespuestaReposicionPinDto> ProcesarFase1Async(ReposicionPinRequestDto request)
+        public async Task<ReposicionPinResponseDto> ProcesarFase1Async(ReposicionPinRequestDto request)
         {
             try
             {
                 // Validaciones básicas del request
-                if (string.IsNullOrWhiteSpace(request.Cif))
+                if (string.IsNullOrWhiteSpace(request.CIF))
                     return await ObtenerRespuestaAsync(10, "CIF vacío o inválido");
 
                 if (string.IsNullOrWhiteSpace(request.UltimosDigitosTC))
@@ -49,7 +55,7 @@ namespace reposicion_pin.Service
                 }
 
                 // Buscar tarjeta en BD
-                var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(request.Cif, request.UltimosDigitosTC);
+                var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
 
                 if (tarjeta == null)
                     return await ObtenerRespuestaAsync(5, "No se encontró ninguna tarjeta asociada en la cuenta");
@@ -75,13 +81,13 @@ namespace reposicion_pin.Service
         }
 
         // Método helper para obtener la descripción desde el catálogo
-        private async Task<RespuestaReposicionPinDto> ObtenerRespuestaAsync(int codigo, string fallbackDescripcion = null)
+        private async Task<ReposicionPinResponseDto> ObtenerRespuestaAsync(int codigo, string fallbackDescripcion = null)
         {
             string descripcion = fallbackDescripcion;
 
             try
             {
-                var catalogo = await _catalogoRepository.ObtenerRespuestaAsync(codigo);
+                var catalogo = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
                 if (catalogo != null)
                     descripcion = catalogo.Descripcion;
             }
@@ -90,7 +96,7 @@ namespace reposicion_pin.Service
                 _logger.LogWarning(ex, $"No se pudo obtener descripción del catalogo para código {codigo}");
             }
 
-            return new RespuestaReposicionPinDto
+            return new ReposicionPinResponseDto
             {
                 Codigo = codigo,
                 Descripcion = descripcion
