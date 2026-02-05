@@ -1,4 +1,5 @@
-InvalidOperationException: Unable to resolve service for type 'reposicion_pin.Infrastructure.Data.AppDbContext' while attempting to activate 'reposicion_pin.Repository.TarjetaRepository'.
+InvalidOperationException: Unable to resolve service for type 'reposicion_pin.Repository.TarjetaRepository' while attempting to activate 'reposicion_pin.Service.ReposicionPinService'.
+
 
 
 
