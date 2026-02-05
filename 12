@@ -1,0 +1,41 @@
+Tengo el sigueinte error:
+
+System.InvalidOperationException: 'The entity type 'TarjetaModel' requires a primary key to be defined. If you intended to use a keyless entity type, call 'HasNoKey' in 'OnModelCreating'. For more information on keyless entity types, see https://go.microsoft.com/fwlink/?linkid=2141943.'
+
+
+
+Y se queda en esta linea de codigo:
+
+     public async Task<TarjetaModel?> ObtenerTarjetaAsync(string cif, string ultimosDigitos)
+     {
+         return await _context.Tarjetas
+             .Where(t => t.CIF == cif && t.EquivalenteTC.EndsWith(ultimosDigitos))
+             .FirstOrDefaultAsync();
+     }
+ }
+
+
+
+
+ Yo envié este request:
+ {
+  "cif": "1833417",
+  "dni": "0506200201776",
+  "cliente": "1833417",
+  "metodoEnvio": 1,
+  "telefono": "96423295",
+  "operadorTelefono": "E",
+  "correo": "",
+  "ultimosDigitosTC": "4006",
+  "contenidoSMS": "Holaaa",
+  "contenidoCorreo": ""
+}
+
+
+
+En mi BD está esto unicamente:
+
+EquivalenteTC	CIF	FechaFinVigencia	EstadoTarjeta	EstadoHabilitar
+4006	1833417	2027-05-31	20	
+7002	249898	2027-04-30	25	
+2000	1933823	2027-05-31	20	
