@@ -1,0 +1,1218 @@
+Mira este es el codigo del que podemos basarnos para hacer lo que necesitamos... solo que, con una estructura de microservicio
+
+using System;
+using System.Collections.Generic;
+using System.Web.Services;
+using DataLayer;
+using SistemaCobranzasBP.Clases;
+using System.Text.RegularExpressions;
+using System.Data.OleDb;
+using System.Configuration;
+using System.Data;
+using System.Data.SqlClient;
+using System.Net.Mail;
+using wsReposicionPIN.Clases;
+using wsReposicionPIN.wsBIMovil;
+
+
+namespace wsReposicionPIN
+{
+    /// <summary>
+    /// Descripción breve de wsReposicionPINBP
+    /// </summary>
+    [WebService(Namespace = "https://wsReposicionPINBPde.banpais.hn/", Description = "Web service que sirve de interfaz para la conexión hacia el servicio de AZ (Autoriza) para la reposición del PIN de tarjeta de débito.")]
+    [WebServiceBinding(ConformsTo = WsiProfiles.BasicProfile1_1)]
+    [System.ComponentModel.ToolboxItem(false)]
+    // Para permitir que se llame a este servicio web desde un script, usando ASP.NET AJAX, quite la marca de comentario de la línea siguiente. 
+    // [System.Web.Script.Services.ScriptService]
+    public class wsReposicionPINBP : System.Web.Services.WebService
+    {
+
+        //private static readonly ILogService log = new FileLogService(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+        private string SqlConnectionString = ConfigurationManager.ConnectionStrings["wsReposicionPIN"].ToString();
+        private string AsConnectionString = ConfigurationManager.ConnectionStrings["cnxAS400"].ToString();
+        private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);       
+        private string pin = string.Empty;
+
+        [WebMethod]
+        public DataSet ReposicionPin(string CIF, string DNI, string Cliente, string MetodoEnvio, string Telefono, string OperadorTelefono, string Correo, string Cuenta, string UltimosDigitosTD, string ContenidoSMS, string ContenidoCorreo)
+        {
+            string ActivityId = new ActivityIdHelper().ToString();
+            log4net.LogicalThreadContext.Properties["activityid"] = ActivityId;
+            DataSet Mensaje = new DataSet();
+
+
+            try
+            {
+                //Eliminar campos en blanco.
+                CIF = CIF.Trim();
+                DNI = DNI.Trim();
+                Correo = Correo.Trim();
+                Cuenta = Cuenta.Trim();
+
+                //Agregar datos de entrada al log
+                log.Debug("Datos de entrada, previa validacion: CIF:" + CIF + " DNI:" + DNI + " Cuenta: " + Cuenta + " Nombre cliente: " + Cliente + " MetodoEnvio: " + MetodoEnvio + " UltimoDigitosTD:" + UltimosDigitosTD + " Telefono:" + Telefono
+                    + " OperadorTelefono: " + OperadorTelefono + " Correo:" + Correo + " ContenidoSMS:" + ContenidoCorreo + " ContenidoCorreo:" + ContenidoCorreo);
+
+                #region VALIDACIONES
+                if (string.IsNullOrEmpty(CIF) | string.IsNullOrWhiteSpace(CIF))
+                {
+                    Mensaje = MensajeRespuesta("P01", "CIF EN BLANCO");
+                    return Mensaje;
+                }
+                if (CIF.Length > 18 | Regex.IsMatch(CIF, @"^[0-9]+$") != true)
+                {
+                    Mensaje = MensajeRespuesta("P99", "FORMATO INCORRECTO EN CIF");
+                    return Mensaje;
+                }
+
+                if (string.IsNullOrEmpty(Cuenta) | string.IsNullOrWhiteSpace(Cuenta))
+                {
+                    Mensaje = MensajeRespuesta("P02", "CUENTA EN BLANCO");
+                    return Mensaje;
+                }
+
+                if (Cuenta.Length != 12 | Regex.IsMatch(Cuenta, @"^[0-9]+$") != true)
+                {
+                    Mensaje = MensajeRespuesta("P99", "FORMATO INCORRECTO EN CUENTA");
+                    return Mensaje;
+                }
+
+                if (string.IsNullOrEmpty(UltimosDigitosTD) | string.IsNullOrWhiteSpace(UltimosDigitosTD))
+                {
+                    Mensaje = MensajeRespuesta("P03", "4 DIGITOS TD EN BLANCO");
+                    return Mensaje;
+                }
+                if (UltimosDigitosTD.Length != 4 | Regex.IsMatch(UltimosDigitosTD, @"^[0-9]+$") != true)
+                {
+                    Mensaje = MensajeRespuesta("P99", "FORMATO INCORRECTO EN ULTIMOS DIGITOS DE TD");
+                    return Mensaje;
+                }
+
+                if (string.IsNullOrEmpty(DNI) | string.IsNullOrWhiteSpace(DNI))
+                {
+                    Mensaje = MensajeRespuesta("P06", "DNI EN BLANCO");
+                    return Mensaje;
+                }
+
+                //if (DNI.Length > 18 | Regex.IsMatch(DNI, @"^[0-9]+$") != true | DNI.Length < 13 | DNI.Contains("-"))
+                //{
+                //    Mensaje = MensajeRespuesta("P99", "FORMATO INCORRECTO EN DNI");
+                //    return Mensaje;
+                //}
+
+                if (DNI.Length > 18  | DNI.Contains("-"))
+                {
+                    Mensaje = MensajeRespuesta("P99", "FORMATO INCORRECTO EN DNI");
+                    return Mensaje;
+                }
+
+                if (string.IsNullOrEmpty(Cliente) | string.IsNullOrWhiteSpace(Cliente) | Cliente.Length > 60)
+                {
+                    Mensaje = MensajeRespuesta("P07", "NOMBRE CLIENTE EN BLANCO");
+                    return Mensaje;
+                }
+
+                if (Regex.IsMatch(MetodoEnvio, @"^[0-9]+$") != true)
+                {
+                    Mensaje = MensajeRespuesta("P99", "FORMATO DE METODO DE ENVIO INCORRECTO");
+                    return Mensaje;
+                }
+
+                if (string.IsNullOrEmpty(MetodoEnvio) | string.IsNullOrWhiteSpace(MetodoEnvio))
+                {
+                    Mensaje = MensajeRespuesta("P08", "METODO ENVIO EN BLANCO");
+                    return Mensaje;
+                }
+
+                if (Convert.ToInt32(MetodoEnvio) != 1 && Convert.ToInt32(MetodoEnvio) != 2)
+                {
+                    Mensaje = MensajeRespuesta("P99", "METODO DE ENVIO INCORRECTO");
+                    return Mensaje;
+                }
+
+
+                //Si el envio del PIN es por SMS
+                if (Convert.ToInt32(MetodoEnvio) == 1)
+                {
+                    if (string.IsNullOrEmpty(Telefono) | string.IsNullOrWhiteSpace(Telefono))
+                    {
+                        Mensaje = MensajeRespuesta("P09", "TELEFONO EN BLANCO");
+                        return Mensaje;
+                    }
+
+                    if (string.IsNullOrEmpty(OperadorTelefono) | string.IsNullOrWhiteSpace(OperadorTelefono))
+                    {
+                        Mensaje = MensajeRespuesta("P10", "OPERADOR TELEFONO EN BLANCO");
+                        return Mensaje;
+                    }
+
+                    SQLSrv Consulta = new SQLSrv(SqlConnectionString);
+                    Consulta.Query = "usp_OperadoresT";
+
+                    SqlParameter parameter = new SqlParameter();
+                    parameter.ParameterName = "@idOperador";
+                    parameter.Value = OperadorTelefono;
+
+                    List<SqlParameter> sqlParameters = new List<SqlParameter>();
+                    sqlParameters.Add(parameter);
+                    Consulta.Parametros = sqlParameters;
+
+                    DataTable result = Consulta.getDataTableWithParameters();
+
+                    if (OperadorTelefono.Length > 1 | Convert.ToInt32(result.Rows[0]["Result"].ToString()) < 1)
+                    {
+                        Mensaje = MensajeRespuesta("P99", "OPERADOR DE TELEFONO INCORRECTO");
+                        return Mensaje;
+
+                    }
+
+                    if (string.IsNullOrEmpty(ContenidoSMS) | string.IsNullOrWhiteSpace(ContenidoSMS))
+                    {
+                        Mensaje = MensajeRespuesta("P12", "CONTENIDO SMS EN BLANCO");
+                        return Mensaje;
+                    }
+                    if (ContenidoSMS.Length > 150)
+                    {
+                        Mensaje = MensajeRespuesta("P99", "FORMATO INCORRECTO EN CONTENIDOSMS");
+                        return Mensaje;
+                    }
+                    //Valida que el numero de telefono no contenga mas de 10 carcateres y que no contenga el area 504
+                    string PrimerosCaracteres = Telefono.ToString().Substring(0, 3);
+                    if (Telefono.ToString().Length > 10 | PrimerosCaracteres == "504" | Regex.IsMatch(Telefono, @"^[0-9]+$") != true | Telefono.Length < 8)
+                    {
+                        Mensaje = MensajeRespuesta("P14", "FORMATO DE CELULAR INCORRECTO");
+                        return Mensaje;
+                    }
+                }
+
+                //Si el envio del PIN es por correo
+                if (Convert.ToInt32(MetodoEnvio) == 2)
+                {
+                    if (string.IsNullOrEmpty(Correo) | string.IsNullOrWhiteSpace(Correo))
+                    {
+                        Mensaje = MensajeRespuesta("P11", "CORREO ELECTRONICO EN BLANCO");
+                        return Mensaje;
+                    }
+                    if (string.IsNullOrEmpty(ContenidoCorreo) | string.IsNullOrWhiteSpace(ContenidoCorreo))
+                    {
+                        Mensaje = MensajeRespuesta("P13", "CONTENIDO CORREO EN BLANCO");
+                        return Mensaje;
+                    }
+                    if (ContenidoCorreo.Length > 5000)
+                    {
+                        Mensaje = MensajeRespuesta("P99", "FORMATO INCORRECTO EN CONTENIDO DE CORREO");
+                        return Mensaje;
+                    }
+
+                    if (Regex.IsMatch(Correo, "^(([\\w-]+\\.)+[\\w-]+|([a-zA-Z]{1}|[\\w-]{2,}))@(([a-zA-Z]+[\\w-]+\\.){1,2}[a-zA-Z]{2,4})$") != true | Correo.Length > 60)
+                    {
+                        Mensaje = MensajeRespuesta("P15", "FORMATO DE CORREO INCORRECTO");
+                        return Mensaje;
+                    }
+                }
+
+                #endregion
+
+                //Registrar evento
+                string Result = InsertarEvento(CIF, DNI, Cliente, MetodoEnvio, Telefono, OperadorTelefono, Correo, Cuenta, UltimosDigitosTD, ContenidoSMS, ContenidoCorreo, "Solicitud de reposicion de pin de WS a Clai (autoriza)");
+                //Si hubo un error al insertar el evento
+                if (Result != "true") { Mensaje = MensajeRespuesta("P99", Result); log.Error(Result); return Mensaje; }
+
+                log.Debug("Solicitud de reposición recibida: CIF:" + CIF + " DNI:" + DNI + " Cuenta: " + Cuenta + " Nombre cliente: " + Cliente + " MetodoEnvio: " + MetodoEnvio + " UltimoDigitosTD:" + UltimosDigitosTD + " Telefono:" + Telefono
+                    + " OperadorTelefono: " + OperadorTelefono + " Correo:" + Correo + " ContenidoSMS:" + ContenidoCorreo + " ContenidoCorreo:" + ContenidoCorreo);
+            
+                //Genera el mensaje de repuesta y el pin desde el as400
+                log.Debug("Llamando a programa AS400");
+                Mensaje = reponerPINAS400(CIF, Cuenta, UltimosDigitosTD);
+                if (Mensaje.Tables[0].Rows[0][0].ToString() == "200")
+                {
+                    Result = InsertarEvento(CIF, DNI, Cliente, MetodoEnvio, Telefono, OperadorTelefono, Correo, Cuenta, UltimosDigitosTD, ContenidoSMS, ContenidoCorreo, "Remision de pin de autoriza al WS");
+                    if (Result != "true") { Mensaje = MensajeRespuesta("P99", Result); log.Error(Result); return Mensaje; }
+                }
+                else
+                    return Mensaje;
+
+                //Envia el pin ya sea por SMS o Correo electrónico
+                string EnviarPin = EnviarPinCliente(MetodoEnvio, MetodoEnvio == "1" ? Telefono : Correo, MetodoEnvio == "1" ? ContenidoSMS : ContenidoCorreo, MetodoEnvio == "1" ? OperadorTelefono : string.Empty, pin);
+                if (EnviarPin == "true")
+                {
+                    log.Debug(MetodoEnvio.Trim() == "1" ? "Pin enviado al cliente a través de: SMS" : "Pin enviado al cliente a través de: correo");
+                    Result = InsertarEvento(CIF, DNI, Cliente, MetodoEnvio, Telefono, OperadorTelefono, Correo, Cuenta, UltimosDigitosTD, ContenidoSMS, ContenidoCorreo, "WS remite pin al SMS o Email");
+                    if (Result != "true") { Mensaje = MensajeRespuesta("P99", Result); log.Error(Result); return Mensaje; }
+                }
+                else
+                {
+                    log.Debug(MetodoEnvio.Trim() == "1" ? "Pin no enviado al cliente a través de: SMS || Error: " + EnviarPin : "Pin no enviado al cliente a través de: correo || Error: " + EnviarPin);
+                    log.Error(EnviarPin);
+                    Mensaje = MensajeRespuesta("P99", EnviarPin);
+                    return Mensaje;
+                }
+
+                
+                log.Debug("Enviando respuesta a CRM");
+                Result = InsertarEvento(CIF, DNI, Cliente, MetodoEnvio, Telefono, OperadorTelefono, Correo, Cuenta, UltimosDigitosTD, ContenidoSMS, ContenidoCorreo, "WS remite alerta al CRM");
+                if (Result != "true") { Mensaje = MensajeRespuesta("P99", Result); log.Error(Result); return Mensaje; }
+                               
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error en public DataSet ReposicionPin: " + ex.Message);
+                Mensaje = MensajeRespuesta("P99", "Error no definido: " + ex.Message);
+            }
+
+            return Mensaje;
+        }
+        [WebMethod]
+        public ReposicionPinOCResult ReposicionPinOC(string CIF, string DNI, string Cliente, string MetodoEnvio, string Telefono, string OperadorTelefono, string Correo, string Cuenta, string UltimosDigitosTD, string ContenidoSMS, string ContenidoCorreo)
+        {
+            string ActivityId = new ActivityIdHelper().ToString();
+            log4net.LogicalThreadContext.Properties["activityid"] = ActivityId;
+
+            ReposicionPinOCResult MensajeOC = new ReposicionPinOCResult();
+
+            try
+            {
+                //Eliminar campos en blanco.
+                CIF = CIF.Trim();
+                DNI = DNI.Trim();
+                Correo = Correo.Trim();
+                Cuenta = Cuenta.Trim();
+
+                //Agregar datos de entrada al log
+                log.Debug("Datos de entrada, previa validacion: CIF:" + CIF + " DNI:" + DNI + " Cuenta: " + Cuenta + " Nombre cliente: " + Cliente + " MetodoEnvio: " + MetodoEnvio + " UltimoDigitosTD:" + UltimosDigitosTD + " Telefono:" + Telefono
+                    + " OperadorTelefono: " + OperadorTelefono + " Correo:" + Correo + " ContenidoSMS:" + ContenidoCorreo + " ContenidoCorreo:" + ContenidoCorreo);
+
+                #region VALIDACIONES
+                if (string.IsNullOrEmpty(CIF) | string.IsNullOrWhiteSpace(CIF))
+                {
+                    MensajeOC = MensajeRespuestaOC("P01", "CIF EN BLANCO");
+                    return MensajeOC;
+                }
+                if (CIF.Length > 18 | Regex.IsMatch(CIF, @"^[0-9]+$") != true)
+                {
+                    MensajeOC = MensajeRespuestaOC("P99", "FORMATO INCORRECTO EN CIF");
+                    return MensajeOC;
+                }
+
+                if (string.IsNullOrEmpty(Cuenta) | string.IsNullOrWhiteSpace(Cuenta))
+                {
+                    MensajeOC = MensajeRespuestaOC("P02", "CUENTA EN BLANCO");
+                    return MensajeOC;
+                }
+
+                if (Cuenta.Length != 12 | Regex.IsMatch(Cuenta, @"^[0-9]+$") != true)
+                {
+                    MensajeOC = MensajeRespuestaOC("P99", "FORMATO INCORRECTO EN CUENTA");
+                    return MensajeOC;
+                }
+
+                if (string.IsNullOrEmpty(UltimosDigitosTD) | string.IsNullOrWhiteSpace(UltimosDigitosTD))
+                {
+                    MensajeOC = MensajeRespuestaOC("P03", "4 DIGITOS TD EN BLANCO");
+                    return MensajeOC;
+                }
+                if (UltimosDigitosTD.Length != 4 | Regex.IsMatch(UltimosDigitosTD, @"^[0-9]+$") != true)
+                {
+                    MensajeOC = MensajeRespuestaOC("P99", "FORMATO INCORRECTO EN ULTIMOS DIGITOS DE TD");
+                    return MensajeOC;
+                }
+
+                if (string.IsNullOrEmpty(DNI) | string.IsNullOrWhiteSpace(DNI))
+                {
+                    MensajeOC = MensajeRespuestaOC("P06", "DNI EN BLANCO");
+                    return MensajeOC;
+                }
+
+                //if (DNI.Length > 18 | Regex.IsMatch(DNI, @"^[0-9]+$") != true | DNI.Length < 13 | DNI.Contains("-"))
+                //{
+                //    MensajeOC = MensajeRespuestaOC("P99", "FORMATO INCORRECTO EN DNI");
+                //    return MensajeOC;
+                //}
+
+                if (DNI.Length > 18 | DNI.Contains("-"))
+                {
+                    MensajeOC = MensajeRespuestaOC("P99", "FORMATO INCORRECTO EN DNI");
+                    return MensajeOC;
+                }
+
+                if (string.IsNullOrEmpty(Cliente) | string.IsNullOrWhiteSpace(Cliente) | Cliente.Length > 60)
+                {
+                    MensajeOC = MensajeRespuestaOC("P07", "NOMBRE CLIENTE EN BLANCO");
+                    return MensajeOC;
+                }
+
+                if (Regex.IsMatch(MetodoEnvio, @"^[0-9]+$") != true)
+                {
+                    MensajeOC = MensajeRespuestaOC("P99", "FORMATO DE METODO DE ENVIO INCORRECTO");
+                    return MensajeOC;
+                }
+
+                if (string.IsNullOrEmpty(MetodoEnvio) | string.IsNullOrWhiteSpace(MetodoEnvio))
+                {
+                    MensajeOC = MensajeRespuestaOC("P08", "METODO ENVIO EN BLANCO");
+                    return MensajeOC;
+                }
+
+                if (Convert.ToInt32(MetodoEnvio) != 1 && Convert.ToInt32(MetodoEnvio) != 2)
+                {
+                    MensajeOC = MensajeRespuestaOC("P99", "METODO DE ENVIO INCORRECTO");
+                    return MensajeOC;
+                }
+
+
+                //Si el envio del PIN es por SMS
+                if (Convert.ToInt32(MetodoEnvio) == 1)
+                {
+                    if (string.IsNullOrEmpty(Telefono) | string.IsNullOrWhiteSpace(Telefono))
+                    {
+                        MensajeOC = MensajeRespuestaOC("P09", "TELEFONO EN BLANCO");
+                        return MensajeOC;
+                    }
+
+                    if (string.IsNullOrEmpty(OperadorTelefono) | string.IsNullOrWhiteSpace(OperadorTelefono))
+                    {
+                        MensajeOC = MensajeRespuestaOC("P10", "OPERADOR TELEFONO EN BLANCO");
+                        return MensajeOC;
+                    }
+
+                    SQLSrv Consulta = new SQLSrv(SqlConnectionString);
+                    Consulta.Query = "usp_OperadoresT";
+
+                    SqlParameter parameter = new SqlParameter();
+                    parameter.ParameterName = "@idOperador";
+                    parameter.Value = OperadorTelefono;
+
+                    List<SqlParameter> sqlParameters = new List<SqlParameter>();
+                    sqlParameters.Add(parameter);
+                    Consulta.Parametros = sqlParameters;
+
+                    DataTable result = Consulta.getDataTableWithParameters();
+
+                    if (OperadorTelefono.Length > 1 | Convert.ToInt32(result.Rows[0]["Result"].ToString()) < 1)
+                    {
+                        MensajeOC = MensajeRespuestaOC("P99", "OPERADOR DE TELEFONO INCORRECTO");
+                        return MensajeOC;
+
+                    }
+
+                    if (string.IsNullOrEmpty(ContenidoSMS) | string.IsNullOrWhiteSpace(ContenidoSMS))
+                    {
+                        MensajeOC = MensajeRespuestaOC("P12", "CONTENIDO SMS EN BLANCO");
+                        return MensajeOC;
+                    }
+                    if (ContenidoSMS.Length > 150)
+                    {
+                        MensajeOC = MensajeRespuestaOC("P99", "FORMATO INCORRECTO EN CONTENIDOSMS");
+                        return MensajeOC;
+                    }
+                    //Valida que el numero de telefono no contenga mas de 10 carcateres y que no contenga el area 504
+                    string PrimerosCaracteres = Telefono.ToString().Substring(0, 3);
+                    if (Telefono.ToString().Length > 10 | PrimerosCaracteres == "504" | Regex.IsMatch(Telefono, @"^[0-9]+$") != true | Telefono.Length < 8)
+                    {
+                        MensajeOC = MensajeRespuestaOC("P14", "FORMATO DE CELULAR INCORRECTO");
+                        return MensajeOC;
+                    }
+                }
+
+                //Si el envio del PIN es por correo
+                if (Convert.ToInt32(MetodoEnvio) == 2)
+                {
+                    if (string.IsNullOrEmpty(Correo) | string.IsNullOrWhiteSpace(Correo))
+                    {
+                        MensajeOC = MensajeRespuestaOC("P11", "CORREO ELECTRONICO EN BLANCO");
+                        return MensajeOC;
+                    }
+                    if (string.IsNullOrEmpty(ContenidoCorreo) | string.IsNullOrWhiteSpace(ContenidoCorreo))
+                    {
+                        MensajeOC = MensajeRespuestaOC("P13", "CONTENIDO CORREO EN BLANCO");
+                        return MensajeOC;
+                    }
+                    if (ContenidoCorreo.Length > 5000)
+                    {
+                        MensajeOC = MensajeRespuestaOC("P99", "FORMATO INCORRECTO EN CONTENIDO DE CORREO");
+                        return MensajeOC;
+                    }
+
+                    if (Regex.IsMatch(Correo, "^(([\\w-]+\\.)+[\\w-]+|([a-zA-Z]{1}|[\\w-]{2,}))@(([a-zA-Z]+[\\w-]+\\.){1,2}[a-zA-Z]{2,4})$") != true | Correo.Length > 60)
+                    {
+                        MensajeOC = MensajeRespuestaOC("P15", "FORMATO DE CORREO INCORRECTO");
+                        return MensajeOC;
+                    }
+                }
+
+                #endregion
+
+                //Registrar evento
+                string Result = InsertarEvento(CIF, DNI, Cliente, MetodoEnvio, Telefono, OperadorTelefono, Correo, Cuenta, UltimosDigitosTD, ContenidoSMS, ContenidoCorreo, "Solicitud de reposicion de pin de WS a Clai (autoriza)");
+                //Si hubo un error al insertar el evento
+                if (Result != "true") { MensajeOC = MensajeRespuestaOC("P99", Result); log.Error(Result); return MensajeOC; }
+
+                log.Debug("Solicitud de reposición recibida: CIF:" + CIF + " DNI:" + DNI + " Cuenta: " + Cuenta + " Nombre cliente: " + Cliente + " MetodoEnvio: " + MetodoEnvio + " UltimoDigitosTD:" + UltimosDigitosTD + " Telefono:" + Telefono
+                    + " OperadorTelefono: " + OperadorTelefono + " Correo:" + Correo + " ContenidoSMS:" + ContenidoCorreo + " ContenidoCorreo:" + ContenidoCorreo);
+                               
+
+                //Genera el mensaje de repuesta y el pin desde el as400
+                log.Debug("Llamando a programa AS400");
+                DataSet dsResult = new DataSet();
+                dsResult = reponerPINAS400(CIF, Cuenta, UltimosDigitosTD);
+                MensajeOC = MensajeRespuestaOC(dsResult.Tables[0].Rows[0][0].ToString(), dsResult.Tables[0].Rows[0][1].ToString());
+                if (MensajeOC.Codigo == "200")
+                {
+                    Result = InsertarEvento(CIF, DNI, Cliente, MetodoEnvio, Telefono, OperadorTelefono, Correo, Cuenta, UltimosDigitosTD, ContenidoSMS, ContenidoCorreo, "Remision de pin de autoriza al WS");
+                    if (Result != "true") { MensajeOC = MensajeRespuestaOC("P99", Result); log.Error(Result); return MensajeOC; }
+                }
+                else                
+                    return MensajeOC;
+               
+                
+                string EnviarPin = EnviarPinCliente(MetodoEnvio, MetodoEnvio == "1" ? Telefono : Correo, MetodoEnvio == "1" ? ContenidoSMS : ContenidoCorreo, MetodoEnvio == "1" ? OperadorTelefono : string.Empty, pin);
+                if (EnviarPin == "true")
+                {
+                    log.Debug(MetodoEnvio.Trim() == "1" ? "Pin enviado al cliente a través de: SMS" : "Pin enviado al cliente a través de: correo");
+                    Result = InsertarEvento(CIF, DNI, Cliente, MetodoEnvio, Telefono, OperadorTelefono, Correo, Cuenta, UltimosDigitosTD, ContenidoSMS, ContenidoCorreo, "WS remite pin al SMS o Email");
+                    if (Result != "true") { MensajeOC = MensajeRespuestaOC("P99", Result); log.Error(Result); return MensajeOC; }
+                }
+                else
+                {
+                    log.Debug(MetodoEnvio.Trim() == "1" ? "Pin no enviado al cliente a través de: SMS || Error: " + EnviarPin : "Pin no enviado al cliente a través de: correo || Error: " + EnviarPin);
+                    log.Error(EnviarPin);
+                    MensajeOC = MensajeRespuestaOC("P99", EnviarPin);
+                    return MensajeOC;
+                }
+                                
+                log.Debug("Enviando respuesta a CRM");
+                Result = InsertarEvento(CIF, DNI, Cliente, MetodoEnvio, Telefono, OperadorTelefono, Correo, Cuenta, UltimosDigitosTD, ContenidoSMS, ContenidoCorreo, "WS remite alerta al CRM");
+                if (Result != "true") { MensajeOC = MensajeRespuestaOC("P99", Result); log.Error(Result); return MensajeOC; }             
+
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error en public DataSet ReposicionPin: " + ex.Message);
+                MensajeOC = MensajeRespuestaOC("P99", "Error no definido: " + ex.Message);
+            }
+
+            return MensajeOC;
+        }
+
+        private DataSet MensajeRespuesta(string Codigo, string Descripcion)
+        {
+            DataSet Mensaje = new DataSet();
+            Mensaje.Tables.Add("Mensaje");
+            Mensaje.Tables["Mensaje"].Columns.Add("Codigo");
+            Mensaje.Tables["Mensaje"].Columns.Add("Descripcion");
+            Mensaje.Tables["Mensaje"].Rows.Add();
+
+
+            Mensaje.Tables["Mensaje"].Rows[0][0] = Codigo;
+            Mensaje.Tables["Mensaje"].Rows[0][1] = Descripcion;
+
+            return Mensaje;            
+        }
+
+        private ReposicionPinOCResult MensajeRespuestaOC(string Codigo, string Descripcion)
+        {
+            ReposicionPinOCResult Mensaje = new ReposicionPinOCResult();
+            Mensaje.Codigo = Codigo;
+            Mensaje.Descripcion = Descripcion;
+
+            return Mensaje;
+        }
+
+        private string InsertarEvento(string CIF, string DNI, string Cliente, string MetodoEnvio, string Telefono, string OperadorTelefono, string Correo, string Cuenta, string UltimosDigitosTD, string ContenidoSMS, string ContenidoCorreo, string Evento)
+        {
+            try
+            {
+                SQLSrv sql = new SQLSrv(SqlConnectionString);
+
+
+                sql.Query = "usp_AggEventos";
+
+                #region Parametros
+                SqlParameter param1 = new SqlParameter();
+                param1.ParameterName = "@FechaOperacion";
+                param1.Value = DateTime.Now.ToString("yyyyMMdd");
+
+                SqlParameter param2 = new SqlParameter();
+                param2.ParameterName = "@HoraOperacion";
+                param2.Value = DateTime.Now.ToString("hh:mm:ss");
+
+                SqlParameter param3 = new SqlParameter();
+                param3.ParameterName = "@CIF";
+                param3.Value = CIF;
+
+                SqlParameter param4 = new SqlParameter();
+                param4.ParameterName = "@DNI";
+                param4.Value = DNI;
+
+                SqlParameter param5 = new SqlParameter();
+                param5.ParameterName = "@Cliente";
+                param5.Value = Cliente;
+
+                SqlParameter param6 = new SqlParameter();
+                param6.ParameterName = "@UltimosDigitosTD";
+                param6.Value = UltimosDigitosTD;
+
+                SqlParameter param7 = new SqlParameter();
+                param7.ParameterName = "@Cuenta";
+                param7.Value = Cuenta;
+
+                SqlParameter param8 = new SqlParameter();
+                param8.ParameterName = "@MetodoEnvio";
+                param8.Value = MetodoEnvio;
+
+                SqlParameter param9 = new SqlParameter();
+                param9.ParameterName = "@Telefono";
+                param9.Value = Telefono;
+
+                SqlParameter param10 = new SqlParameter();
+                param10.ParameterName = "@OperadorTelefono";
+                param10.Value = OperadorTelefono;
+
+                SqlParameter param11 = new SqlParameter();
+                param11.ParameterName = "@Correo";
+                param11.Value = Correo;
+
+                SqlParameter param12 = new SqlParameter();
+                param12.ParameterName = "@ContenidoSMS";
+                param12.Value = ContenidoSMS;
+
+                SqlParameter param13 = new SqlParameter();
+                param13.ParameterName = "@ContenidoCorreo";
+                param13.Value = ContenidoCorreo;
+
+                SqlParameter param14 = new SqlParameter();
+                param14.ParameterName = "@TipoEvento";
+                param14.Value = Evento;
+
+
+                List<SqlParameter> sqlParameters = new List<SqlParameter>();
+                sqlParameters.Add(param1);
+                sqlParameters.Add(param2);
+                sqlParameters.Add(param3);
+                sqlParameters.Add(param4);
+                sqlParameters.Add(param5);
+                sqlParameters.Add(param6);
+                sqlParameters.Add(param7);
+                sqlParameters.Add(param8);
+                sqlParameters.Add(param9);
+                sqlParameters.Add(param10);
+                sqlParameters.Add(param11);
+                sqlParameters.Add(param12);
+                sqlParameters.Add(param13);
+                sqlParameters.Add(param14);
+                #endregion
+
+                sql.Parametros = sqlParameters;
+                sql.executeWithParameters();
+
+                return "true";
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+        }
+             
+
+        private string EnviarPinCliente(string MetodoEnvio, string Destinatario, string Contenido, string Operador, string PIN)
+        {
+            try
+            {
+                SQLSrv sql = new SQLSrv(SqlConnectionString);
+                sql.Query = "exec usp_ConfigGeneral";
+                DataTable appSettings = sql.getDataTable();
+
+                if (MetodoEnvio == "1")//Envio por sms
+                {
+                    log.Debug("ENVIANDO PIN A TRAVES DE SMS");
+
+                    string usrBiMovil = appSettings.Rows[0]["usrBiMovil"].ToString();
+                    log.Debug("usrBiMovil => " + usrBiMovil);
+
+                    string passBiMovil = appSettings.Rows[0]["passBiMovil"].ToString();
+                    log.Debug("passBiMovil => " + passBiMovil);
+
+                    string NumeroTelefono = Destinatario;
+                    log.Debug("NumeroTelefono => " + NumeroTelefono);
+                    log.Debug("Operador => " + Operador);
+
+                    long ticks = new DateTime(2018, 1, 1).Ticks;
+                    //long ans = DateTime.Now.Ticks - ticks; 
+                    //string NumeroTransaccion = ans.ToString("x");
+                    string NumeroTransaccion = (DateTime.Now.Ticks - ticks).ToString();
+                    log.Debug("NumTransaccion => " + NumeroTransaccion);
+
+                    //wsBiMovil.MensajesSoapClient mensajesSoapClient = new wsBiMovil.MensajesSoapClient();
+                    //wsBIMovil.Mensajes wsBIMovil_mensaje = new wsBureausBP.Bureaus();
+                    //DataTable respuesta = mensajesSoapClient.Envia_Mensaje(usrBiMovil, passBiMovil, NumeroTelefono, Operador, Contenido.Replace("@PIN", PIN), NumeroTransaccion, string.Empty, string.Empty);
+
+                    wsBIMovil.Mensajes wsMensajes = new wsBIMovil.Mensajes();
+                    DataTable respuesta = wsMensajes.Envia_Mensaje(usrBiMovil, passBiMovil, NumeroTelefono, Operador, Contenido.Replace("@PIN", PIN), NumeroTransaccion, string.Empty, string.Empty);
+
+                    if (respuesta.Rows[0][0].ToString() == "0")
+                    {
+                        return "true";
+                    }
+                    else//Si el pin no fue enviado
+                    {
+                        //Concatenar el codigo de respuesta y el msj
+                        return respuesta.Rows[0][0].ToString() + " " + respuesta.Rows[0][1].ToString();
+                    }
+
+                }
+                else
+                {
+                    log.Debug("ENVIANDO PIN A TRAVES DE CORREO");
+
+                    string Correo = Destinatario;
+                    log.Debug("Destinatario => " + Correo);
+
+                    string Server = appSettings.Rows[0]["ServerEmail"].ToString();
+                    log.Debug("Servidor => " + Server);
+
+                    string From = appSettings.Rows[0]["MailFrom"].ToString();
+                    log.Debug("Remitente => " + From);
+
+                    string Subject = appSettings.Rows[0]["MailSubject"].ToString();
+
+                    string enviado = SendMailMessage(From, Correo, Subject, Contenido.Replace("@PIN", PIN), true, Server);
+                    return enviado;
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+        }
+        
+        private DataSet reponerPINAS400(string CIF, string Cuenta, string UltimosDigitosTD)
+        {
+            //Variables
+            string tramaArmada = string.Empty;
+            Trama trama = new Trama();
+            //Crea la trama que se enviara al as400
+            tramaArmada = trama.ArmarTrama(CIF, Cuenta, UltimosDigitosTD);
+            log.Debug("Trama que será enviada: " + tramaArmada);
+            DataSet dtCallConfig = new DataSet();
+            DataSet dsResult = new DataSet();
+
+
+            //Trae la configuración del SQL del programa que se ejecutara 
+            SQLSrv sql = new SQLSrv(SqlConnectionString, "usp_configCallAs400");
+            sql.Parametros.Add(new SqlParameter("@idCallAS400", 1));
+            dtCallConfig = sql.getDataSetWithParameters();
+
+            //Inicializa la clase de as400 para ejecución de CALL
+            DataTable dtRepsuestaAS = new DataTable();
+            ClassAS400 asCall = new ClassAS400(AsConnectionString, dtCallConfig.Tables[0].Rows[0]["CallAs400"].ToString(), dtCallConfig.Tables[1]);
+
+
+            //Se agregan los parametros para realizar el CALL al AS400
+            OleDbParameter par1 = new OleDbParameter("$peTramaMQRcv", OleDbType.Char, 100);
+            par1.Value = tramaArmada;
+            par1.Direction = ParameterDirection.InputOutput;
+
+            asCall.Parametros.Add(par1);
+
+            //Se ejecuta el CALL 
+            log.Debug("Ejecutando programa: " + dtCallConfig.Tables[0].Rows[0]["CallAs400"].ToString());
+            log.Debug("Parametros:");
+            foreach (OleDbParameter item in asCall.Parametros)
+            {
+                log.Debug(item.ParameterName + " => " + item.Value);
+            }
+
+            dtRepsuestaAS = asCall.dtParamPRGCALL();
+
+            //Evalua la respuesta del CALL si no genero ningun error al llamado
+            if (asCall.Success != true)
+            {
+                log.Error("Error al ejecutar programa:" + asCall.Mensaje);
+                dsResult = MensajeRespuesta("P99", asCall.Mensaje);
+                return dsResult;
+            }
+
+            //Valida si contiene información el dtRespuestaAS
+            if (dtRepsuestaAS.Rows.Count > 0)
+            {
+                string tramaRespuesta = dtRepsuestaAS.Rows[0][0].ToString();                
+                
+
+                try
+                {
+                    //Variables que se utilizaran
+                    string codigoRespuesta, decripcionRespuesta, pinReinicio;
+                    int logitudTrama = tramaRespuesta.Length;
+
+                    //Parasea la trama de repuesta y asigna los campos
+                    pinReinicio = tramaRespuesta.Substring(34, 4).Trim();
+                    codigoRespuesta = tramaRespuesta.Substring(38, 3).Trim();
+                    decripcionRespuesta = tramaRespuesta.Substring(41, (logitudTrama - 41)).Trim();
+                    
+
+                    //Evalua si se genero pin para poder enmascarar el pin en la trama antes de guardarla en el log
+                    if(pinReinicio!=string.Empty)
+                        log.Debug("Trama de respuesta de as400: " + tramaRespuesta.Replace(pinReinicio,"****"));
+                    else
+                        log.Debug("Trama de respuesta de as400: " + tramaRespuesta);
+
+                    //Evalua el código de repsuesta del as400 
+                    if (codigoRespuesta != "200")
+                    {
+                        log.Error("Descripción de error devuelto del as400:" + codigoRespuesta + "-" + decripcionRespuesta);
+                        dsResult = MensajeRespuesta(codigoRespuesta, decripcionRespuesta);
+                        return dsResult;
+                    }
+                    else
+                    {
+                        pin = pinReinicio;
+                        dsResult = MensajeRespuesta(codigoRespuesta, decripcionRespuesta);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Error("Error parseando la trama:" + ex.Message);
+                    dsResult = MensajeRespuesta("P99", ex.Message);
+                    return dsResult;
+                }
+
+            }
+            else
+            {
+                log.Error("Error al ejecutar programa: Trama respuesta vacía");
+                dsResult = MensajeRespuesta("P99", "Trama respuesta vacÍa");
+                return dsResult;
+            }
+
+            return dsResult;
+
+        }
+
+        private string SendMailMessage(string From, string SendTo, string Subject, string Body, bool IsBodyHtml, string Server)
+        {
+
+            try
+            {
+                MailMessage htmlMessage;
+                SmtpClient mySmtpClient;
+
+                htmlMessage = new MailMessage(From, SendTo, Subject, Body);
+                htmlMessage.IsBodyHtml = IsBodyHtml;
+
+                mySmtpClient = new SmtpClient(Server);
+
+                mySmtpClient.Send(htmlMessage);
+
+                return "true";
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+
+
+        }
+
+    }
+}
+
+
+
+
+
+---------------------------------------
+
+
+
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Data.OleDb;
+using System.Data;
+using System.Configuration;
+
+namespace SistemaCobranzasBP.Clases
+{
+    public class ClassAS400
+    {
+        private string _ConnectionString;
+        private string _Query;
+        private string _Mensaje;
+        private bool _Success;
+        private int _CommandTimeout;
+        private List<OleDbParameter> _Parametros = new List<OleDbParameter>();
+        private DataTable _dtLibrerias = new DataTable();
+        private string _Comando;
+       // private List<> _Librerias = new List<OleDbParameter>();
+
+        //Contructores de la clase
+        #region Constructores
+        public ClassAS400(string conexion,string query)
+        {
+            this._ConnectionString = conexion;
+            this._Query = query;
+            this._Mensaje = string.Empty;
+            this._Success = true;
+            this._CommandTimeout = 300;
+            this._dtLibrerias = null;
+            this._Comando = string.Empty;
+        }
+
+
+        public ClassAS400(string conexion, string query, DataTable librerias)
+        {
+            this._ConnectionString = conexion;
+            this._Query = query;
+            this._Mensaje = string.Empty;
+            this._Success = true;
+            this._CommandTimeout = 300;
+            this._dtLibrerias = librerias;
+            this.LimpiarParametros = true;
+        } 
+        #endregion
+
+        //Propiendas de los campos
+        #region Propiedades
+        public string ConnectionString
+        {
+            set { this._ConnectionString = value; }
+            get { return this._ConnectionString; }
+        }
+
+        public string Query
+        {
+            set { this._Query = value; }
+            get { return this._Query; }
+        }
+
+        public string Mensaje
+        {
+            get { return this._Mensaje; }
+        }
+
+        public bool LimpiarParametros { get; set; }
+
+        public List<OleDbParameter> Parametros
+        {
+            get { return this._Parametros; }
+        }
+
+        public bool Success
+        {
+            get { return this._Success; }
+        }
+
+        public int CommandTimeout
+        {
+            set { this._CommandTimeout = value; }
+            get { return this._CommandTimeout; }
+        }
+
+        public string Comando
+        {
+            get { return this._Comando; }
+        }
+        public DataTable dtLibrerias
+        {
+            get { return this._dtLibrerias; }
+        }
+        #endregion
+
+        //Ejecuta los Calls tipo Procedure con sus parametros correspondientes y regresa DataTable
+        public DataTable dtProcedureCALL()
+        {
+            this._Mensaje = string.Empty;
+            this._Success = true;
+            DataTable dt = new DataTable();
+            
+            try
+            {
+                using (OleDbConnection Conn = new OleDbConnection(this._ConnectionString))                
+                {
+                    //Abre las conexiones si estan cerradas
+                    if (Conn.State == ConnectionState.Closed)                    
+                        Conn.Open();
+
+                    OleDbCommand com = new OleDbCommand();
+                    com.Connection = Conn;
+                    com.CommandText = this._Query;
+                    com.CommandType = CommandType.StoredProcedure;
+                    com.CommandTimeout = this._CommandTimeout;
+
+
+                    //Recorre los parametros para enviarlos a el Call
+                    if (this._Parametros.Count > 0)
+                    {
+                        foreach (OleDbParameter param in this._Parametros)
+                        {                           
+                           
+                            com.Parameters.Add(param);
+                            //logParametros += " Parámetro " + param.ParameterName + " : " + param.Value + ", ";
+                        }
+
+
+                        using (OleDbDataReader reader = com.ExecuteReader())
+                        {
+                            dt.Load(reader);
+
+                            if (!reader.IsClosed)
+                                reader.Close();
+                        }
+
+                    }
+
+                    
+
+                    //Cierras las conexiones si estan abiertas
+                    if (Conn.State == ConnectionState.Open)
+                    {
+                        Conn.Close();
+                        Conn.Dispose();
+                    }
+
+                }
+
+                            }
+            catch (Exception ex)
+            {
+                //log.Error(ex.ToString() + logParametros);
+                this._Mensaje = ex.Message.ToString();
+                this._Success = false;
+            }
+
+            this._Parametros.Clear();
+            return dt;
+            
+        }
+
+        //Ejecuta los Calls con sus parametros correspondientes
+        public void exeParamPRGCALL()
+        {
+            this._Mensaje = string.Empty;
+            this._Success = true;
+           // DataTable dt = new DataTable();
+
+            try
+            {
+                using (OleDbConnection Conn = new OleDbConnection(this._ConnectionString))
+                {
+                    //Abre las conexiones si estan cerradas
+                    if (Conn.State == ConnectionState.Closed)
+                        Conn.Open();
+
+                    //Creea el comando para ejecutar el programa
+                    OleDbCommand com = new OleDbCommand(this._Query, Conn);
+                    com.CommandType = CommandType.Text;   
+
+                    //Recorre los parametros para enviarlos a el Call
+                    if (this._Parametros.Count > 0)
+                    {
+                        foreach (OleDbParameter param in this._Parametros)
+                        {
+
+                            com.Parameters.Add(param);
+                        }
+
+                        //agrega las librerias para la ejecución del programa
+                        if (this._dtLibrerias.Rows.Count > 0)
+                        {
+                            OleDbCommand comLib = new OleDbCommand();
+                            comLib.CommandType = CommandType.Text;
+                            comLib.Connection = Conn;
+
+                            //Limpia la librerias ya cargadas anteriormente
+                            comLib.CommandText = "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+                            comLib.ExecuteNonQuery();
+
+                            //Agrega las librerias parametrizadas en la tabla de la BD
+                            foreach (DataRow row in _dtLibrerias.Rows) 
+                            {                                
+                                comLib.CommandText = "{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB("+row[0].ToString()+")' 30)}}";
+                                comLib.ExecuteNonQuery();
+                            }
+                    
+                        }
+
+                        //Ejecuta el programa
+                        com.ExecuteNonQuery();
+
+                    }
+
+                    //Cierras las conexiones si estan abiertas
+                    if (Conn.State == ConnectionState.Open)
+                    {
+                        Conn.Close();
+                        Conn.Dispose();
+                    }
+
+                }
+            }
+            catch (Exception ex)
+            {
+                //log.Error(ex.ToString() + logParametros);
+                this._Mensaje = ex.Message.ToString();
+                this._Success = false;
+            }
+
+            if (this.LimpiarParametros)
+            {
+                this._Parametros.Clear();
+            }
+            //return dt;
+
+        }
+
+        //Ejecuta los Calls con sus parametros correspondientes y devuelve DataTable
+        public DataTable dtParamPRGCALL()
+        {
+            this._Mensaje = string.Empty;
+            this._Success = true;
+            DataTable dt = new DataTable();
+
+            try
+            {
+                using (OleDbConnection Conn = new OleDbConnection(this._ConnectionString))
+                {
+                    //Abre las conexiones si estan cerradas
+                    if (Conn.State == ConnectionState.Closed)
+                        Conn.Open();
+
+                    //Creea el comando para ejecutar el programa
+                    OleDbCommand com = new OleDbCommand(this._Query, Conn);
+                    com.CommandType = CommandType.Text;
+
+                    //Recorre los parametros para enviarlos a el Call
+                    if (this._Parametros.Count > 0)
+                    {
+                        foreach (OleDbParameter param in this._Parametros)
+                        {
+
+                            com.Parameters.Add(param);
+                        }
+
+                        //agrega las librerias para la ejecución del programa
+                        if (this._dtLibrerias.Rows.Count > 0)
+                        {
+                            OleDbCommand comLib = new OleDbCommand();
+                            comLib.CommandType = CommandType.Text;
+                            comLib.Connection = Conn;
+
+                            //Limpia la librerias ya cargadas anteriormente
+                            comLib.CommandText = "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+                            comLib.ExecuteNonQuery();
+
+                            //Agrega las librerias parametrizadas en la tabla de la BD
+                            foreach (DataRow row in _dtLibrerias.Rows)
+                            {
+                                comLib.CommandText = "{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB(" + row[0].ToString() + ")' 30)}}";
+                                comLib.ExecuteNonQuery();
+                            }
+
+                        }
+
+                        this._Comando = com.CommandText;
+                        //Ejecuta el programa
+                        com.ExecuteNonQuery();
+
+
+                        //Crea el dt de respuesta
+                        foreach (OleDbParameter param in this._Parametros)
+                        {
+                            dt.Columns.Add(param.ToString(), typeof(string));
+                        }
+
+                        //Llena dt de Respuesta
+                        DataRow newRow = dt.NewRow();
+                        foreach (OleDbParameter param in this._Parametros)
+                        {
+                            newRow[param.ToString()] = com.Parameters[param.ToString()].Value;
+
+                        }
+
+                        dt.Rows.Add(newRow);
+
+                    }
+
+                    //Cierras las conexiones si estan abiertas
+                    if (Conn.State == ConnectionState.Open)
+                    {
+                        Conn.Close();
+                        Conn.Dispose();
+                    }
+
+                }
+
+            }
+            catch (Exception ex)
+            {
+                //log.Error(ex.ToString() + logParametros);
+                this._Mensaje = ex.Message.ToString();
+                this._Success = false;
+            }
+
+            this._Parametros.Clear();
+            return dt;
+
+        }
+
+    }
+}
+
+
+
+---------
+
+
+
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Web;
+using wsReposicionPIN.Clases;
+
+namespace wsReposicionPIN.Clases
+{
+    public class Trama
+    {
+
+        public string ArmarTrama(string cif, string cuenta, string UltimosDigitosTD, string pinRenicio = "", string codigoRespuesta="", string descripcionRespuesta="")
+        {
+
+            //Campos de tramas        
+            string trama= string.Empty;             
+            List<string> campos = new List<string>();
+
+            campos.Add(cif.PadLeft(18,' '));
+            campos.Add(cuenta.PadLeft(12, ' '));
+            campos.Add(UltimosDigitosTD.PadLeft(4, ' '));
+            campos.Add(pinRenicio.PadLeft(4, ' '));
+            campos.Add(codigoRespuesta.PadLeft(3, ' '));
+            campos.Add(descripcionRespuesta.PadLeft(50, ' '));
+
+            foreach (String campo in campos)
+            {
+                trama += campo.ToString();
+            }
+
+            return trama;
+        }  
+
+
+    }
+}
+
+
+
+
+
+
+
+------------
+
+Ok mira, esto creo que es una buena base para que sepamos como podemos hacer muchas cosas ... basado mas o menos en como lo han ido trabajando. Peroe, tambien te quiero enviar otro codigo que me pidieron que me basara en eso para manejar lo del envio de SMS. aHORITA TE LO MANdo, aun no me des codigo
