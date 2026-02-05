@@ -1,26 +1,51 @@
-'ResultadoValidacionDto' no contiene una definición para 'EquivalenteTC'
-'ResultadoValidacionDto' no contiene una definición para 'FechaVencimientoTC'
-'ResultadoValidacionDto' no contiene una definición para 'PinTC'
-'ResultadoValidacionDto' no contiene una definición para 'CodigoError'
-'ResultadoValidacionDto' no contiene una definición para 'DescripcionError'
-"ResultadoValidacionDto" no contiene una definición para "CodigoError" ni un método de extensión accesible "CodigoError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionDto" no contiene una definición para "DescripcionError" ni un método de extensión accesible "DescripcionError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionDto" no contiene una definición para "CodigoError" ni un método de extensión accesible "CodigoError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionDto" no contiene una definición para "DescripcionError" ni un método de extensión accesible "DescripcionError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionDto" no contiene una definición para "CodigoError" ni un método de extensión accesible "CodigoError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-"ResultadoValidacionDto" no contiene una definición para "DescripcionError" ni un método de extensión accesible "DescripcionError" que acepte un primer argumento del tipo "ResultadoValidacionDto" (¿falta alguna directiva using o una referencia de ensamblado?)
-El elemento propiedad "CIF" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "DNI" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "Cliente" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "Telefono" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "OperadorTelefono" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "Correo" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "UltimosDigitosTC" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "ContenidoSMS" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "ContenidoCorreo" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "Codigo" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "Descripcion" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "Codigo" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento propiedad "Descripcion" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
-El elemento campo "_connectionString" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el campo como un valor que acepta valores NULL.
-Posible asignación de referencia nula.
+No entiendo, ya habiamos definido asi:
+
+
+namespace reposicion_pin.DTOs
+{
+    public class ResultadoValidacionDto
+    {
+        public bool EsValido { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+
+        public static ResultadoValidacionDto Ok()
+        {
+            return new ResultadoValidacionDto
+            {
+                EsValido = true
+            };
+        }
+
+        public static ResultadoValidacionDto Error(string codigo, string descripcion)
+        {
+            return new ResultadoValidacionDto
+            {
+                EsValido = false,
+                Codigo = codigo,
+                Descripcion = descripcion
+            };
+        }
+    }
+}
+
+
+
+
+
+
+
+
+------
+namespace reposicion_pin.DTOs
+{
+    public class ResultadoValidacionTarjetaDto
+    {
+        public bool Existe { get; set; }
+        public string CodigoError { get; set; } = string.Empty;
+        public string MensajeError { get; set; } = string.Empty;
+        public string FechaVencimiento { get; set; } = string.Empty;
+    }
+}
+
+
