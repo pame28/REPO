@@ -1,0 +1,133 @@
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using System.Data.OleDb;
+
+namespace reposicion_pin.Repository
+{
+    public class As400Repository : IAs400Repository
+    {
+        private readonly ILogger<As400Repository> _logger;
+        private readonly string _connectionString;
+
+        public As400Repository(ILogger<As400Repository> logger, IConfiguration configuration)
+        {
+            _logger = logger;
+            _connectionString = configuration.GetConnectionString("As400Connection")!;
+        }
+
+        public async Task<As400ResponseDto> EjecutarProgramaAsync(As400RequestDto request)
+        {
+            var response = new As400ResponseDto();
+            try
+            {
+                using var conn = new OleDbConnection(_connectionString);
+                await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "CALL BPPGM/REIMQ07RC(?)"; // tu programa
+                cmd.CommandType = System.Data.CommandType.StoredProcedure;
+
+                string trama = request.EquivalenteTC.PadRight(16)
+                              + request.FechaVencimiento.PadRight(8)
+                              + "    " // PIN vacío
+                              + "   " // Código error vacío
+                              + new string(' ', 50); // Descripción vacía
+
+                cmd.Parameters.Add("TRAMA", OleDbType.Char, 81).Value = trama;
+
+                await cmd.ExecuteNonQueryAsync();
+
+                // Ejemplo de lectura de respuesta
+                string tramaResp = cmd.Parameters["TRAMA_RESP"].Value.ToString()!;
+
+                response.Pin = tramaResp.Substring(24, 4).Trim();
+                response.CodigoError = tramaResp.Substring(28, 3).Trim();
+                response.DescripcionError = tramaResp.Substring(31, 50).Trim();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al llamar al programa AS400");
+                response.CodigoError = "P98";
+                response.DescripcionError = "ERROR AL LLAMAR A MQ";
+            }
+
+            return response;
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Models;
+using reposicion_pin.Repository.Interface;
+
+namespace reposicion_pin.Service
+{
+    public partial class ReposicionPinService
+    {
+        private readonly IAs400Repository _as400Repository;
+
+        public ReposicionPinService(
+            ITarjetaRepository tarjetaRepository,
+            ICatalogoRespuestaRepository catalogoRepository,
+            IAs400Repository as400Repository,
+            ILogger<ReposicionPinService> logger)
+        {
+            _tarjetaRepository = tarjetaRepository;
+            _catalogoRepository = catalogoRepository;
+            _as400Repository = as400Repository;
+            _logger = logger;
+        }
+
+        public async Task<ReposicionPinResponseDto> Fase2_ConsumirAs400Async(TarjetaModel tarjeta)
+        {
+            try
+            {
+                var as400Request = new As400RequestDto
+                {
+                    EquivalenteTC = tarjeta.EquivalenteTC.PadLeft(16, ' '),
+                    FechaVencimiento = tarjeta.FechaFinVigencia.ToString("yyyyMMdd")
+                };
+
+                var as400Response = await _as400Repository.EjecutarProgramaAsync(as400Request);
+
+                // Si hay error de AS400
+                if (!string.IsNullOrEmpty(as400Response.CodigoError?.Trim()))
+                    return MapearErrorAs400(as400Response);
+
+                // Todo OK
+                return new ReposicionPinResponseDto
+                {
+                    Codigo = 0,
+                    Descripcion = "Pin generado exitosamente",
+                    Pin = as400Response.Pin
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inesperado en Fase2 al consumir AS400");
+                return await ObtenerRespuestaDinamicaAsync(99, "Excepción", ex.Message);
+            }
+        }
+
+        private ReposicionPinResponseDto MapearErrorAs400(As400ResponseDto as400)
+        {
+            string descripcion = $"Error en servicio AZ7: {as400.DescripcionError}";
+            return new ReposicionPinResponseDto
+            {
+                Codigo = 9,
+                Descripcion = descripcion,
+                Pin = null
+            };
+        }
+    }
+}
+
+
