@@ -1,0 +1,41 @@
+1. Yo la verdad es que desconozco, a mi solo me dijeron que consumiera, pero según tengo entendido, el programa de AS400 que me brindaron funciona igual que el ejemplo de TD, asi que si, hagamoslo igual.
+2 y 3. Si, debemos manejar errores, de hecho ... me compartieron una tabla de errores:
+	Cod Error	Descripción
+P01	EQUIVALENTE TARJETA EN BLANCO
+P02	FECHA VENCIMIENTO TARJETA EN BLANCO
+P03	TARJETA NO EXISTE
+P98	ERROR AL LLAMAR A MQ
+P99	TRAMA NO ENCONTRADA
+
+
+Y el mapeo será asi: 
+
+P01 debe ir mapeado con 9 Asi: Error en servicio AZ7: + {{DESCRIPCION P01}}
+P02 debe ir mapeado con 9 Asi: Error en servicio AZ7: + {{DESCRIPCION P02}}
+P02 debe ir mapeado con 9 Asi: Error en servicio AZ7: + {{DESCRIPCION P03}}
+P98 debe ir mapeado con 9 Asi: Error en servicio AZ7: + {{DESCRIPCION P98}}
+P99 debe ir mapeado con 9 Asi: Error en servicio AZ7: + {{DESCRIPCION P99}}
+
+
+
+4, Si, solo esos vamos a enviar
+
+
+
+
+Te recuerdo que este es el programa:
+
+El programa es el REIMQ07RC(Este no es el programa final) está en la librería BPPGM, este recibe una trama de longitud 81 tipo char de la cual te detallo las posiciones:
+Campo	Posición Inicial	Posición Final	Tamaño
+Equivalente TC	1	16	16
+Fecha Vencimiento TC	17	24	8
+PIN TC	25	28	4
+Código Error	29	31	3
+Descripción Error	32	81	50
+
+
+
+Estas son las librerias que necesita: Library List=DP053DAT,CLIDAT,BPDAT,BPPGM,TDBI20DAT,TARJETA
+
+
+Creo que en el ejemplo que envié muchas cosas de estas son parametrizadas, por loque, si voy a necesitar que me digas si se necesita crear tablas, procedures, etc. y me brindes los queries
