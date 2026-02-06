@@ -1,84 +1,7 @@
-
-"ReposicionPinService" no contiene una definición para "ObtenerTarjetaAsync" ni un método de extensión accesible "ObtenerTarjetaAsync" que acepte un primer argumento del tipo "ReposicionPinService" (¿falta alguna directiva using o una referencia de ensamblado?)
-
-
-
-Este es el controller:
-
-using Microsoft.AspNetCore.Mvc;
-using reposicion_pin.DTOs;
-using reposicion_pin.Service;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-
-namespace reposicion_pin.Controllers
-{
-    [Route("api/[controller]")]
-    [ApiController]
-    public class ReposicionPinController : ControllerBase
-    {
-        private readonly ReposicionPinService _service;
-
-        public ReposicionPinController(ReposicionPinService service)
-        {
-            _service = service;
-        }
-
-        [HttpPost]
-        [Route("validar-tarjeta")]
-        public async Task<ActionResult<ReposicionPinResponseDto>> ValidarTarjeta([FromBody] ReposicionPinRequestDto request)
-        {
-            var result = await _service.ValidarTarjetaAsync(request);
-            return Ok(result);
-        }
-
-        /// <summary>
-        /// Fase 2: Consumir AS400 para generar PIN
-        /// </summary>
-        [HttpPost]
-        [Route("generar-pin")]
-        public async Task<ActionResult<ReposicionPinResponseDto>> GenerarPin([FromBody] ReposicionPinRequestDto request)
-        {
-            // 1️⃣ Primero validamos la tarjeta (fase1)
-            var fase1 = await _service.ValidarTarjetaAsync(request);
-
-            if (fase1.CodigoInt != 0)
-            {
-                // Si fase 1 falla, devolvemos el error directamente
-                return Ok(fase1);
-            }
-
-            // 2️⃣ Obtenemos la tarjeta de BD
-            var tarjeta = await _service.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
-            if (tarjeta == null)
-            {
-                return Ok(await _service.ObtenerRespuestaDinamicaAsync(5, "Tarjeta", "No se encontró tarjeta"));
-            }
-
-            // 3️⃣ Llamamos a AS400
-            var fase2 = await _service.Fase2_ConsumirAs400Async(tarjeta);
-
-            return Ok(fase2);
-        }
-    }
-}   
-
-
-
-
-
-
-
-
-Y este es mi servicio:
-
-
 using reposicion_pin.DTOs;
 using reposicion_pin.Models;
 using reposicion_pin.Repository;
 using reposicion_pin.Repository.Interface;
-using reposicion_pin.Service.Interface;
-using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 
 namespace reposicion_pin.Service
@@ -87,8 +10,8 @@ namespace reposicion_pin.Service
     {
         private readonly ITarjetaRepository _tarjetaRepository;
         private readonly ICatalogoRespuestaRepository _catalogoRepository;
-        private readonly ILogger<ReposicionPinService> _logger;
         private readonly IAS400Repository _as400Repository;
+        private readonly ILogger<ReposicionPinService> _logger;
 
         public ReposicionPinService(
             ITarjetaRepository tarjetaRepository,
@@ -102,6 +25,7 @@ namespace reposicion_pin.Service
             _logger = logger;
         }
 
+        #region FASE 1 - Validar tarjeta
         public async Task<ReposicionPinResponseDto> ValidarTarjetaAsync(ReposicionPinRequestDto request)
         {
             try
@@ -120,7 +44,7 @@ namespace reposicion_pin.Service
                 {
                     if (string.IsNullOrWhiteSpace(request.Telefono))
                         return await ObtenerRespuestaDinamicaAsync(10, "Telefono", "Es obligatorio para MetodoEnvio=1 (SMS)");
-                    else if(string.IsNullOrWhiteSpace(request.ContenidoSMS))
+                    else if (string.IsNullOrWhiteSpace(request.ContenidoSMS))
                         return await ObtenerRespuestaDinamicaAsync(10, "Contenido SMS", "Es obligatorio para MetodoEnvio=1 (SMS)");
                 }
                 else if (request.MetodoEnvio == 2) // Correo
@@ -133,7 +57,6 @@ namespace reposicion_pin.Service
 
                 // Buscar tarjeta en BD
                 var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
-
                 if (tarjeta == null)
                     return await ObtenerRespuestaAsync(5); // No se encontró tarjeta
 
@@ -147,7 +70,7 @@ namespace reposicion_pin.Service
                 if (!string.IsNullOrWhiteSpace(tarjeta.EstadoHabilitar))
                     return await ObtenerRespuestaDinamicaAsync(10, "EstadoHabilitar", "debe estar vacío");
 
-                // Todo ok, se devuelve fase 1 exitosa
+                // Todo ok
                 return await ObtenerRespuestaAsync(0);
             }
             catch (Exception ex)
@@ -156,55 +79,16 @@ namespace reposicion_pin.Service
                 return await ObtenerRespuestaDinamicaAsync(99, "Excepción", ex.Message);
             }
         }
+        #endregion
 
-        // Método helper para obtener la descripción desde el catálogo
-        public async Task<ReposicionPinResponseDto> ObtenerRespuestaAsync(int codigo, string fallbackDescripcion = null)
+        #region Nuevo método público para que controller pueda usarlo
+        public async Task<TarjetaModel?> ObtenerTarjetaAsync(string cif, string ultimosDigitos)
         {
-            string descripcion = fallbackDescripcion;
-
-            try
-            {
-                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
-                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
-                    descripcion = catalogoDescripcion;
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, $"No se pudo obtener descripción del catalogo para código {codigo}");
-            }
-
-            return new ReposicionPinResponseDto
-            {
-                CodigoInt = codigo,
-                Descripcion = descripcion
-            };
+            return await _tarjetaRepository.ObtenerTarjetaAsync(cif, ultimosDigitos);
         }
+        #endregion
 
-        // Devuelve mensaje dinámico concatenando descripción base con info específica
-        public async Task<ReposicionPinResponseDto> ObtenerRespuestaDinamicaAsync(int codigo, string campo, string detalle, string fallbackDescripcion = null)
-        {
-            string descripcion = fallbackDescripcion;
-            try
-            {
-                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
-                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
-                    descripcion = catalogoDescripcion;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, $"No se pudo obtener descripción del catálogo para código {codigo}");
-            }
-
-            string mensajeFinal = $"{descripcion ?? "Error"} {campo}: {detalle}";
-
-            return new ReposicionPinResponseDto
-            {
-                CodigoInt = codigo,
-                Descripcion = mensajeFinal
-            };
-        }
-
+        #region FASE 2 - Consumir AS400
         public async Task<ReposicionPinResponseDto> Fase2_ConsumirAs400Async(TarjetaModel tarjeta)
         {
             try
@@ -246,8 +130,83 @@ namespace reposicion_pin.Service
                 Pin = null
             };
         }
-    }
+        #endregion
 
+        #region Helpers de respuestas
+        public async Task<ReposicionPinResponseDto> ObtenerRespuestaAsync(int codigo, string fallbackDescripcion = null)
+        {
+            string descripcion = fallbackDescripcion;
+            try
+            {
+                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
+                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
+                    descripcion = catalogoDescripcion;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"No se pudo obtener descripción del catalogo para código {codigo}");
+            }
+
+            return new ReposicionPinResponseDto
+            {
+                CodigoInt = codigo,
+                Descripcion = descripcion
+            };
+        }
+
+        public async Task<ReposicionPinResponseDto> ObtenerRespuestaDinamicaAsync(int codigo, string campo, string detalle, string fallbackDescripcion = null)
+        {
+            string descripcion = fallbackDescripcion;
+            try
+            {
+                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
+                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
+                    descripcion = catalogoDescripcion;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"No se pudo obtener descripción del catálogo para código {codigo}");
+            }
+
+            string mensajeFinal = $"{descripcion ?? "Error"} {campo}: {detalle}";
+            return new ReposicionPinResponseDto
+            {
+                CodigoInt = codigo,
+                Descripcion = mensajeFinal
+            };
+        }
+        #endregion
+    }
 }
+
+
+
+
+
+
+
+
+
+
+[HttpPost]
+[Route("generar-pin")]
+public async Task<ActionResult<ReposicionPinResponseDto>> GenerarPin([FromBody] ReposicionPinRequestDto request)
+{
+    // 1️⃣ Validar la tarjeta (fase 1)
+    var fase1 = await _service.ValidarTarjetaAsync(request);
+    if (fase1.CodigoInt != 0)
+        return Ok(fase1);
+
+    // 2️⃣ Obtener tarjeta de BD usando el método público del servicio
+    var tarjeta = await _service.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
+    if (tarjeta == null)
+        return Ok(await _service.ObtenerRespuestaDinamicaAsync(5, "Tarjeta", "No se encontró tarjeta"));
+
+    // 3️⃣ Consumir AS400
+    var fase2 = await _service.Fase2_ConsumirAs400Async(tarjeta);
+
+    return Ok(fase2);
+}
+
 
 
