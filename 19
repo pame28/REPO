@@ -1,0 +1,16 @@
+"Provider=IBMDA400.DataSource.1;Data Source=ASDES01;Password=consola_dc;User ID=consola_dc;Initial Catalog=SBP720P;Library List=DP053DAT,CLIDAT,BPDAT,BPPGM,TDBI20DAT,TARJETA"
+
+
+
+System.Data.OleDb.OleDbException: 'SQL0104: Símbolo BPPGM no válido. Símbolos válidos: ( INTO USING.
+Causa . . . . . :   Se ha detectado un error de sintaxis en el símbolo BPPGM. El símbolo BPPGM no es un símbolo válido. Una lista parcial de símbolos válidos es ( INTO USING. Esta lista presupone que la sentencia es correcta hasta el símbolo. El error puede estar anteriormente en la sentencia, pero la sintaxis de la sentencia aparece como válida hasta este punto. Recuperación . . . :   Efectúe una o más de las siguientes acciones y vuelva a intentar la petición: -- Verifique la sentencia SQL en el área del símbolo BPPGM. Corrija la sentencia. El error podría ser la omisión de una coma o comillas; podría tratarse de una palabra con errores ortográficos, o podría estar relacionado con el orden de las cláusulas. -- Si el símbolo de error es <FIN DE SENTENCIA>, corrija la sentencia SQL porque no finaliza con una cláusula válida.'
+
+
+
+
+Esta excepción se generó originalmente en esta pila de llamadas:
+    [Código externo]
+    reposicion_pin.Repository.AS400Repository.EjecutarProgramaAsync(reposicion_pin.DTOs.AS400RequestDto) en AS400Repository.cs
+
+
+Este es el unico ejemplo de trama que me enviaron de como lo prueban ellos: CALL PGM(REIMQ07RC) PARM(('100000000170384120191130'))
