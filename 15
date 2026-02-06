@@ -1,0 +1,329 @@
+{
+  "codigo": 10,
+  "descripcion": "Error en validación del campo Contenido SMS: Es obligatorio para MetodoEnvio=1 (SMS)",
+  "pin": null
+}
+
+
+
+
+Code	Details
+200	
+Response body
+Download
+{
+  "codigo": 0,
+  "descripcion": "Pin generado exitosamente",
+  "pin": null
+}
+
+Actualmente, estos son los response que tengo, los cuales, estan muy bien y funcionan muy bien, lo unico que me preocupa .. es que ... los codigos --- CRM los espera: 00, 01, 02, 03, 04, 05, 06, 07, 08, 09 ... de ahi .. para arriba no importa porque ya son dos digitos...
+Pero no se como manejar eso ...
+No se como se haría una buena práctica ... 
+
+
+
+
+Te dejo mi codigo:
+
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace reposicion_pin.Models
+{
+    [Table ("CatalogoRespuestas")]
+    public class CatalogoRespuestaModel
+    {
+        [Key]
+        [Column("Codigo")]
+        public int Codigo { get; set; }
+        public string Descripcion { get; set; }=string.Empty;
+    }
+}
+
+
+
+
+------
+
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace reposicion_pin.Models
+{
+    [Table("Tarjetas")]
+    public class TarjetaModel
+    {
+        [Key]
+        public int Id {  get; set; }
+        public string EquivalenteTC { get; set; } = string.Empty;
+
+        public string CIF { get; set; }=string.Empty;
+        public DateTime FechaFinVigencia { get; set; }
+        public short EstadoTarjeta { get; set; }
+        public string EstadoHabilitar { get; set; } = string.Empty;
+    }
+}
+
+
+
+----
+
+
+
+namespace reposicion_pin.DTOs
+{
+    public class ReposicionPinRequestDto
+    {
+        public string CIF { get; set; } = string.Empty;
+        public string DNI { get; set; } = string.Empty;
+        public string Cliente { get; set; } = string.Empty;
+        public int MetodoEnvio { get; set; }
+        public string Telefono { get; set; } = string.Empty;
+        public string OperadorTelefono { get; set; } = string.Empty;
+        public string Correo { get; set; } = string.Empty;
+        public string UltimosDigitosTC { get; set; } = string.Empty;
+        public string ContenidoSMS { get; set; } = string.Empty;
+        public string ContenidoCorreo { get; set; } = string.Empty;
+    }
+}
+
+
+
+
+-----
+namespace reposicion_pin.DTOs
+{
+    public class ReposicionPinResponseDto
+    {
+        public int Codigo { get; set; }
+        public string Descripcion { get; set; } = string.Empty;
+        public string? Pin { get; set; }
+    }
+}
+
+
+
+
+----
+
+
+using Microsoft.EntityFrameworkCore;
+using reposicion_pin.Infrastructure.Data;
+using reposicion_pin.Repository.Interface;
+
+namespace reposicion_pin.Repository
+{
+    public class CatalogoRespuestaRepository : ICatalogoRespuestaRepository
+    {
+        private readonly AppDbContext _context;
+
+        public CatalogoRespuestaRepository(AppDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<string> ObtenerDescripcionAsync(int codigo)
+        {
+            var catalogo = await _context.CatalogoRespuestas
+                .Where(c=> c.Codigo == codigo)
+                .Select(c=>c.Descripcion)
+                .FirstOrDefaultAsync();
+            return catalogo;
+        }
+    }
+}
+
+
+
+
+using Dapper;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using reposicion_pin.DTOs;
+using reposicion_pin.Infrastructure.Data;
+using reposicion_pin.Models;
+using reposicion_pin.Repository.Interface;
+using System.Data;
+
+namespace reposicion_pin.Repository
+{
+    public class TarjetaRepository : ITarjetaRepository
+    {
+        private readonly AppDbContext _context;
+
+        public TarjetaRepository(AppDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<TarjetaModel?> ObtenerTarjetaAsync(string cif, string ultimosDigitos)
+        {
+            return await _context.Tarjetas
+                .Where(t => t.CIF == cif && t.EquivalenteTC.EndsWith(ultimosDigitos))
+                .FirstOrDefaultAsync();
+        }
+    }
+}
+
+
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository;
+using reposicion_pin.Repository.Interface;
+using reposicion_pin.Service.Interface;
+using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
+
+namespace reposicion_pin.Service
+{
+    public class ReposicionPinService
+    {
+        private readonly ITarjetaRepository _tarjetaRepository;
+        private readonly ICatalogoRespuestaRepository _catalogoRepository;
+        private readonly ILogger<ReposicionPinService> _logger;
+
+        public ReposicionPinService(
+            ITarjetaRepository tarjetaRepository,
+            ICatalogoRespuestaRepository catalogoRepository,
+            ILogger<ReposicionPinService> logger)
+        {
+            _tarjetaRepository = tarjetaRepository;
+            _catalogoRepository = catalogoRepository;
+            _logger = logger;
+        }
+
+        public async Task<ReposicionPinResponseDto> ValidarTarjetaAsync(ReposicionPinRequestDto request)
+        {
+            try
+            {
+                // Validaciones básicas del request
+                if (string.IsNullOrWhiteSpace(request.CIF))
+                    return await ObtenerRespuestaDinamicaAsync(10, "CIF", "Se encuentra vacío o inválido");
+
+                if (string.IsNullOrWhiteSpace(request.UltimosDigitosTC))
+                    return await ObtenerRespuestaDinamicaAsync(10, "UltimosDigitosTC", " Se encuentra vacío o inválido");
+
+                if (request.MetodoEnvio != 1 && request.MetodoEnvio != 2)
+                    return await ObtenerRespuestaDinamicaAsync(10, "MetodoEnvio", "Debe ser 1 (SMS) o 2 (Correo)");
+
+                if (request.MetodoEnvio == 1) // SMS
+                {
+                    if (string.IsNullOrWhiteSpace(request.Telefono))
+                        return await ObtenerRespuestaDinamicaAsync(10, "Telefono", "Es obligatorio para MetodoEnvio=1 (SMS)");
+                    else if(string.IsNullOrWhiteSpace(request.ContenidoSMS))
+                        return await ObtenerRespuestaDinamicaAsync(10, "Contenido SMS", "Es obligatorio para MetodoEnvio=1 (SMS)");
+                }
+                else if (request.MetodoEnvio == 2) // Correo
+                {
+                    if (string.IsNullOrWhiteSpace(request.Correo) || !request.Correo.Contains("@"))
+                        return await ObtenerRespuestaDinamicaAsync(10, "Correo", "Es obligatorio y debe ser válido para MetodoEnvio=2 (Correo)");
+                    else if (string.IsNullOrWhiteSpace(request.ContenidoCorreo))
+                        return await ObtenerRespuestaDinamicaAsync(10, "Contenido Correo", "Es obligatorio para MetodoEnvio=2 (Correo)");
+                }
+
+                // Buscar tarjeta en BD
+                var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
+
+                if (tarjeta == null)
+                    return await ObtenerRespuestaAsync(5); // No se encontró tarjeta
+
+                // Validaciones de tarjeta
+                if (tarjeta.EstadoTarjeta != 20)
+                    return await ObtenerRespuestaAsync(1); // Tarjeta inactiva
+
+                if (tarjeta.FechaFinVigencia < DateTime.Today)
+                    return await ObtenerRespuestaAsync(2); // Tarjeta vencida
+
+                if (!string.IsNullOrWhiteSpace(tarjeta.EstadoHabilitar))
+                    return await ObtenerRespuestaDinamicaAsync(10, "EstadoHabilitar", "debe estar vacío");
+
+                // Todo ok, se devuelve fase 1 exitosa
+                return await ObtenerRespuestaAsync(0);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inesperado en Fase1 de ReposicionPinService");
+                return await ObtenerRespuestaDinamicaAsync(99, "Excepción", ex.Message);
+            }
+        }
+
+        // Método helper para obtener la descripción desde el catálogo
+        private async Task<ReposicionPinResponseDto> ObtenerRespuestaAsync(int codigo, string fallbackDescripcion = null)
+        {
+            string descripcion = fallbackDescripcion;
+
+            try
+            {
+                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
+                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
+                    descripcion = catalogoDescripcion;
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"No se pudo obtener descripción del catalogo para código {codigo}");
+            }
+
+            return new ReposicionPinResponseDto
+            {
+                Codigo = codigo,
+                Descripcion = descripcion
+            };
+        }
+
+        // Devuelve mensaje dinámico concatenando descripción base con info específica
+        private async Task<ReposicionPinResponseDto> ObtenerRespuestaDinamicaAsync(int codigo, string campo, string detalle, string fallbackDescripcion = null)
+        {
+            string descripcion = fallbackDescripcion;
+            try
+            {
+                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
+                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
+                    descripcion = catalogoDescripcion;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"No se pudo obtener descripción del catálogo para código {codigo}");
+            }
+
+            string mensajeFinal = $"{descripcion ?? "Error"} {campo}: {detalle}";
+
+            return new ReposicionPinResponseDto
+            {
+                Codigo = codigo,
+                Descripcion = mensajeFinal
+            };
+        }
+    }
+}
+
+
+using Microsoft.AspNetCore.Mvc;
+using reposicion_pin.DTOs;
+using reposicion_pin.Service;
+
+// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+
+namespace reposicion_pin.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ReposicionPinController : ControllerBase
+    {
+        private readonly ReposicionPinService _service;
+
+        public ReposicionPinController(ReposicionPinService service)
+        {
+            _service = service;
+        }
+
+        [HttpPost]
+        [Route("validar-tarjeta")]
+        public async Task<ActionResult<ReposicionPinResponseDto>> ValidarTarjeta([FromBody] ReposicionPinRequestDto request)
+        {
+            var result = await _service.ValidarTarjetaAsync(request);
+            return Ok(result);
+        }
+    }
+}   
