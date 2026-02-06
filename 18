@@ -1,0 +1,79 @@
+using Microsoft.AspNetCore.Mvc;
+using reposicion_pin.DTOs;
+using reposicion_pin.Service;
+
+namespace reposicion_pin.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ReposicionPinController : ControllerBase
+    {
+        private readonly ReposicionPinService _service;
+
+        public ReposicionPinController(ReposicionPinService service)
+        {
+            _service = service;
+        }
+
+        /// <summary>
+        /// Fase 1: Validar tarjeta
+        /// </summary>
+        [HttpPost]
+        [Route("validar-tarjeta")]
+        public async Task<ActionResult<ReposicionPinResponseDto>> ValidarTarjeta([FromBody] ReposicionPinRequestDto request)
+        {
+            var result = await _service.ValidarTarjetaAsync(request);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Fase 2: Consumir AS400 para generar PIN
+        /// </summary>
+        [HttpPost]
+        [Route("generar-pin")]
+        public async Task<ActionResult<ReposicionPinResponseDto>> GenerarPin([FromBody] ReposicionPinRequestDto request)
+        {
+            // 1️⃣ Primero validamos la tarjeta (fase1)
+            var fase1 = await _service.ValidarTarjetaAsync(request);
+
+            if (fase1.Codigo != 0)
+            {
+                // Si fase 1 falla, devolvemos el error directamente
+                return Ok(fase1);
+            }
+
+            // 2️⃣ Obtenemos la tarjeta de BD
+            var tarjeta = await _service.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
+            if (tarjeta == null)
+            {
+                return Ok(await _service.ObtenerRespuestaDinamicaAsync(5, "Tarjeta", "No se encontró tarjeta"));
+            }
+
+            // 3️⃣ Llamamos a AS400
+            var fase2 = await _service.Fase2_ConsumirAs400Async(tarjeta);
+
+            return Ok(fase2);
+        }
+    }
+}
+
+
+
+
+
+
+
+
+CREATE TABLE dbo.HistorialReposicionPin
+(
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    CIF VARCHAR(15),
+    EquivalenteTC VARCHAR(16),
+    FechaSolicitud DATETIME DEFAULT GETDATE(),
+    PinGenerado VARCHAR(4),
+    CodigoError VARCHAR(3),
+    DescripcionError VARCHAR(50)
+);
+
+
+
