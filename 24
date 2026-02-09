@@ -1,0 +1,124 @@
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using System.Data;
+using System.Data.OleDb;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        private readonly ILogger<AS400Repository> _logger;
+        private readonly string _connectionString;
+
+        public AS400Repository(
+            ILogger<AS400Repository> logger,
+            IConfiguration configuration)
+        {
+            _logger = logger;
+            _connectionString = configuration.GetConnectionString("AS400Connection")!;
+        }
+
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+        {
+            try
+            {
+                using var conn = new OleDbConnection(_connectionString);
+                await conn.OpenAsync();
+
+                // 1️⃣ Limpiar Library List
+                await EjecutarQCmdAsync(conn, "CHGLIBL LIBL(*NONE)");
+
+                // 2️⃣ Agregar librerías requeridas
+                string[] librerias =
+                {
+                    "DP053DAT",
+                    "CLIDAT",
+                    "BPDAT",
+                    "BPPGM",
+                    "TDBI20DAT",
+                    "TARJETA"
+                };
+
+                foreach (var lib in librerias)
+                {
+                    await EjecutarQCmdAsync(conn, $"ADDLIBLE LIB({lib})");
+                }
+
+                // 3️⃣ Construir trama (81 caracteres)
+                string trama =
+                    request.EquivalenteTC.PadRight(16) +
+                    request.FechaVencimiento.PadRight(8) +
+                    new string(' ', 57);
+
+                // 4️⃣ Ejecutar programa AS400
+                using var cmd = new OleDbCommand(
+                    "CALL REIMQ07RC(?)", conn);
+
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandTimeout = 300;
+
+                var parametro = new OleDbParameter
+                {
+                    OleDbType = OleDbType.Char,
+                    Size = 81,
+                    Direction = ParameterDirection.InputOutput,
+                    Value = trama
+                };
+
+                cmd.Parameters.Add(parametro);
+
+                _logger.LogInformation("Ejecutando programa REIMQ07RC");
+                await cmd.ExecuteNonQueryAsync();
+
+                string respuesta = parametro.Value.ToString()!;
+
+                return new AS400ResponseDto
+                {
+                    Pin = respuesta.Substring(24, 4).Trim(),
+                    CodigoError = respuesta.Substring(28, 3).Trim(),
+                    DescripcionError = respuesta.Substring(31, 50).Trim()
+                };
+            }
+            catch (OleDbException ex)
+            {
+                _logger.LogError(ex, "Error OleDb ejecutando AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = "ERROR AL LLAMAR A MQ"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general ejecutando AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = "TRAMA NO ENCONTRADA"
+                };
+            }
+        }
+
+        private async Task EjecutarQCmdAsync(OleDbConnection conn, string comando)
+        {
+            using var cmd = new OleDbCommand(
+                "CALL QSYS.QCMDEXC(?, ?)", conn);
+
+            cmd.Parameters.Add(new OleDbParameter
+            {
+                OleDbType = OleDbType.Char,
+                Value = comando
+            });
+
+            cmd.Parameters.Add(new OleDbParameter
+            {
+                OleDbType = OleDbType.Decimal,
+                Value = comando.Length
+            });
+
+            await cmd.ExecuteNonQueryAsync();
+        }
+    }
+}
