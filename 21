@@ -1,3 +1,17 @@
+InvalidOperationException: Error while validating the service descriptor 'ServiceType: reposicion_pin.Repository.Interface.IAS400Repository Lifetime: Scoped ImplementationType: reposicion_pin.Repository.AS400Repository': Unable to resolve service for type 'System.String' while attempting to activate 'reposicion_pin.Repository.AS400Repository'.
+
+System.AggregateException: 'Some services are not able to be constructed (Error while validating the service descriptor 'ServiceType: reposicion_pin.Repository.Interface.IAS400Repository Lifetime: Scoped ImplementationType: reposicion_pin.Repository.AS400Repository': Unable to resolve service for type 'System.String' while attempting to activate 'reposicion_pin.Repository.AS400Repository'.) (Error while validating the service descriptor 'ServiceType: reposicion_pin.Service.ReposicionPinService Lifetime: Scoped ImplementationType: reposicion_pin.Service.ReposicionPinService': Unable to resolve service for type 'System.String' while attempting to activate 'reposicion_pin.Repository.AS400Repository'.)'
+
+
+
+
+
+
+
+
+
+
+
 using reposicion_pin.DTOs;
 using reposicion_pin.Repository.Interface;
 using Microsoft.Extensions.Logging;
