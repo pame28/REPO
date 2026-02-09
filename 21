@@ -1,0 +1,98 @@
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Data;
+using System.Data.OleDb;
+using System.Threading.Tasks;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        private readonly string _connectionString;
+        private readonly ILogger<AS400Repository> _logger;
+
+        public AS400Repository(string connectionString, ILogger<AS400Repository> logger)
+        {
+            _connectionString = connectionString;
+            _logger = logger;
+        }
+
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+        {
+            try
+            {
+                using var conn = new OleDbConnection(_connectionString);
+
+                if (conn.State == ConnectionState.Closed)
+                    await conn.OpenAsync();
+
+                /*
+                 * Construcción de la trama de 81 posiciones
+                 * -----------------------------------------
+                 *  1 - 16  : Equivalente TC
+                 * 17 - 24  : Fecha Vencimiento (YYYYMMDD)
+                 * 25 - 28  : PIN (lo genera AS400, se deja en blanco)
+                 * 29 - 31  : Código Error
+                 * 32 - 81  : Descripción Error
+                 */
+
+                string trama =
+                    request.EquivalenteTC.PadRight(16, ' ') +
+                    request.FechaVencimiento.PadRight(8, ' ') +
+                    new string(' ', 57); // completa hasta 81
+
+                // 🔴 IMPORTANTE: CALL envuelto en {{ }}
+                string comando =
+                    $"{{{{CALL PGM(BPPGM/REIMQ07RC) PARM('{trama}')}}}}";
+
+                using var cmd = new OleDbCommand(comando, conn);
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandTimeout = 300;
+
+                _logger.LogInformation("Ejecutando programa AS400 REIMQ07RC");
+                _logger.LogDebug("Comando AS400: {Comando}", comando);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                /*
+                 * NOTA IMPORTANTE
+                 * ----------------
+                 * Este tipo de programas devuelve la respuesta
+                 * en la MISMA TRAMA que se envía.
+                 * Aquí se parsea según las posiciones definidas.
+                 */
+
+                var response = new AS400ResponseDto
+                {
+                    Pin = trama.Substring(24, 4).Trim(),
+                    CodigoError = trama.Substring(28, 3).Trim(),
+                    DescripcionError = trama.Substring(31, 50).Trim()
+                };
+
+                return response;
+            }
+            catch (OleDbException ex)
+            {
+                _logger.LogError(ex, "Error OleDb al ejecutar programa AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = "ERROR AL LLAMAR A MQ"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inesperado al ejecutar programa AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = "TRAMA NO ENCONTRADA"
+                };
+            }
+        }
+    }
+}
