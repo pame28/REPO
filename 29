@@ -1,171 +1,38 @@
-using System.Data;
-using System.Data.OleDb;
-using Microsoft.Extensions.Logging;
-using reposicion_pin.DTOs;
+Provider=IBMDA400;
+Data Source=MI_AS400;
+User ID=USR;
+Password=PWD;
+Naming=System;
+Default Collection=QGPL;
 
-namespace reposicion_pin.Infrastructure
+
+
+
+
+
+private static async Task EjecutarCL(OleDbConnection conn, string comando)
 {
-    public class AS400Client
+    var comandoLimpio = comando.Trim();
+    var largo = comandoLimpio.Length;
+
+    using var cmd = new OleDbCommand(
+        "CALL QSYS/QCMDEXC(?, ?)",
+        conn);
+
+    cmd.CommandType = CommandType.Text;
+
+    cmd.Parameters.Add(new OleDbParameter
     {
-        private readonly string _connectionString;
-        private readonly ILogger<AS400Client> _logger;
+        OleDbType = OleDbType.Char,
+        Size = 32702,
+        Value = comandoLimpio
+    });
 
-        public AS400Client(string connectionString, ILogger<AS400Client> logger)
-        {
-            _connectionString = connectionString;
-            _logger = logger;
-        }
+    cmd.Parameters.Add(new OleDbParameter
+    {
+        OleDbType = OleDbType.Decimal,
+        Value = largo
+    });
 
-        public async Task<AS400ResponseDto> EjecutarReimpresionPinAsync(AS400RequestDto request)
-        {
-            string trama = ArmarTrama(request);
-
-            try
-            {
-                using var conn = new OleDbConnection(_connectionString);
-                await conn.OpenAsync();
-
-                // 1️⃣ Limpiar librerías
-                await EjecutarCL(conn, "CHGLIBL LIBL(*NONE)");
-
-                // 2️⃣ Agregar librerías necesarias
-                string[] librerias =
-                {
-                    "BPPGM",
-                    "DP053DAT",
-                    "CLIDAT",
-                    "BPDAT"
-                };
-
-                foreach (var lib in librerias)
-                    await EjecutarCL(conn, $"ADDLIBLE LIB({lib})");
-
-                // 3️⃣ Ejecutar programa AS400
-                using var cmd = new OleDbCommand(
-                    "CALL BPPGM/REIMQ07RC(?)",
-                    conn);
-
-                cmd.CommandType = CommandType.Text;
-
-                var parm = new OleDbParameter
-                {
-                    OleDbType = OleDbType.Char,
-                    Size = 81,
-                    Direction = ParameterDirection.InputOutput,
-                    Value = trama
-                };
-
-                cmd.Parameters.Add(parm);
-
-                _logger.LogInformation("Ejecutando REIMQ07RC con trama: {Trama}", trama);
-
-                await cmd.ExecuteNonQueryAsync();
-
-                string tramaRespuesta = parm.Value?.ToString() ?? string.Empty;
-
-                return ParsearTrama(tramaRespuesta);
-            }
-            catch (OleDbException ex)
-            {
-                _logger.LogError(ex, "Error OleDb al ejecutar AS400");
-                return new AS400ResponseDto
-                {
-                    CodigoError = "P98",
-                    DescripcionError = "ERROR AL LLAMAR A MQ"
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error general AS400");
-                return new AS400ResponseDto
-                {
-                    CodigoError = "P99",
-                    DescripcionError = ex.Message
-                };
-            }
-        }
-
-        // ----------------- Helpers -----------------
-
-        private static string ArmarTrama(AS400RequestDto req)
-        {
-            return req.EquivalenteTC.PadRight(16, ' ')
-                 + req.FechaVencimiento.ToString("yyyyMMdd")
-                 + new string(' ', 57);
-        }
-
-        private static AS400ResponseDto ParsearTrama(string trama)
-        {
-            if (trama.Length < 81)
-            {
-                return new AS400ResponseDto
-                {
-                    CodigoError = "P99",
-                    DescripcionError = "TRAMA NO ENCONTRADA"
-                };
-            }
-
-            return new AS400ResponseDto
-            {
-                Pin = trama.Substring(24, 4).Trim(),
-                CodigoError = trama.Substring(28, 3).Trim(),
-                DescripcionError = trama.Substring(31, 50).Trim()
-            };
-        }
-
-        private static async Task EjecutarCL(OleDbConnection conn, string comando)
-        {
-            using var cmd = new OleDbCommand(
-                $"CALL QSYS/QCMDEXC('{comando}', {comando.Length})",
-                conn);
-
-            await cmd.ExecuteNonQueryAsync();
-        }
-    }
+    await cmd.ExecuteNonQueryAsync();
 }
-
-
-
-
-
-
-
-public async Task<ReposicionPinResponseDto> Fase2_ConsumirAs400Async(TarjetaModel tarjeta)
-{
-    var response = await _as400Client.EjecutarReimpresionPinAsync(
-        new AS400RequestDto
-        {
-            EquivalenteTC = tarjeta.EquivalenteTC,
-            FechaVencimiento = tarjeta.FechaFinVigencia
-        });
-
-    if (!string.IsNullOrEmpty(response.CodigoError))
-    {
-        return new ReposicionPinResponseDto
-        {
-            CodigoInt = 9,
-            Descripcion = $"{response.CodigoError} - {response.DescripcionError}"
-        };
-    }
-
-    return new ReposicionPinResponseDto
-    {
-        CodigoInt = 0,
-        Descripcion = "PIN generado exitosamente",
-        Pin = response.Pin
-    };
-}
-
-
-
-
-
-
-
-builder.Services.AddScoped(sp =>
-    new AS400Client(
-        builder.Configuration.GetConnectionString("AS400"),
-        sp.GetRequiredService<ILogger<AS400Client>>()
-    ));
-
-
