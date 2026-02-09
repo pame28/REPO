@@ -1,0 +1,107 @@
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System.Data;
+using System.Data.OleDb;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        private readonly string _connectionString;
+        private readonly ILogger<AS400Repository> _logger;
+
+        private readonly string[] _librerias = new[]
+        {
+            "DP053DAT",
+            "CLIDAT",
+            "BPDAT",
+            "BPPGM",
+            "TDBI20DAT",
+            "TARJETA"
+        };
+
+        public AS400Repository(
+            IConfiguration configuration,
+            ILogger<AS400Repository> logger)
+        {
+            _connectionString = configuration.GetConnectionString("AS400");
+            _logger = logger;
+        }
+
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+        {
+            try
+            {
+                using var conn = new OleDbConnection(_connectionString);
+                await conn.OpenAsync();
+
+                // 1️⃣ Limpiar LIBRARY LIST
+                EjecutarQCmd(conn, "CHGLIBL LIBL(*NONE)");
+
+                // 2️⃣ Agregar librerías requeridas
+                foreach (var lib in _librerias)
+                {
+                    EjecutarQCmd(conn, $"ADDLIBLE LIB({lib})");
+                }
+
+                // 3️⃣ Construir trama de 81 chars
+                string trama =
+                    request.EquivalenteTC.PadRight(16) +
+                    request.FechaVencimiento.PadRight(8) +
+                    new string(' ', 57);
+
+                // 4️⃣ CALL al programa
+                string sql = $"CALL PGM(REIMQ07RC) PARM('{trama}')";
+
+                using var cmd = new OleDbCommand(sql, conn);
+                cmd.CommandType = CommandType.Text;
+                cmd.ExecuteNonQuery();
+
+                // 5️⃣ Parsear respuesta (misma trama)
+                return ParsearTrama(trama);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error ejecutando programa AS400 REIMQ07RC");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = ex.Message
+                };
+            }
+        }
+
+        private void EjecutarQCmd(OleDbConnection conn, string comando)
+        {
+            using var cmd = new OleDbCommand(
+                "CALL QSYS/QCMDEXC(?, ?)", conn);
+
+            cmd.Parameters.Add(new OleDbParameter
+            {
+                OleDbType = OleDbType.Char,
+                Value = comando.PadRight(100)
+            });
+
+            cmd.Parameters.Add(new OleDbParameter
+            {
+                OleDbType = OleDbType.Decimal,
+                Value = comando.Length
+            });
+
+            cmd.ExecuteNonQuery();
+        }
+
+        private AS400ResponseDto ParsearTrama(string trama)
+        {
+            return new AS400ResponseDto
+            {
+                Pin = trama.Substring(24, 4).Trim(),
+                CodigoError = trama.Substring(28, 3).Trim(),
+                DescripcionError = trama.Substring(31, 50).Trim()
+            };
+        }
+    }
+}
