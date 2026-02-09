@@ -1,0 +1,132 @@
+Message = "SQL0104: Símbolo PARM no válido. Símbolos válidos: <FIN DE SENTENCIA>.\r\nCausa . . . . . :   Se ha detectado un error de sintaxis en el símbolo PARM. El símbolo PARM no es un símbolo válido. Una lista parcial de símbolos válidos es <FIN DE SENTENCIA>. Est...
+
+
+
+
+StackTrace = "   en System.Data.OleDb.OleDbCommand.ExecuteCommandTextErrorHandling(OleDbHResult hr)\r\n   en System.Data.OleDb.OleDbCommand.ExecuteCommandTextForMultpleResults(tagDBPARAMS dbParams, Object& executeResult)\r\n   en System.Data.OleDb.OleDbCommand.ExecuteCo...
+
+
+System.Data.OleDb.OleDbException: 'SQL0104: Símbolo PARM no válido. Símbolos válidos: <FIN DE SENTENCIA>.
+Causa . . . . . :   Se ha detectado un error de sintaxis en el símbolo PARM. El símbolo PARM no es un símbolo válido. Una lista parcial de símbolos válidos es <FIN DE SENTENCIA>. Esta lista presupone que la sentencia es correcta hasta el símbolo. El error puede estar anteriormente en la sentencia, pero la sintaxis de la sentencia aparece como válida hasta este punto. Recuperación . . . :   Efectúe una o más de las siguientes acciones y vuelva a intentar la petición: -- Verifique la sentencia SQL en el área del símbolo PARM. Corrija la sentencia. El error podría ser la omisión de una coma o comillas; podría tratarse de una palabra con errores ortográficos, o podría estar relacionado con el orden de las cláusulas. -- Si el símbolo de error es <FIN DE SENTENCIA>, corrija la sentencia SQL porque no finaliza con una cláusula válida.'
+
+
+
+
+Esta excepción se generó originalmente en esta pila de llamadas:
+    [Código externo]
+    reposicion_pin.Repository.AS400Repository.EjecutarProgramaAsync(reposicion_pin.DTOs.AS400RequestDto) en AS400Repository.cs
+
+
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using System.Data;
+using System.Data.OleDb;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        private readonly ILogger<AS400Repository> _logger;
+        private readonly string _connectionString;
+
+        public AS400Repository(ILogger<AS400Repository> logger, IConfiguration configuration)
+        {
+            _logger = logger;
+            _connectionString = configuration.GetConnectionString("AS400Connection")!;
+        }
+
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+        {
+            try
+            {
+                using var conn = new OleDbConnection(_connectionString);
+
+                if (conn.State == ConnectionState.Closed)
+                    await conn.OpenAsync();
+
+                OleDbCommand comLib = new OleDbCommand();
+                comLib.CommandType = CommandType.Text;
+                comLib.Connection = conn;
+
+
+                //Limpia la librerias ya cargadas anteriormente
+                comLib.CommandText = "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+                comLib.ExecuteNonQuery();
+
+
+
+                // 2️⃣ Agregar librerías (orden IMPORTA)
+                string[] librerias =
+                {
+                "DP053DAT",
+                "CLIDAT",
+                "BPDAT",
+                "BPPGM",
+                "TDBI20DAT",
+                "TARJETA"
+            };
+
+                foreach (var lib in librerias)
+                {
+                   // await EjecutarComando(conn, $"ADDLIBLE LIB({lib})");
+                    comLib.CommandText = $"{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB({lib})' 30)}}";
+                    comLib.ExecuteNonQuery();
+                }
+
+
+                string trama =
+                    request.EquivalenteTC.PadRight(16, ' ') +
+                    request.FechaVencimiento.PadRight(8, ' ') +
+                    new string(' ', 57); // completa hasta 81
+
+                string comando =
+                    $"{{{{CALL PGM(BPPGM/REIMQ07RC) PARM('{trama}')}}}}";
+
+                using var cmd = new OleDbCommand(comando, conn);
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandTimeout = 300;
+
+                _logger.LogInformation("Ejecutando programa AS400 REIMQ07RC");
+                _logger.LogDebug("Comando AS400: {Comando}", comando);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                var response = new AS400ResponseDto
+                {
+                    Pin = trama.Substring(24, 4).Trim(),
+                    CodigoError = trama.Substring(28, 3).Trim(),
+                    DescripcionError = trama.Substring(31, 50).Trim()
+                };
+
+                return response;
+            }
+            catch (OleDbException ex)
+            {
+                _logger.LogError(ex, "Error OleDb al ejecutar programa AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = "ERROR AL LLAMAR A MQ"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inesperado al ejecutar programa AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = "TRAMA NO ENCONTRADA"
+                };
+            }
+        }
+    }
+}
+
+
+
+
+Ayudame a corregirlo porfa 
