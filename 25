@@ -1,0 +1,338 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Data.OleDb;
+using System.Data;
+using System.Configuration;
+
+namespace SistemaCobranzasBP.Clases
+{
+    public class ClassAS400
+    {
+        private string _ConnectionString;
+        private string _Query;
+        private string _Mensaje;
+        private bool _Success;
+        private int _CommandTimeout;
+        private List<OleDbParameter> _Parametros = new List<OleDbParameter>();
+        private DataTable _dtLibrerias = new DataTable();
+        private string _Comando;
+       // private List<> _Librerias = new List<OleDbParameter>();
+
+        //Contructores de la clase
+        #region Constructores
+        public ClassAS400(string conexion,string query)
+        {
+            this._ConnectionString = conexion;
+            this._Query = query;
+            this._Mensaje = string.Empty;
+            this._Success = true;
+            this._CommandTimeout = 300;
+            this._dtLibrerias = null;
+            this._Comando = string.Empty;
+        }
+
+
+        public ClassAS400(string conexion, string query, DataTable librerias)
+        {
+            this._ConnectionString = conexion;
+            this._Query = query;
+            this._Mensaje = string.Empty;
+            this._Success = true;
+            this._CommandTimeout = 300;
+            this._dtLibrerias = librerias;
+            this.LimpiarParametros = true;
+        } 
+        #endregion
+
+        //Propiendas de los campos
+        #region Propiedades
+        public string ConnectionString
+        {
+            set { this._ConnectionString = value; }
+            get { return this._ConnectionString; }
+        }
+
+        public string Query
+        {
+            set { this._Query = value; }
+            get { return this._Query; }
+        }
+
+        public string Mensaje
+        {
+            get { return this._Mensaje; }
+        }
+
+        public bool LimpiarParametros { get; set; }
+
+        public List<OleDbParameter> Parametros
+        {
+            get { return this._Parametros; }
+        }
+
+        public bool Success
+        {
+            get { return this._Success; }
+        }
+
+        public int CommandTimeout
+        {
+            set { this._CommandTimeout = value; }
+            get { return this._CommandTimeout; }
+        }
+
+        public string Comando
+        {
+            get { return this._Comando; }
+        }
+        public DataTable dtLibrerias
+        {
+            get { return this._dtLibrerias; }
+        }
+        #endregion
+
+        //Ejecuta los Calls tipo Procedure con sus parametros correspondientes y regresa DataTable
+        public DataTable dtProcedureCALL()
+        {
+            this._Mensaje = string.Empty;
+            this._Success = true;
+            DataTable dt = new DataTable();
+            
+            try
+            {
+                using (OleDbConnection Conn = new OleDbConnection(this._ConnectionString))                
+                {
+                    //Abre las conexiones si estan cerradas
+                    if (Conn.State == ConnectionState.Closed)                    
+                        Conn.Open();
+
+                    OleDbCommand com = new OleDbCommand();
+                    com.Connection = Conn;
+                    com.CommandText = this._Query;
+                    com.CommandType = CommandType.StoredProcedure;
+                    com.CommandTimeout = this._CommandTimeout;
+
+
+                    //Recorre los parametros para enviarlos a el Call
+                    if (this._Parametros.Count > 0)
+                    {
+                        foreach (OleDbParameter param in this._Parametros)
+                        {                           
+                           
+                            com.Parameters.Add(param);
+                            //logParametros += " Parámetro " + param.ParameterName + " : " + param.Value + ", ";
+                        }
+
+
+                        using (OleDbDataReader reader = com.ExecuteReader())
+                        {
+                            dt.Load(reader);
+
+                            if (!reader.IsClosed)
+                                reader.Close();
+                        }
+
+                    }
+
+                    
+
+                    //Cierras las conexiones si estan abiertas
+                    if (Conn.State == ConnectionState.Open)
+                    {
+                        Conn.Close();
+                        Conn.Dispose();
+                    }
+
+                }
+
+                            }
+            catch (Exception ex)
+            {
+                //log.Error(ex.ToString() + logParametros);
+                this._Mensaje = ex.Message.ToString();
+                this._Success = false;
+            }
+
+            this._Parametros.Clear();
+            return dt;
+            
+        }
+
+        //Ejecuta los Calls con sus parametros correspondientes
+        public void exeParamPRGCALL()
+        {
+            this._Mensaje = string.Empty;
+            this._Success = true;
+           // DataTable dt = new DataTable();
+
+            try
+            {
+                using (OleDbConnection Conn = new OleDbConnection(this._ConnectionString))
+                {
+                    //Abre las conexiones si estan cerradas
+                    if (Conn.State == ConnectionState.Closed)
+                        Conn.Open();
+
+                    //Creea el comando para ejecutar el programa
+                    OleDbCommand com = new OleDbCommand(this._Query, Conn);
+                    com.CommandType = CommandType.Text;   
+
+                    //Recorre los parametros para enviarlos a el Call
+                    if (this._Parametros.Count > 0)
+                    {
+                        foreach (OleDbParameter param in this._Parametros)
+                        {
+
+                            com.Parameters.Add(param);
+                        }
+
+                        //agrega las librerias para la ejecución del programa
+                        if (this._dtLibrerias.Rows.Count > 0)
+                        {
+                            OleDbCommand comLib = new OleDbCommand();
+                            comLib.CommandType = CommandType.Text;
+                            comLib.Connection = Conn;
+
+                            //Limpia la librerias ya cargadas anteriormente
+                            comLib.CommandText = "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+                            comLib.ExecuteNonQuery();
+
+                            //Agrega las librerias parametrizadas en la tabla de la BD
+                            foreach (DataRow row in _dtLibrerias.Rows) 
+                            {                                
+                                comLib.CommandText = "{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB("+row[0].ToString()+")' 30)}}";
+                                comLib.ExecuteNonQuery();
+                            }
+                    
+                        }
+
+                        //Ejecuta el programa
+                        com.ExecuteNonQuery();
+
+                    }
+
+                    //Cierras las conexiones si estan abiertas
+                    if (Conn.State == ConnectionState.Open)
+                    {
+                        Conn.Close();
+                        Conn.Dispose();
+                    }
+
+                }
+            }
+            catch (Exception ex)
+            {
+                //log.Error(ex.ToString() + logParametros);
+                this._Mensaje = ex.Message.ToString();
+                this._Success = false;
+            }
+
+            if (this.LimpiarParametros)
+            {
+                this._Parametros.Clear();
+            }
+            //return dt;
+
+        }
+
+        //Ejecuta los Calls con sus parametros correspondientes y devuelve DataTable
+        public DataTable dtParamPRGCALL()
+        {
+            this._Mensaje = string.Empty;
+            this._Success = true;
+            DataTable dt = new DataTable();
+
+            try
+            {
+                using (OleDbConnection Conn = new OleDbConnection(this._ConnectionString))
+                {
+                    //Abre las conexiones si estan cerradas
+                    if (Conn.State == ConnectionState.Closed)
+                        Conn.Open();
+
+                    //Creea el comando para ejecutar el programa
+                    OleDbCommand com = new OleDbCommand(this._Query, Conn);
+                    com.CommandType = CommandType.Text;
+
+                    //Recorre los parametros para enviarlos a el Call
+                    if (this._Parametros.Count > 0)
+                    {
+                        foreach (OleDbParameter param in this._Parametros)
+                        {
+
+                            com.Parameters.Add(param);
+                        }
+
+                        //agrega las librerias para la ejecución del programa
+                        if (this._dtLibrerias.Rows.Count > 0)
+                        {
+                            OleDbCommand comLib = new OleDbCommand();
+                            comLib.CommandType = CommandType.Text;
+                            comLib.Connection = Conn;
+
+                            //Limpia la librerias ya cargadas anteriormente
+                            comLib.CommandText = "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+                            comLib.ExecuteNonQuery();
+
+                            //Agrega las librerias parametrizadas en la tabla de la BD
+                            foreach (DataRow row in _dtLibrerias.Rows)
+                            {
+                                comLib.CommandText = "{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB(" + row[0].ToString() + ")' 30)}}";
+                                comLib.ExecuteNonQuery();
+                            }
+
+                        }
+
+                        this._Comando = com.CommandText;
+                        //Ejecuta el programa
+                        com.ExecuteNonQuery();
+
+
+                        //Crea el dt de respuesta
+                        foreach (OleDbParameter param in this._Parametros)
+                        {
+                            dt.Columns.Add(param.ToString(), typeof(string));
+                        }
+
+                        //Llena dt de Respuesta
+                        DataRow newRow = dt.NewRow();
+                        foreach (OleDbParameter param in this._Parametros)
+                        {
+                            newRow[param.ToString()] = com.Parameters[param.ToString()].Value;
+
+                        }
+
+                        dt.Rows.Add(newRow);
+
+                    }
+
+                    //Cierras las conexiones si estan abiertas
+                    if (Conn.State == ConnectionState.Open)
+                    {
+                        Conn.Close();
+                        Conn.Dispose();
+                    }
+
+                }
+
+            }
+            catch (Exception ex)
+            {
+                //log.Error(ex.ToString() + logParametros);
+                this._Mensaje = ex.Message.ToString();
+                this._Success = false;
+            }
+
+            this._Parametros.Clear();
+            return dt;
+
+        }
+
+    }
+}
+
+
+
+No entiendo porque lo estamos haciendo de esa manera cuando ya existe esta, porque no nos guiamos de esto, porque no me deja de salir errores. 
