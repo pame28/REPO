@@ -1,0 +1,157 @@
+using System;
+using System.Data;
+using System.Data.OleDb;
+using System.Text;
+using Microsoft.Extensions.Logging;
+
+// DTO de respuesta
+public class AS400ResponseDto
+{
+    public string Pin { get; set; } = string.Empty;
+    public string CodigoError { get; set; } = string.Empty;
+    public string DescripcionError { get; set; } = string.Empty;
+}
+
+// DTO de request
+public class AS400RequestDto
+{
+    public string EquivalenteTC { get; set; } = string.Empty; // 16 caracteres
+    public string FechaVencimiento { get; set; } = string.Empty; // 8 caracteres YYYYMMDD
+}
+
+// Clase principal
+public class AS400Executor : IDisposable
+{
+    private readonly OleDbConnection _connection;
+    private readonly ILogger _logger;
+
+    public AS400Executor(string connectionString, ILogger? logger = null)
+    {
+        _connection = new OleDbConnection(connectionString);
+        _connection.Open();
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+    }
+
+    /// <summary>
+    /// Carga librerías en el LIBL antes de ejecutar programas
+    /// </summary>
+    public void CargarLibrerias(params string[] librerias)
+    {
+        try
+        {
+            // Limpiamos librerías anteriores
+            EjecutarCL("CHGLIBL LIBL(*NONE)");
+
+            foreach (var lib in librerias)
+            {
+                EjecutarCL($"ADDLIBLE LIB({lib})");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cargando librerías AS400");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Ejecuta comandos CL vía QCMDEXC
+    /// </summary>
+    private void EjecutarCL(string comando)
+    {
+        using var cmd = new OleDbCommand
+        {
+            Connection = _connection,
+            CommandType = CommandType.Text,
+            CommandText = $"CALL QSYS/QCMDEXC('{comando}', {comando.Length})"
+        };
+        cmd.ExecuteNonQuery();
+        _logger.LogDebug("Ejecutado CL: {comando}", comando);
+    }
+
+    /// <summary>
+    /// Ejecuta el programa REIMQ07RC y devuelve Pin y errores
+    /// </summary>
+    public AS400ResponseDto EjecutarPrograma(AS400RequestDto request, string programa = "BPPGM/REIMQ07RC")
+    {
+        try
+        {
+            // Construir trama de 81 caracteres
+            string trama = request.EquivalenteTC.PadRight(16, ' ') +
+                           request.FechaVencimiento.PadRight(8, ' ') +
+                           new string(' ', 57);
+
+            using var cmd = new OleDbCommand
+            {
+                Connection = _connection,
+                CommandType = CommandType.Text,
+                CommandText = $"CALL {programa}('{trama}')",
+                CommandTimeout = 300
+            };
+
+            _logger.LogInformation("Ejecutando programa AS400: {programa}", programa);
+            _logger.LogDebug("Comando AS400: {trama}", cmd.CommandText);
+
+            cmd.ExecuteNonQuery();
+
+            // Extraemos la respuesta de la trama
+            return new AS400ResponseDto
+            {
+                Pin = trama.Substring(24, 4).Trim(),
+                CodigoError = trama.Substring(28, 3).Trim(),
+                DescripcionError = trama.Substring(31, 50).Trim()
+            };
+        }
+        catch (OleDbException ex)
+        {
+            _logger.LogError(ex, "Error OleDb al ejecutar programa AS400");
+            return new AS400ResponseDto
+            {
+                CodigoError = "P98",
+                DescripcionError = "ERROR AL LLAMAR A MQ"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error inesperado al ejecutar programa AS400");
+            return new AS400ResponseDto
+            {
+                CodigoError = "P99",
+                DescripcionError = "TRAMA NO ENCONTRADA"
+            };
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_connection.State == ConnectionState.Open)
+            _connection.Close();
+        _connection.Dispose();
+    }
+}
+
+
+
+
+
+
+
+var connString = configuration.GetConnectionString("AS400");
+
+using var as400 = new AS400Executor(connString, logger);
+
+// 1️⃣ Cargar librerías
+as400.CargarLibrerias("DP053DAT","CLIDAT","BPDAT","BPPGM","TDBI20DAT","TARJETA");
+
+// 2️⃣ Crear request
+var request = new AS400RequestDto
+{
+    EquivalenteTC = "1000000001703841",
+    FechaVencimiento = "20191130"
+};
+
+// 3️⃣ Ejecutar programa y obtener respuesta
+var response = as400.EjecutarPrograma(request);
+
+// 4️⃣ Revisar resultado
+Console.WriteLine($"Pin: {response.Pin}, Código: {response.CodigoError}, Descripción: {response.DescripcionError}");
