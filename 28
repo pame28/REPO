@@ -1,0 +1,143 @@
+using System;
+using System.Data;
+using System.Data.OleDb;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using reposicion_pin.DTOs;
+
+namespace reposicion_pin.Repository
+{
+    /// <summary>
+    /// Clase única para ejecutar programas AS400 y obtener PIN.
+    /// </summary>
+    public class AS400Executor
+    {
+        private readonly string _connectionString;
+        private readonly ILogger<AS400Executor> _logger;
+
+        public AS400Executor(string connectionString, ILogger<AS400Executor> logger)
+        {
+            _connectionString = connectionString;
+            _logger = logger;
+        }
+
+        /// <summary>
+        /// Ejecuta el programa AS400 REIMQ07RC con los datos de la tarjeta y devuelve respuesta.
+        /// </summary>
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(string equivalenteTC, DateTime fechaVencimiento)
+        {
+            try
+            {
+                using var conn = new OleDbConnection(_connectionString);
+                if (conn.State == ConnectionState.Closed)
+                    await conn.OpenAsync();
+
+                // 1️⃣ Limpiar librerías y agregar librerías necesarias
+                string[] librerias = { "DP053DAT", "CLIDAT", "BPDAT", "BPPGM", "TDBI20DAT", "TARJETA" };
+                await EjecutarCL(conn, "CHGLIBL LIBL(*NONE)");
+                foreach (var lib in librerias)
+                    await EjecutarCL(conn, $"ADDLIBLE LIB({lib})");
+
+                // 2️⃣ Preparar trama de 81 caracteres
+                string trama = equivalenteTC.PadRight(16, ' ') +
+                               fechaVencimiento.ToString("yyyyMMdd") +
+                               new string(' ', 57);
+
+                // 3️⃣ Ejecutar programa
+                string programa = "BPPGM/REIMQ07RC";
+                using var cmd = new OleDbCommand($"CALL {programa}('{trama}')", conn)
+                {
+                    CommandType = CommandType.Text,
+                    CommandTimeout = 300
+                };
+
+                _logger.LogInformation("Ejecutando programa AS400: {programa}", programa);
+                _logger.LogDebug("Comando AS400: {trama}", cmd.CommandText);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                // 4️⃣ Extraer datos de respuesta de la trama
+                return new AS400ResponseDto
+                {
+                    Pin = trama.Substring(24, 4).Trim(),
+                    CodigoError = trama.Substring(28, 3).Trim(),
+                    DescripcionError = trama.Substring(31, 50).Trim()
+                };
+            }
+            catch (OleDbException ex)
+            {
+                _logger.LogError(ex, "Error OleDb al ejecutar programa AS400");
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = "ERROR AL LLAMAR A MQ"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inesperado al ejecutar programa AS400");
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = "TRAMA NO ENCONTRADA"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Ejecuta un comando CL vía QCMDEXC
+        /// </summary>
+        private async Task EjecutarCL(OleDbConnection conn, string comando)
+        {
+            using var cmd = new OleDbCommand
+            {
+                Connection = conn,
+                CommandType = CommandType.Text,
+                CommandText = $"CALL QSYS/QCMDEXC('{comando}', {comando.Length})"
+            };
+            await cmd.ExecuteNonQueryAsync();
+            _logger.LogDebug("Ejecutado CL: {comando}", comando);
+        }
+    }
+}
+
+
+
+
+
+public async Task<ReposicionPinResponseDto> Fase2_ConsumirAs400Async(TarjetaModel tarjeta)
+{
+    try
+    {
+        var as400Response = await _as400Repository.EjecutarProgramaAsync(
+            tarjeta.EquivalenteTC.PadLeft(16, ' '),
+            tarjeta.FechaFinVigencia
+        );
+
+        if (!string.IsNullOrEmpty(as400Response.CodigoError?.Trim()))
+            return new ReposicionPinResponseDto
+            {
+                CodigoInt = 9,
+                Descripcion = $"Error en servicio AZ7: {as400Response.DescripcionError}",
+                Pin = null
+            };
+
+        return new ReposicionPinResponseDto
+        {
+            CodigoInt = 0,
+            Descripcion = "Pin generado exitosamente",
+            Pin = as400Response.Pin
+        };
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error inesperado en Fase2 al consumir AS400");
+        return new ReposicionPinResponseDto
+        {
+            CodigoInt = 99,
+            Descripcion = ex.Message,
+            Pin = null
+        };
+    }
+}
+
