@@ -1,129 +1,87 @@
-
-
-Code	Details
-200	
-Response body
-Download
+public class AS400Repository : IAS400Repository
 {
-  "codigo": "09",
-  "descripcion": "Error en servicio AZ7: SQL5016: Nombre de objeto calificado QCMDEXC no válido.\r\nCausa . . . . . :   Se ha producido una de las causas siguientes: -- La sintaxis utilizada para el nombre de objeto calificado no es válida para la opción de denominación especificada. Con la denominación del sistema, la forma calificada de un nombre de objeto es nombre-esquema/nombre-objeto o nombre-esquema.nombre-objeto. Con denominación SQL, la forma calificada de un nombre de objeto es nombre-autorización.nombre-objeto. -- La sintaxis utilizada para el nombre de objeto calificado no está permitida. Los tipos definidos por el usuario, funciones, variables y secuencias no pueden calificarse con el nombre de esquema mediante el separador / en el convenio de denominación del sistema si se utilizan en una consulta. Recuperación . . . :   Realice una de las siguientes acciones y vuelva a intentar la petición : -- Si desea utilizar el convenio de denominación SQL, especifique la opción de denominación SQL y califique los nombres de objeto con el formato id-autorización.nombre-objeto. -- Si desea utilizar el convenio de denominación del sistema, especifique la opción de denominación del sistema y califique los nombres de objeto con el formato nombre-esquema/nombre-objeto o nombre-esquema.nombre-objeto. -- En el convenio de denominación del sistema, asegúrese de que los tipos definidos por usuario, funciones o variables se pueden encontrar en la vía de acceso actual, o utilice el formato de denominación con punto para calificar el objeto.",
-  "pin": null
-}
+    private readonly string _connectionString;
+    private readonly ILogger<AS400Repository> _logger;
 
-
-
-
-
-
-
-
-
-
-
-using reposicion_pin.DTOs;
-using reposicion_pin.Repository.Interface;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using System.Data;
-using System.Data.OleDb;
-
-namespace reposicion_pin.Repository
-{
-    public class AS400Repository : IAS400Repository
+    public AS400Repository(IConfiguration config, ILogger<AS400Repository> logger)
     {
-        private readonly string _connectionString;
-        private readonly ILogger<AS400Repository> _logger;
+        _connectionString = config.GetConnectionString("AS400");
+        _logger = logger;
+    }
 
-        private readonly string[] _librerias = new[]
+    public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+    {
+        try
         {
-            "DP053DAT",
-            "CLIDAT",
-            "BPDAT",
-            "BPPGM",
-            "TDBI20DAT",
-            "TARJETA"
-        };
+            using var conn = new OleDbConnection(_connectionString);
+            await conn.OpenAsync();
 
-        public AS400Repository(
-            IConfiguration configuration,
-            ILogger<AS400Repository> logger)
-        {
-            _connectionString = configuration.GetConnectionString("AS400");
-            _logger = logger;
-        }
+            // 1️⃣ Limpiar LIBL
+            await EjecutarComando(conn, "CHGLIBL LIBL(*NONE)");
 
-        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
-        {
-            try
+            // 2️⃣ Agregar librerías (orden IMPORTA)
+            string[] librerias =
             {
-                using var conn = new OleDbConnection(_connectionString);
-                await conn.OpenAsync();
+                "DP053DAT",
+                "CLIDAT",
+                "BPDAT",
+                "BPPGM",
+                "TDBI20DAT",
+                "TARJETA"
+            };
 
-                // 1️⃣ Limpiar LIBRARY LIST
-                EjecutarQCmd(conn, "CHGLIBL LIBL(*NONE)");
-
-                // 2️⃣ Agregar librerías requeridas
-                foreach (var lib in _librerias)
-                {
-                    EjecutarQCmd(conn, $"ADDLIBLE LIB({lib})");
-                }
-
-                // 3️⃣ Construir trama de 81 chars
-                string trama =
-                    request.EquivalenteTC.PadRight(16) +
-                    request.FechaVencimiento.PadRight(8) +
-                    new string(' ', 57);
-
-                // 4️⃣ CALL al programa
-                string sql = $"CALL PGM(REIMQ07RC) PARM('{trama}')";
-
-                using var cmd = new OleDbCommand(sql, conn);
-                cmd.CommandType = CommandType.Text;
-                cmd.ExecuteNonQuery();
-
-                // 5️⃣ Parsear respuesta (misma trama)
-                return ParsearTrama(trama);
-            }
-            catch (Exception ex)
+            foreach (var lib in librerias)
             {
-                _logger.LogError(ex, "Error ejecutando programa AS400 REIMQ07RC");
-
-                return new AS400ResponseDto
-                {
-                    CodigoError = "P99",
-                    DescripcionError = ex.Message
-                };
+                await EjecutarComando(conn, $"ADDLIBLE LIB({lib})");
             }
-        }
 
-        private void EjecutarQCmd(OleDbConnection conn, string comando)
-        {
+            // 3️⃣ Construir trama (81 chars)
+            string trama =
+                request.EquivalenteTC.PadRight(16) +
+                request.FechaVencimiento.PadRight(8) +
+                "".PadRight(4) +
+                "".PadRight(3) +
+                "".PadRight(50);
+
+            // 4️⃣ Ejecutar programa
             using var cmd = new OleDbCommand(
-                "CALL QSYS/QCMDEXC(?, ?)", conn);
+                "CALL PGM(REIMQ07RC) PARM(?)", conn);
 
-            cmd.Parameters.Add(new OleDbParameter
+            var parm = new OleDbParameter
             {
                 OleDbType = OleDbType.Char,
-                Value = comando.PadRight(100)
-            });
-
-            cmd.Parameters.Add(new OleDbParameter
-            {
-                OleDbType = OleDbType.Decimal,
-                Value = comando.Length
-            });
-
-            cmd.ExecuteNonQuery();
-        }
-
-        private AS400ResponseDto ParsearTrama(string trama)
-        {
-            return new AS400ResponseDto
-            {
-                Pin = trama.Substring(24, 4).Trim(),
-                CodigoError = trama.Substring(28, 3).Trim(),
-                DescripcionError = trama.Substring(31, 50).Trim()
+                Size = 81,
+                Direction = ParameterDirection.InputOutput,
+                Value = trama
             };
+
+            cmd.Parameters.Add(parm);
+            await cmd.ExecuteNonQueryAsync();
+
+            return ParsearRespuesta(parm.Value.ToString());
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error consumiendo AS400");
+            throw;
+        }
+    }
+
+    private async Task EjecutarComando(OleDbConnection conn, string comando)
+    {
+        using var cmd = new OleDbCommand("CALL QSYS.QCMDEXC(?, ?)", conn);
+        cmd.Parameters.Add(new OleDbParameter
+        {
+            OleDbType = OleDbType.Char,
+            Value = comando
+        });
+
+        cmd.Parameters.Add(new OleDbParameter
+        {
+            OleDbType = OleDbType.Decimal,
+            Value = comando.Length
+        });
+
+        await cmd.ExecuteNonQueryAsync();
     }
 }
