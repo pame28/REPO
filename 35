@@ -1,0 +1,66 @@
+using reposicion_pin.Models;
+using reposicion_pin.Repository.Interface;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml;
+
+namespace reposicion_pin.Repository
+{
+    public class EnvioSmsRepository : IEnvioSmsRepository
+    {
+        private readonly MensajesSoapClient _soapClient;
+        private readonly string _usr;
+        private readonly string _pass;
+
+        public EnvioSmsRepository(AppDbContext db)
+        {
+            var cred = db.ConfigBiMovil.First();
+            _usr = cred.UserBiMovil;
+            _pass = cred.PassBiMovil;
+
+            // Cliente generado automáticamente al agregar el Service Reference
+            _soapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
+        }
+
+        public async Task EnviarAsync(BandejaEnvio item, CancellationToken ct)
+        {
+            // Aquí construimos solo los parámetros, el cliente genera el SOAP
+            var response = await _soapClient.Envia_MensajeAsync(
+                _usr,
+                _pass,
+                item.Celular,           // Telefono_SMS
+                item.MetodoEnvio == 1 ? "E" : "", // Operador
+                item.Mensaje,           // Mensaje_TXT
+                item.Referencia ?? "1", // Numero_Transaccion
+                string.Empty,           // enmascarar_desde
+                string.Empty            // enmascarar_hasta
+            );
+
+            // Procesar la respuesta del SOAP
+            XmlDocument xml = new XmlDocument();
+            xml.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
+
+            var respuesta = xml.GetElementsByTagName("respuesta")[0].InnerText;
+            var codigo = respuesta.Substring(0, 1);
+
+            if (codigo != "0")
+            {
+                item.Estado = 3;
+                item.DescripcionEstado = $"Error SMS: {respuesta}";
+                throw new System.Exception(respuesta);
+            }
+            else
+            {
+                item.Estado = 1;
+                item.DescripcionEstado = "Enviado OK";
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
