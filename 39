@@ -1,0 +1,149 @@
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System.Data;
+using System.Data.OleDb;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        private readonly string _connectionString;
+        private readonly ILogger<AS400Repository> _logger;
+
+        public AS400Repository(
+            IConfiguration configuration,
+            ILogger<AS400Repository> logger)
+        {
+            _connectionString = configuration.GetConnectionString("AS400Connection")!;
+            _logger = logger;
+        }
+
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+        {
+            try
+            {
+                using var conn = new OleDbConnection(_connectionString);
+                await conn.OpenAsync();
+
+                // ================================
+                // 1️⃣ CONFIGURAR LIBRARY LIST (LEGACY)
+                // ================================
+                await ConfigurarLibraryListAsync(conn);
+
+                // ================================
+                // 2️⃣ ARMAR TRAMA (81 POSICIONES)
+                // ================================
+                string trama =
+                    request.EquivalenteTC.PadRight(16) +
+                    request.FechaVencimiento.PadRight(8) +
+                    new string(' ', 57);
+
+                _logger.LogInformation("Trama enviada AS400: {Trama}", trama);
+
+                // ================================
+                // 3️⃣ CALL AL PROGRAMA RPG
+                // ================================
+                using var cmd = conn.CreateCommand();
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandTimeout = 300;
+
+                // CALL clásico como en el sistema legacy
+                cmd.CommandText = "{{CALL BPPGM/REIMQ07RC(?)}}";
+
+                var paramTrama = new OleDbParameter
+                {
+                    ParameterName = "peTramaMQRcv",
+                    OleDbType = OleDbType.Char,
+                    Size = 81,
+                    Direction = ParameterDirection.InputOutput,
+                    Value = trama
+                };
+
+                cmd.Parameters.Add(paramTrama);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                string tramaRespuesta = paramTrama.Value?.ToString() ?? string.Empty;
+                _logger.LogInformation("Trama respuesta AS400: {Trama}", tramaRespuesta);
+
+                return ParsearRespuesta(tramaRespuesta);
+            }
+            catch (OleDbException ex)
+            {
+                _logger.LogError(ex, "Error OLE DB AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = ex.Message
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = ex.Message
+                };
+            }
+        }
+
+        // =====================================================
+        // CONFIGURAR LIBRARY LIST (MISMO PATRÓN LEGACY)
+        // =====================================================
+        private async Task ConfigurarLibraryListAsync(OleDbConnection conn)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandTimeout = 300;
+
+            // Limpia el LIBL
+            cmd.CommandText =
+                "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+            await cmd.ExecuteNonQueryAsync();
+
+            // Librerías en el orden correcto
+            string[] librerias =
+            {
+                "DP053DAT",
+                "CLIDAT",
+                "BPDAT",
+                "BPPGM",
+                "TDBI20DAT"
+            };
+
+            foreach (var lib in librerias)
+            {
+                cmd.CommandText =
+                    $"{{{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB({lib})' 30)}}}}";
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        // =====================================================
+        // PARSEO DE TRAMA RESPUESTA
+        // =====================================================
+        private static AS400ResponseDto ParsearRespuesta(string trama)
+        {
+            if (string.IsNullOrWhiteSpace(trama) || trama.Length < 41)
+            {
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = "TRAMA RESPUESTA INVÁLIDA"
+                };
+            }
+
+            return new AS400ResponseDto
+            {
+                Pin = trama.Substring(34, 4).Trim(),
+                CodigoError = trama.Substring(38, 3).Trim(),
+                DescripcionError = trama.Substring(41).Trim()
+            };
+        }
+    }
+}
