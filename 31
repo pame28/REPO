@@ -1,0 +1,90 @@
+Importando metadatos de servicio web...
+Código de referencia del servicio de scaffolding...
+ErrorDeterminando los proyectos que se van a restaurar...
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.caching.memory/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.abstractions/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.versioning/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.applicationinsights/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.projectmodel/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.caching.memory/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.abstractions/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.versioning/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.projectmodel/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.applicationinsights/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.caching.memory/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.abstractions/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.projectmodel/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.applicationinsights/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.versioning/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.caching.memory/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.abstractions/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.projectmodel/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.versioning/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.applicationinsights/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.caching.memory/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.abstractions/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/microsoft.applicationinsights/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.versioning/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  Se reintentará "FindPackagesByIdAsync" para el origen "https://api.nuget.org/v3-flatcontainer/nuget.projectmodel/index.json".
+  The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301: No se pudo recuperar información sobre "Microsoft.Extensions.Configuration.Abstractions" del origen remoto "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.abstractions/index.json".
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301:   The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301: No se pudo recuperar información sobre "Microsoft.Extensions.Caching.Memory" del origen remoto "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.caching.memory/index.json".
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301:   The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301: No se pudo recuperar información sobre "Microsoft.Extensions.Logging" del origen remoto "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging/index.json".
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301:   The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301: No se pudo recuperar información sobre "Microsoft.ApplicationInsights" del origen remoto "https://api.nuget.org/v3-flatcontainer/microsoft.applicationinsights/index.json".
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301:   The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+  No se pudo restaurar C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj (en 7.18 s).
+
+ERROR al compilar.
+
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301: No se pudo recuperar información sobre "Microsoft.Extensions.Configuration.Abstractions" del origen remoto "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.abstractions/index.json".
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301:   The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301: No se pudo recuperar información sobre "Microsoft.Extensions.Caching.Memory" del origen remoto "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.caching.memory/index.json".
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301:   The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301: No se pudo recuperar información sobre "Microsoft.Extensions.Logging" del origen remoto "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging/index.json".
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301:   The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301: No se pudo recuperar información sobre "Microsoft.ApplicationInsights" del origen remoto "https://api.nuget.org/v3-flatcontainer/microsoft.applicationinsights/index.json".
+C:\Users\80730.HN\AppData\Local\Temp\WCFConnectedService\2026_Feb_10_09_10_16\svcutil_bootstrap\SvcutilBootstrapper\SvcutilBootstrapper.csproj : error NU1301:   The proxy tunnel request to proxy 'http://pxhn.corporacionbi.com:9090/' failed with status code '407'."
+    0 Advertencia(s)
+    4 Errores
+
+Tiempo transcurrido 00:00:07.74
+Error al arrancar svcutil. Esto suele ocurrir al procesar referencias. Es posible que pueda solucionar este problema si no proporciona parámetros de referencia y quita manualmente los tipos redefinidos en el código proxy generado.
+Listo.
+ErrorNo se pudieron agregar las referencias de servicio. El índice (basado en cero) debe ser mayor o igual a cero y menor que el tamaño de la lista de argumentos.
