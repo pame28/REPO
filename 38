@@ -1,2 +1,12 @@
-System.Data.OleDb.OleDbException: 'CPF0006: Se han producido errores en el mandato.
-Causa . . . . . :   Si se ha pasado una longitud errónea en una parte del mandato, se emiten otros mensajes puesto que se analiza la parte errónea del mandato. Recuperación  . :   Consulte los mensajes listados anteriormente en el registro de trabajo. Corrija los errores y, después, vuelva a intentar el mandato.'
+using (var cmdLib = conn.CreateCommand())
+{
+    cmdLib.CommandType = CommandType.Text;
+
+    string clCommand = "CHGLIBL LIBL(BPPGM BPTARJ BPMSG BPDAT BPSEG QTEMP)";
+    int cmdLength = clCommand.Length;
+
+    cmdLib.CommandText =
+        $"CALL QSYS2.QCMDEXC('{clCommand}', {cmdLength})";
+
+    await cmdLib.ExecuteNonQueryAsync();
+}
