@@ -1,0 +1,256 @@
+using System;
+
+namespace PinReset.Api.Models
+{
+    public class BandejaEnvio
+    {
+        public int IdRow { get; set; }
+        public string Celular { get; set; }
+        public string Email { get; set; }
+        public string Mensaje { get; set; }
+        public int MetodoEnvio { get; set; } // 1 = SMS | 2 = EMAIL
+        public int Estado { get; set; } // 0 pendiente | 1 enviado | 2 fallido | 3 error
+        public string Referencia { get; set; }
+        public DateTime? FechaFinal { get; set; }
+        public string DescripcionEstado { get; set; }
+    }
+}
+
+
+
+
+
+
+
+namespace PinReset.Api.Models
+{
+    public class ConfigBiMovil
+    {
+        public int Id { get; set; }
+        public string UserBiMovil { get; set; }
+        public string PassBiMovil { get; set; }
+    }
+}
+
+
+
+
+
+
+
+using Microsoft.EntityFrameworkCore;
+using PinReset.Api.Models;
+
+namespace PinReset.Api.Data
+{
+    public class PinDbContext : DbContext
+    {
+        public PinDbContext(DbContextOptions<PinDbContext> options) : base(options) { }
+
+        public DbSet<BandejaEnvio> BandejaEnvio { get; set; }
+        public DbSet<ConfigBiMovil> ConfigBiMovil { get; set; }
+    }
+}
+
+
+
+
+
+
+
+using PinReset.Api.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace PinReset.Api.Repositories
+{
+    public interface IBandejaEnvioRepository
+    {
+        Task<List<BandejaEnvio>> ObtenerPendientesAsync();
+        Task ActualizarEstadoAsync(int id, int estado, string descripcion);
+    }
+}
+
+
+
+
+
+
+
+using Microsoft.EntityFrameworkCore;
+using PinReset.Api.Data;
+using PinReset.Api.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace PinReset.Api.Repositories
+{
+    public class BandejaEnvioRepository : IBandejaEnvioRepository
+    {
+        private readonly PinDbContext _db;
+
+        public BandejaEnvioRepository(PinDbContext db)
+        {
+            _db = db;
+        }
+
+        public async Task<List<BandejaEnvio>> ObtenerPendientesAsync()
+        {
+            return await _db.BandejaEnvio
+                .Where(x => x.Estado == 0)
+                .ToListAsync();
+        }
+
+        public async Task ActualizarEstadoAsync(int id, int estado, string descripcion)
+        {
+            var item = await _db.BandejaEnvio.FindAsync(id);
+            if (item == null) return;
+
+            item.Estado = estado;
+            item.DescripcionEstado = descripcion;
+            item.FechaFinal = DateTime.Now;
+
+            await _db.SaveChangesAsync();
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+using PinReset.Api.Models;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PinReset.Api.Repositories
+{
+    public interface IEnvioSmsRepository
+    {
+        Task EnviarAsync(BandejaEnvio item, CancellationToken ct);
+    }
+}
+
+
+
+
+
+
+
+
+using log4net;
+using PinReset.Api.Data;
+using PinReset.Api.Models;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml;
+using wsBiMovil;
+
+namespace PinReset.Api.Repositories
+{
+    public class EnvioSmsRepository : IEnvioSmsRepository
+    {
+        private readonly MensajesSoapClient _soapClient;
+        private readonly string _usr;
+        private readonly string _pass;
+        private readonly ILog _log;
+
+        public EnvioSmsRepository(PinDbContext db, ILog log)
+        {
+            _log = log;
+            _soapClient = new MensajesSoapClient(
+                MensajesSoapClient.EndpointConfiguration.MensajesSoap
+            );
+
+            var cred = db.ConfigBiMovil.First();
+            _usr = cred.UserBiMovil;
+            _pass = cred.PassBiMovil;
+        }
+
+        public async Task EnviarAsync(BandejaEnvio item, CancellationToken ct)
+        {
+            var response = await _soapClient.Envia_MensajeAsync(
+                _usr,
+                _pass,
+                item.Celular,
+                "TIGO",
+                item.Mensaje,
+                item.Referencia,
+                string.Empty,
+                string.Empty
+            );
+
+            XmlDocument xml = new XmlDocument();
+            xml.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
+
+            var respuesta = xml.GetElementsByTagName("respuesta")[0].InnerText;
+            var codigo = respuesta.Substring(0, 1);
+
+            if (codigo != "0")
+                throw new Exception(respuesta);
+        }
+    }
+}
+
+
+
+
+
+
+
+using PinReset.Api.Models;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PinReset.Api.Repositories
+{
+    public interface IEnvioCorreoRepository
+    {
+        Task EnviarAsync(BandejaEnvio item, CancellationToken ct);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+using PinReset.Api.Models;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PinReset.Api.Repositories
+{
+    public class EnvioCorreoRepository : IEnvioCorreoRepository
+    {
+        public async Task EnviarAsync(BandejaEnvio item, CancellationToken ct)
+        {
+            // Placeholder realista
+            await Task.Delay(300, ct);
+            // Aquí iría SMTP / API correo
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
