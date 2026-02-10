@@ -1,12 +1,3 @@
-using (var cmdLib = conn.CreateCommand())
-{
-    cmdLib.CommandType = CommandType.Text;
+System.Data.OleDb.OleDbException: 'CPF2184: Lista de bibliotecas no sustituida.
+Recuperación  . :   Vea los mensajes anotados anteriormente para determinar la causa del error. Corrija el error y vuelva a intentar el mandato.'
 
-    string clCommand = "CHGLIBL LIBL(BPPGM BPTARJ BPMSG BPDAT BPSEG QTEMP)";
-    int cmdLength = clCommand.Length;
-
-    cmdLib.CommandText =
-        $"CALL QSYS2.QCMDEXC('{clCommand}', {cmdLength})";
-
-    await cmdLib.ExecuteNonQueryAsync();
-}
