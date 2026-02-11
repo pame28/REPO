@@ -11,6 +11,32 @@ AHORA, PARA EL ENVIO DE SMS USAREMOS:
 
 wsBIMOVIL, yo ya lo tengo integrado en Conected Service en mi aplicación.
 
+
+Este es el request desde soap:
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:bim="http://10.2.0.189/bimovil_mensajesX">
+<soapenv:Header/>
+<soapenv:Body>
+<bim:Envia_Mensaje>
+<!--Optional:-->
+<bim:User>pruebas</bim:User>
+<!--Optional:-->
+<bim:Pass>exhaustivas</bim:Pass>
+<!--Optional:-->
+<bim:Telefono_SMS>97530914</bim:Telefono_SMS>
+<!--Optional:-->
+<bim:Operador>E</bim:Operador>
+<!--Optional:-->
+<bim:Mensaje_TXT>Prueba</bim:Mensaje_TXT>
+<!--Optional:-->
+<bim:Numero_Transaccion>1</bim:Numero_Transaccion>
+<!--Optional:-->
+<bim:enmascarar_desde></bim:enmascarar_desde>
+<!--Optional:-->
+<bim:enmascarar_hasta></bim:enmascarar_hasta>
+</bim:Envia_Mensaje>
+</soapenv:Body>
+</soapenv:Envelope>
+
 Te voy a mostrar un ejemplo .. el cual me solicitaron se consumiera igual al ejemplo que te voy a brindar:
 
 using BPNotificaSMS.Models.BPNotifica;
