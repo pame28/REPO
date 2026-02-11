@@ -1,0 +1,951 @@
+Ok, ahora ayudame a integrar un servicio para envio de SMS o correo, y tambien de que se guarden como los sms o correos que estamos enviado, para llevar registro de todo lo que se envia.
+Para que?
+
+Pues, el PIN que me devuelve el AS400 yo lo tengo que enviar en un SMS o un correo. ¿Como voy a saber eso? 
+
+CRM me ingresa esos datos: MetodEnvio se llama el campo .. si es 1 se enviará mediante SMS; si es 2 se enviará por Correo ... 
+Además me dice cual será el contenido que enviaremos segun los campos "contenidoSMS": "","contenidoCorreo": "" según corresponda + el PIN que nos da AS400
+
+
+AHORA, PARA EL ENVIO DE SMS USAREMOS:
+
+wsBIMOVIL, yo ya lo tengo integrado en Conected Service en mi aplicación.
+
+Te voy a mostrar un ejemplo .. el cual me solicitaron se consumiera igual al ejemplo que te voy a brindar:
+
+using BPNotificaSMS.Models.BPNotifica;
+using log4net;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml;
+using wsBiMovil;
+
+namespace BPNotificaSMS.Repository
+{
+    public class EnviaMensajeRespository
+    {
+        private readonly ILog _log;
+        private readonly ILogger<EnviaMensajeRespository> _logger;
+        private readonly MensajesSoapClient _mensajesSoapClient;
+        private readonly BPNotificaContext _dbContext;
+        private static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(1, 1);
+        private readonly string _UsrBiMovil;
+        private readonly string _PassBiMovil;
+        private readonly ParamAmbiente _paramAmbiente;
+        private readonly string _TipoTarjeta;
+
+        public EnviaMensajeRespository(ILogger<EnviaMensajeRespository> logger, IConfiguration configuration, BPNotificaContext dbContext, ILog log)
+        {
+            _logger = logger;
+            _log = log;
+            _mensajesSoapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
+            _dbContext = dbContext;
+            List<usp_ObtenerConfigBiMovil> configBiMovil = _dbContext.usp_ObtenerConfigBiMovil.ToList();
+            this._UsrBiMovil = configBiMovil[0].UserBiMovil;
+            this._PassBiMovil = configBiMovil[0].PassBiMovil;
+            _paramAmbiente = _dbContext.ParamAmbientes.Where(s => s.Estado == 1).FirstOrDefault();
+            _TipoTarjeta = configuration.GetSection("TipoTarjeta").Value.Trim().ToUpper();
+        }
+
+        public async Task EnviarSMSAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                log4net.LogicalThreadContext.Properties["activityid"] = new ActivityIdHelper().ToString();
+
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    List<BandejaEnvioSm> bandejaEnvioSms = _dbContext.BandejaEnvioSms.Where(s => s.Estado == 0 && s.TipoTarjeta == _TipoTarjeta).ToList();
+                    Envia_MensajeResponseEnvia_MensajeResult envia_MensajeResponseEnvia_MensajeResult = new Envia_MensajeResponseEnvia_MensajeResult();
+                    Envia_MensajeResponse response = new Envia_MensajeResponse(envia_MensajeResponseEnvia_MensajeResult);
+
+                    string codigo = string.Empty;
+                    string mensajeR = string.Empty;
+                    int maxHilos = _dbContext.ParamHilos.Where(s => s.TipoTarjeta == _TipoTarjeta).Select(s => s.Sms).First();
+
+                    _log.Info($"Procesando lote: {bandejaEnvioSms.Count} SMS - {_TipoTarjeta} pendientes.");
+                    ParallelOptions options = new ParallelOptions
+                    {
+                        MaxDegreeOfParallelism = maxHilos
+                    };
+                    await Parallel.ForEachAsync(bandejaEnvioSms, options, async (item, _) =>
+                    {
+
+                        try
+                        {
+                            if (_paramAmbiente is null)
+                            {
+                                response = await _mensajesSoapClient.Envia_MensajeAsync(
+                                    _UsrBiMovil, _PassBiMovil, item.Celular, item.Telco, item.Sms, item.Referencia, string.Empty, string.Empty
+                                );
+                            }
+                            else
+                            {
+                                response = await _mensajesSoapClient.Envia_MensajeAsync(
+                                    _UsrBiMovil, _PassBiMovil, _paramAmbiente.Telefono, _paramAmbiente.IdOperador, item.Sms, item.Referencia, string.Empty, string.Empty
+                                );
+                            }
+
+
+                            XmlElement xmlElements = response.Envia_MensajeResult.Any1;
+
+                            XmlDocument xmlDocument = new XmlDocument();
+                            xmlDocument.LoadXml(xmlElements.InnerXml);
+                            XmlNodeList nodo = xmlDocument.GetElementsByTagName("respuesta");
+                            string cadena = nodo[0].InnerText;
+
+                            codigo = cadena.Substring(0, 1);
+                            mensajeR = cadena.Substring(1, cadena.Length - 1);
+
+
+                            // Verificar respuesta y actualizar estado en la base de datos
+                            if (codigo == "0")
+                            {
+                                _log.Info($"Notificación No. {item.Referencia} enviada correctamente. - {_TipoTarjeta}: {item.NumeroTarjeta}, Respuesta BiMovil: {mensajeR}");
+
+                                await ActualizarEstadoEnviadoAsync(item.IdRow, 1, mensajeR, cancellationToken);
+
+                            }
+                            else
+                            {
+                                _log.Warn($"Notificación No. {item.Referencia} no enviada. - {_TipoTarjeta}: {item.NumeroTarjeta}, Respuesta BiMovil: {mensajeR}");
+                                await ActualizarEstadoEnviadoAsync(item.IdRow, 2, mensajeR, cancellationToken);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _log.Error($"Error al enviar la notificación No. {item.Referencia}. - {_TipoTarjeta}: {item.NumeroTarjeta}, Respuesta BiMovil: {mensajeR}");
+                            _log.Error(ex.Message);
+                            await ActualizarEstadoEnviadoAsync(item.IdRow, 3, ex.Message, cancellationToken);
+                        }
+
+                    });
+                }
+                else
+                {
+                    _log.Info("Se ha detenido el servicio debito a solicitud de CancellationToken");
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Error("Error en async Task<bool> EnviarSMSAsync", ex);
+            }
+        }
+
+        private async Task ActualizarEstadoEnviadoAsync(int idRow, int estado, string descripcion, CancellationToken cancellationToken)
+        {
+            await _semaphoreSlim.WaitAsync(cancellationToken);
+            try
+            {
+                BandejaEnvioSm registro = await _dbContext.BandejaEnvioSms.FindAsync(idRow);
+                if (registro != null)
+                {
+                    registro.Estado = estado;
+                    registro.FechaFinal = DateTime.Now;
+                    registro.DescripcionEstado = descripcion;
+
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Error("Error en ActualizarEstadoEnviadoAsync", ex);
+            }
+            finally
+            {
+                _semaphoreSlim.Release();
+            }
+
+
+        }
+    }
+}
+
+
+
+
+PARA EL ENVIO DE CORREO NOS BASAREMOS EN ESTE EJEMPLO:
+
+
+
+using BPNotificaEmail.Models.BPNotifica;
+using log4net;
+using System.Net.Mail;
+
+namespace BPNotificaEmail.Repository
+{
+	public class EnviaMensajeRepository
+	{
+		private readonly ILog _log;
+		private readonly ILogger<EnviaMensajeRepository> _logger;
+		private readonly BPNotificaContext _dbContext;
+		private static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(1, 1);
+        private static readonly SemaphoreSlim _semaphoreSlimEmail = new SemaphoreSlim(1, 1);
+        private readonly string _smtpServer;
+		private readonly ParamAmbiente _paramAmbiente;
+		private readonly string _TipoTarjeta;
+		public EnviaMensajeRepository(ILogger<EnviaMensajeRepository> logger, BPNotificaContext dbContext, IConfiguration configuration, ILog log)
+		{
+			_logger = logger;
+			_log = log;
+			_dbContext = dbContext;
+			_smtpServer = _dbContext.ConfigGenerales.Select(s => s.ServerEmail).First();
+			_paramAmbiente = _dbContext.ParamAmbientes.Where(s => s.Estado == 1).FirstOrDefault();
+			_TipoTarjeta = configuration.GetSection("TipoTarjeta").Value.Trim().ToUpper();
+		}
+
+		public async Task EnviarEmailAsync(CancellationToken cancellationToken)
+		{
+			try
+			{
+				log4net.LogicalThreadContext.Properties["activityid"] = new ActivityIdHelper().ToString();
+
+				if (!cancellationToken.IsCancellationRequested)
+				{
+					// Obtención de los correos pendientes
+					List<BandejaEnvioEmail> bandejaEnvioEmails = _dbContext.BandejaEnvioEmails
+						.Where(s => s.Estado == 0 && s.TipoTarjeta == _TipoTarjeta)
+						.ToList();
+
+					// Límite de concurrencia
+					int maxHilos = _dbContext.ParamHilos.Where(s => s.TipoTarjeta == _TipoTarjeta).Select(s => s.Email).First();
+					_log.Info($"Procesando lote: {bandejaEnvioEmails.Count} correos - {_TipoTarjeta} pendientes.");
+
+					// Inicializamos el SemaphoreSlim para controlar la cantidad de hilos concurrentes
+					using (SemaphoreSlim semaphore = new SemaphoreSlim(maxHilos))
+					{
+						List<Task> tareasEnvio = new List<Task>();
+
+						foreach (var item in bandejaEnvioEmails)
+						{
+							await semaphore.WaitAsync(cancellationToken);
+
+							tareasEnvio.Add(Task.Run(async () =>
+							{
+								try
+								{
+									bool result = false;
+
+									if (_paramAmbiente is null)
+									{
+										result = await EnviarEmail(item.MailFrom, item.MailSubject, item.Correo, item.CuerpoCorreo, cancellationToken);
+									}
+									else
+									{
+										result = await EnviarEmail(item.MailFrom, item.MailSubject, _paramAmbiente.Correo, item.CuerpoCorreo, cancellationToken);
+									}
+
+
+
+									if (result)
+									{
+										_log.Info($"Notificación No. {item.Referencia} enviada correctamente. TDC: {item.NumeroTarjeta}");
+										await ActualizarEstadoEnviadoAsync(item.IdRow, 1, "Correo enviado satisfactoriamente", cancellationToken);
+
+									}
+									else
+									{
+										_log.Warn($"Notificación No. {item.Referencia} no enviada. TDC: {item.NumeroTarjeta}");
+										await ActualizarEstadoEnviadoAsync(item.IdRow, 2, "Correo no enviado", cancellationToken);
+
+									}
+								}
+								catch (Exception ex)
+								{
+									_log.Error($"Error al enviar la notificación No. {item.Referencia}. TDC: {item.NumeroTarjeta}");
+									_log.Error(ex.Message);
+									await ActualizarEstadoEnviadoAsync(item.IdRow, 3, ex.Message, cancellationToken);
+
+								}
+								finally
+								{
+									semaphore.Release();
+								}
+							}));
+
+						}
+						await Task.WhenAll(tareasEnvio);
+					}
+				}
+				else
+				{
+                    _log.Info("Se ha detenido el servicio debito a solicitud de CancellationToken");
+                }
+			}
+			catch (Exception ex)
+			{
+
+				_log.Error("Error en async Task EnviarEmailAsync: ", ex);
+
+			}
+
+		}
+
+		private async Task<bool> EnviarEmail(string From, string Subject, string SendTo, string Body, CancellationToken cancellationToken)
+		{
+            await _semaphoreSlimEmail.WaitAsync(cancellationToken);
+            try
+			{
+				using (MailMessage htmlMessage = new MailMessage(From, SendTo, Subject, Body))
+				{
+					htmlMessage.IsBodyHtml = true;
+
+					using (SmtpClient mySmtpClient = new SmtpClient(_smtpServer))
+					{
+						await mySmtpClient.SendMailAsync(htmlMessage, cancellationToken);
+					}
+				}
+
+				return true;
+			}
+			catch (Exception ex)
+			{
+				_log.Error("Error en async Task<bool> EnviarEmailc: ", ex);
+				return false;
+			}
+			finally 
+			{
+                _semaphoreSlimEmail.Release();
+            }
+		}
+
+		private async Task ActualizarEstadoEnviadoAsync(int idRow, int estado, string descripcion, CancellationToken cancellationToken)
+		{
+			await _semaphoreSlim.WaitAsync(cancellationToken);
+			try
+			{
+				BandejaEnvioEmail registro = await _dbContext.BandejaEnvioEmails.FindAsync(idRow);
+				if (registro != null)
+				{
+					registro.Estado = estado;
+					registro.FechaFinal = DateTime.Now;
+					registro.DescripcionEstado = descripcion;
+
+					await _dbContext.SaveChangesAsync(cancellationToken);
+				}
+			}
+			catch (Exception ex)
+			{
+				_log.Error("Error en ActualizarEstadoEnviadoAsync: ", ex);
+			}
+			finally
+			{
+				_semaphoreSlim.Release();
+			}
+
+
+		}
+	}
+}
+
+
+Este es el context, claramente hay muchas cosas de ahi que ni al caso, pero siento que te podria servir:
+
+using System;
+using System.Collections.Generic;
+using BPNotificaReplicacionBandejaTDC;
+using Microsoft.EntityFrameworkCore;
+
+namespace BPNotificaReplicacionBandejaTDC.Models.BPNotifica;
+
+public partial class BPNotificaContext : DbContext
+{
+    private readonly string _connectionString;
+    public BPNotificaContext()
+    {
+    }
+
+    public BPNotificaContext(DbContextOptions<BPNotificaContext> options, DecryptedSecret decryptedSecret)
+        : base(options)
+    {
+        _connectionString = decryptedSecret.BPNotificaConnection;
+    }
+
+    public virtual DbSet<BandejaEnvioSm> BandejaEnvioSms { get; set; }
+
+    public virtual DbSet<BandejaTrxTDC> BandejaTrxes { get; set; }
+
+    public virtual DbSet<EtarjetasSm> EtarjetasSms { get; set; }
+
+    public virtual DbSet<EusuariosSm> EusuariosSms { get; set; }
+
+    public virtual DbSet<OperadoresTelefono> OperadoresTelefonos { get; set; }
+
+    public virtual DbSet<ParamNotificacione> ParamNotificaciones { get; set; }
+
+
+	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        => optionsBuilder.UseSqlServer(_connectionString);
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<BandejaEnvioSm>(entity =>
+        {
+            entity.HasKey(e => e.IdRow).HasName("PK__BandejaE__2A4958571FCDBCEB");
+
+            entity.ToTable("BandejaEnvioSMS");
+
+            entity.Property(e => e.Celular)
+                .HasMaxLength(8)
+                .IsUnicode(false);
+            entity.Property(e => e.NumeroTarjeta)
+                .HasMaxLength(16)
+                .IsUnicode(false);
+            entity.Property(e => e.Sms)
+                .HasMaxLength(160)
+                .HasColumnName("SMS");
+            entity.Property(e => e.Telco)
+                .HasMaxLength(1)
+                .IsUnicode(false);
+            entity.Property(e => e.TipoTarjeta)
+                .HasMaxLength(3)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<BandejaTrxTDC>(entity =>
+        {
+            entity.HasKey(e => e.IdRow).HasName("PK__BandejaT__2A495857239E4DCF");
+
+            entity.ToTable("BandejaTrxTDC", tb => tb.HasTrigger("utr_BandejaTrxTDC"));
+
+            entity.Property(e => e.Autorizacion)
+                .HasMaxLength(8)
+                .IsUnicode(false);
+            entity.Property(e => e.CodigoProceso)
+                .HasMaxLength(6)
+                .IsUnicode(false);
+            entity.Property(e => e.CodigoRespuesta)
+                .HasMaxLength(2)
+                .IsUnicode(false);
+            entity.Property(e => e.Comercio)
+                .HasMaxLength(25)
+                .IsUnicode(false);
+            entity.Property(e => e.Fecha)
+                .HasMaxLength(19)
+                .IsUnicode(false);
+            entity.Property(e => e.Moneda)
+                .HasMaxLength(1)
+                .IsUnicode(false);
+            entity.Property(e => e.Monto).HasColumnType("decimal(10, 2)");
+            entity.Property(e => e.NumeroTarjeta)
+                .HasMaxLength(16)
+                .IsUnicode(false);
+            entity.Property(e => e.Pais)
+                .HasMaxLength(2)
+                .IsUnicode(false);
+            entity.Property(e => e.Referencia)
+                .HasMaxLength(12)
+                .IsUnicode(false);
+            entity.Property(e => e.Tarjeta)
+                .HasMaxLength(4)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<EtarjetasSm>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToTable("ETarjetasSMS");
+
+            entity.Property(e => e.CategoriaTarjeta)
+                .HasMaxLength(1)
+                .IsUnicode(false);
+            entity.Property(e => e.Cif)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasColumnName("CIF");
+            entity.Property(e => e.Correo)
+                .HasMaxLength(150)
+                .IsUnicode(false);
+            entity.Property(e => e.NoUsuario)
+                .HasMaxLength(13)
+                .IsUnicode(false);
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.NumeroTarjeta)
+                .HasMaxLength(16)
+                .IsUnicode(false);
+            entity.Property(e => e.Telefono1)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.Telefono2)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<EusuariosSm>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToTable("EUsuariosSMS");
+
+            entity.Property(e => e.NoUsuario)
+                .HasMaxLength(13)
+                .IsUnicode(false);
+            entity.Property(e => e.Telefono)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.UsuEmailDominio)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+            entity.Property(e => e.UsuEmailUsuario)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<OperadoresTelefono>(entity =>
+        {
+            entity.HasKey(e => e.IdRows).HasName("PK__Operador__B4C9491F164452B1");
+
+            entity.ToTable("OperadoresTelefono");
+
+            entity.Property(e => e.IdOperador)
+                .HasMaxLength(5)
+                .IsUnicode(false);
+            entity.Property(e => e.Operador)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<ParamNotificacione>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToTable("paramNotificaciones");
+
+            entity.Property(e => e.DiseñoSms).HasColumnName("DiseñoSMS");
+            entity.Property(e => e.IdRow).ValueGeneratedOnAdd();
+            entity.Property(e => e.MailFrom).HasMaxLength(100);
+            entity.Property(e => e.MailSubject).HasMaxLength(100);
+            entity.Property(e => e.Tipo).HasMaxLength(50);
+        });
+
+        OnModelCreatingPartial(modelBuilder);
+    }
+
+    partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+}
+
+--------------------------------------------------------------------
+Models
+----------------------------------------------------------
+
+
+using System;
+using System.Collections.Generic;
+
+namespace BPNotificaEmail.Models.BPNotifica;
+
+public partial class BandejaEnvioEmail
+{
+    public int IdRow { get; set; }
+
+    public string? NumeroTarjeta { get; set; }
+
+    public string? CuerpoCorreo { get; set; }
+
+    public string? MailFrom { get; set; }
+
+    public string? MailSubject { get; set; }
+
+    public string? Correo { get; set; }
+
+    public string? Referencia { get; set; }
+
+    public DateTime? FechaInicio { get; set; }
+
+    public DateTime? FechaFinal { get; set; }
+
+    public string? TipoTarjeta { get; set; }
+
+    public int? Estado { get; set; }
+
+    public string? DescripcionEstado { get; set; }
+}
+
+
+using System;
+using System.Collections.Generic;
+
+namespace BPNotificaEmail.Models.BPNotifica;
+
+public partial class BandejaEnvioEmailHistorico
+{
+    public int IdRow { get; set; }
+
+    public string? NumeroTarjeta { get; set; }
+
+    public string? CuerpoCorreo { get; set; }
+
+    public string? MailFrom { get; set; }
+
+    public string? MailSubject { get; set; }
+
+    public string? Correo { get; set; }
+
+    public string? Referencia { get; set; }
+
+    public DateTime? FechaInicio { get; set; }
+
+    public DateTime? FechaFinal { get; set; }
+
+    public string? TipoTarjeta { get; set; }
+
+    public int? Estado { get; set; }
+
+    public string? DescripcionEstado { get; set; }
+}
+
+
+using System;
+using System.Collections.Generic;
+
+namespace BPNotificaEmail.Models.BPNotifica;
+
+public partial class BandejaEnvioSm
+{
+    public int IdRow { get; set; }
+
+    public string? NumeroTarjeta { get; set; }
+
+    public string? Sms { get; set; }
+
+    public string? Celular { get; set; }
+
+    public string? Telco { get; set; }
+
+    public string? Referencia { get; set; }
+
+    public DateTime? FechaInicio { get; set; }
+
+    public DateTime? FechaFinal { get; set; }
+
+    public string? TipoTarjeta { get; set; }
+
+    public int? Estado { get; set; }
+
+    public string? DescripcionEstado { get; set; }
+}
+
+
+
+using System;
+using System.Collections.Generic;
+
+namespace BPNotificaEmail.Models.BPNotifica;
+
+public partial class BandejaEnvioSmshistorico
+{
+    public int IdRow { get; set; }
+
+    public string? NumeroTarjeta { get; set; }
+
+    public string? Sms { get; set; }
+
+    public string? Celular { get; set; }
+
+    public string? Telco { get; set; }
+
+    public string? Referencia { get; set; }
+
+    public DateTime? FechaInicio { get; set; }
+
+    public DateTime? FechaFinal { get; set; }
+
+    public string? TipoTarjeta { get; set; }
+
+    public int? Estado { get; set; }
+
+    public string? DescripcionEstado { get; set; }
+}
+
+using System;
+using System.Collections.Generic;
+
+namespace BPNotificaEmail.Models.BPNotifica;
+
+public partial class ConfigGenerale
+{
+    public int IdRows { get; set; }
+
+    public byte[]? UserBiMovil { get; set; }
+
+    public byte[]? PassBiMovil { get; set; }
+
+    public string? ServerEmail { get; set; }
+
+    public int? Estado { get; set; }
+}
+
+Ya tengo creado los siguientes objetos:
+
+using System;
+using System.Collections.Generic;
+
+namespace BPNotificaEmail.Models.BPNotifica;
+
+public partial class CorreosInvalido
+{
+    public int IdRow { get; set; }
+
+    public string? Correo { get; set; }
+
+    public string? Estado { get; set; }
+}
+
+using System;
+using System.Collections.Generic;
+
+namespace BPNotificaEmail.Models.BPNotifica;
+
+public partial class ParamAmbiente
+{
+    public int IdRow { get; set; }
+
+    public string? Ambiente { get; set; }
+
+    public string? Correo { get; set; }
+
+    public string? Telefono { get; set; }
+
+    public string? IdOperador { get; set; }
+
+    public int? Estado { get; set; }
+}
+
+CREATE TABLE [dbo].[ConfigGenerales](
+ [IdRows] [int] IDENTITY(1,1) NOT NULL PRIMARY KEY,
+ [UserBiMovil] VARBINARY(MAX),
+ [PassBiMovil] VARBINARY(MAX),
+ [ServerEmail] [varchar](50),
+ [Estado] int)
+GO
+CREATE MASTER KEY ENCRYPTION BY PASSWORD ='oRpty70NcSBCMR6'
+GO
+CREATE SYMMETRIC KEY key_BiMovil WITH ALGORITHM =AES_256 ENCRYPTION BY PASSWORD ='oRpty70NcSBCMR6'
+GO
+OPEN SYMMETRIC KEY key_BiMovil DECRYPTION BY PASSWORD ='oRpty70NcSBCMR6';
+
+INSERT INTO ConfigGenerales(UserBiMovil, PassBiMovil, ServerEmail, Estado)
+VALUES(ENCRYPTBYKEY(KEY_GUID('key_BiMovil'), CONVERT(VARBINARY(128), 'pruebas')),ENCRYPTBYKEY(KEY_GUID('key_BiMovil'), CONVERT(VARBINARY(128), 'exhaustivas')), 'PRD-CAS1', 1);
+
+CLOSE SYMMETRIC KEY key_BiMovil;
+GO
+/*=====================================================================================
+Autor:    PAMELA SUAZO
+Fecha creación:  11-02-2026
+Descripción:  Realiza las adecuaciones a la informacion de transacciones anotificar
+****************************************************************************************
+      HISTORIAL DE MODIFICACIONES
+****************************************************************************************
+Nombre:    Descripcion            Fecha
+=======================================================================================*/
+CREATE PROCEDURE usp_ObtenerConfigBiMovil
+WITH ENCRYPTION
+AS
+BEGIN
+OPEN SYMMETRIC KEY key_BiMovil DECRYPTION BY PASSWORD ='oRpty70NcSBCMR6';
+
+SELECT IdRows,  
+CAST(CAST(DECRYPTBYKEY(UserBiMovil) AS VARCHAR(128)) AS NVARCHAR(128)) AS UserBiMovil,
+CAST(CAST(DECRYPTBYKEY(PassBiMovil) AS VARCHAR(128)) AS NVARCHAR(128)) AS PassBiMovil
+FROM ConfigGenerales
+WHERE Estado=1
+
+CLOSE SYMMETRIC KEY key_BiMovil;
+END
+GO
+GRANT EXECUTE ON usp_ObtenerConfigBiMovil TO api_reposicionPIN;
+GRANT CONTROL ON SYMMETRIC KEY::key_BiMovil TO [api_reposicionPIN];
+
+
+
+-------------------------------
+
+CREATE TABLE [dbo].[BandejaEnvioEmail](
+	[IdRow] [int] IDENTITY(1,1) NOT NULL,
+	[NumeroTarjeta] [varchar](16) NULL,
+	[CuerpoCorreo] [nvarchar](max) NULL,
+	[MailFrom] [nvarchar](100) NULL,
+	[MailSubject] [nvarchar](100) NULL,
+	[Correo] [nvarchar](255) NULL,
+	[Referencia] [varchar](12) NULL,
+	[FechaInicio] [datetime2](7) NULL,
+	[FechaFinal] [datetime2](7) NULL,
+	[TipoTarjeta] [varchar](3) NULL,
+	[Estado] [int] NULL,
+	[DescripcionEstado] [varchar](max) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+
+
+----------------------------------
+
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[BandejaEnvioEmailHistorico](
+	[IdRow] [int] IDENTITY(1,1) NOT NULL,
+	[NumeroTarjeta] [varchar](16) NULL,
+	[CuerpoCorreo] [nvarchar](max) NULL,
+	[MailFrom] [nvarchar](100) NULL,
+	[MailSubject] [nvarchar](100) NULL,
+	[Correo] [nvarchar](255) NULL,
+	[Referencia] [varchar](12) NULL,
+	[FechaInicio] [datetime2](7) NULL,
+	[FechaFinal] [datetime2](7) NULL,
+	[TipoTarjeta] [varchar](3) NULL,
+	[Estado] [int] NULL,
+	[DescripcionEstado] [varchar](max) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[IdRow] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+
+ALTER TABLE [dbo].[BandejaEnvioEmailHistorico] ADD  DEFAULT ('') FOR [DescripcionEstado]
+GO
+
+
+
+
+----------------------------------
+
+
+GO
+
+/****** Object:  Table [dbo].[BandejaEnvioSMS]    Script Date: 11/2/2026 11:24:33 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[BandejaEnvioSMS](
+	[IdRow] [int] IDENTITY(1,1) NOT NULL,
+	[NumeroTarjeta] [varchar](16) NULL,
+	[SMS] [nvarchar](160) NULL,
+	[Celular] [varchar](8) NULL,
+	[Telco] [varchar](1) NULL,
+	[Referencia] [varchar](12) NULL,
+	[FechaInicio] [datetime2](7) NULL,
+	[FechaFinal] [datetime2](7) NULL,
+	[TipoTarjeta] [varchar](3) NULL,
+	[Estado] [int] NULL,
+	[DescripcionEstado] [varchar](max) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+
+
+
+-------------------------------
+
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[BandejaEnvioSMSHistorico](
+	[IdRow] [int] IDENTITY(1,1) NOT NULL,
+	[NumeroTarjeta] [varchar](16) NULL,
+	[SMS] [nvarchar](160) NULL,
+	[Celular] [varchar](8) NULL,
+	[Telco] [varchar](1) NULL,
+	[Referencia] [varchar](12) NULL,
+	[FechaInicio] [datetime2](7) NULL,
+	[FechaFinal] [datetime2](7) NULL,
+	[TipoTarjeta] [varchar](3) NULL,
+	[Estado] [int] NULL,
+	[DescripcionEstado] [varchar](max) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[IdRow] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+
+ALTER TABLE [dbo].[BandejaEnvioSMSHistorico] ADD  DEFAULT ('') FOR [DescripcionEstado]
+GO
+
+
+
+
+
+
+----------------------------------------------------
+
+
+
+CREATE TABLE [dbo].[ParamAmbiente](
+	[IdRow] [int] NOT NULL,
+	[Ambiente] [varchar](3) NULL,
+	[Correo] [varchar](255) NULL,
+	[Telefono] [varchar](8) NULL,
+	[IdOperador] [char](1) NULL,
+	[Estado] [int] NULL
+) ON [PRIMARY]
+GO
+
+
+-------------------------------------------------------
+
+
+
+Ok mira, esta tabla no se si la voy a necesitar:
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[ParamNotificaciones](
+	[IdRow] [int] NOT NULL,
+	[Tipo] [nvarchar](50) NULL,
+	[DisenoCorreo] [nvarchar](max) NULL,
+	[DisenoSMS] [nvarchar](max) NULL,
+	[MailFrom] [nvarchar](100) NULL,
+	[MailSubject] [nvarchar](100) NULL,
+	[Estado] [int] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+
+
+
+IdRow	Tipo	DisenoCorreo	DisenoSMS	MailFrom	MailSubject	Estado
+1	EXITOSA	<html lang="es">   <head>    <meta charset="UTF-8" />    <meta name="viewport" content="width=device-width, initial-scale=1.0" />    <title>     Notificación de Transacción Exitosa    </title>    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />    <style>     body {     font-family: 'Open Sans', sans-serif;     color: #013f7c;     margin: 0;     padding: 0;     background-color: #ffffff;     }          .container {     width: 550px;     margin: 40px auto;     padding: 20px;     }          .icon-text {     }          .icon-text img {     margin-right: 15px;     }          .info-table {     width: 100%;     border-collapse: collapse;     margin-top: 10px;     }          .info-table td {     padding: 0px 0;     vertical-align: top;     }          .label {     font-weight: bold;     width: 180px;     text-align: right;     padding-right: 10px;     }          .footer {     font-size: 14px;     margin-top: 30px;     color: #013f7c;     text-align: justify;     }    </style>   </head>   <body>    <div class="container">     <div style="width: 100%; text-align: right; margin-bottom: 10px;">      <img width="120" height="auto" src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/logoni.png" alt="Logo Banpaís" />     </div>     <p>      Estimado (a):      <b>       [NOMBRE]      </b>     </p>     <table role="presentation" border="0" cellpadding="0" cellspacing="0">      <tr>       <td width="40" valign="middle">        <img width="40" height="auto" src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/notini.png" alt="Campana" />       </td>       <td>        &nbsp;        Te notificamos que tu transacción fue realizada        <b>         exitosamente        </b>        .        <br />        &nbsp; A continuación, te compartimos el detalle de la misma:       </td>      </tr>     </table>     <!-- Tabla de información -->     <table class="info-table">      <tr>       <td class="label">        Comercio:&nbsp;&nbsp;       </td>       <td>        [COMERCIO]       </td>      </tr>      <tr>       <td class="label">        País:&nbsp;&nbsp;       </td>       <td>        [PAIS]       </td>      </tr>      <tr>       <td class="label">        Tarjeta:&nbsp;&nbsp;       </td>       <td>        [TARJETA]       </td>      </tr>      <tr>       <td class="label">        Autorización:&nbsp;&nbsp;       </td>       <td>        [AUTID]       </td>      </tr>      <tr>       <td class="label">        Estatus:&nbsp;&nbsp;       </td>       <td>        [ESTADO]       </td>      </tr>      <tr>       <td class="label">        Tipo de transacción:&nbsp;&nbsp;       </td>       <td>        [TIPOTRX]       </td>      </tr>      <tr>       <td class="label">        Moneda:&nbsp;&nbsp;       </td>       <td>        [MONEDA]       </td>      </tr>      <tr>       <td class="label">        Monto:&nbsp;&nbsp;       </td>       <td>        [MONTO]       </td>      </tr>      <tr>       <td class="label">        Fecha y hora:&nbsp;&nbsp;       </td>       <td>        [FECHA]       </td>      </tr>     </table>     <div class="footer">      <p>       Recuerda que Banpaís nunca solicitará tus datos personales ni contraseñas por mensajes de texto, WhatsApp o llamadas.      </p>      <p>       Si no reconoces esta actividad, comunícate con nuestros agentes de Contact Center vía llamada o WhatsApp al 2545-1212 o gratis *1212, también puedes escribir al correo: servicio@banpais.hn      </p>     </div>     <!-- Pie de página con imagen -->     <div class="foter-container" style="width: 100%; margin-top: 30px;">      <img src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/footerni.png" alt="Footer gráfico Banpaís" style="width: 100%;" />     </div>    </div>   </body>  </html>  	BP: Se ha realizado [TIPOTRX] por [MONEDA].[MONTO] en el estab. [COMERCIO] [TIPOTARJETA]: [TARJETA] [FECHA] No. Ref. [AUTID]	BP Notifica <BanpaisNotifica@banpais.hn>	BANPAIS notifica	1
+2	REVERSADA	<html lang="es">    <head>   <meta charset="UTF-8" />   <meta name="viewport" content="width=device-width, initial-scale=1.0" />   <title>Notificación de Transacción Exitosa</title>   <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />   <style>   body {    font-family: 'Open Sans', sans-serif;    color: #013f7c;    margin: 0;    padding: 0;    background-color: #ffffff;   }      .container {    width: 550px;    margin: 40px auto;    padding: 20px;   }      .icon-text {   }      .icon-text img {    margin-right: 15px;   }      .info-table {    width: 100%;    border-collapse: collapse;    margin-top: 10px;   }      .info-table td {    padding: 0px 0;    vertical-align: top;   }      .label {    font-weight: bold;    width: 180px;    text-align: right;    padding-right: 10px;   }      .footer {    font-size: 14px;    margin-top: 30px;    color: #013f7c;    text-align: justify;   }   </style>  </head>    <body>   <div class="container">    <div style="width: 100%; text-align: right; margin-bottom: 10px;"> <img width="120" height="auto" src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/logoni.png" alt="Logo Banpaís" /> </div>    <p>Estimado (a): <b>[NOMBRE]</b></p>    <table role="presentation" border="0" cellpadding="0" cellspacing="0">    <tr>      <td width="40" valign="middle">        <img width="40" height="auto" src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/notini.png" alt="Campana" />      </td>      <td>  &nbsp;         Te notificamos que tu transacción fue <b>reversada</b>.  <br />&nbsp; A continuación, te compartimos el detalle de la misma:      </td>    </tr>  </table>      </br>    <table class="info-table">     <tr>      <td class="label">Comercio:&nbsp;&nbsp;</td>      <td>[COMERCIO]</td>     </tr>     <tr>      <td class="label">Tarjeta:&nbsp;&nbsp;</td>      <td>[TARJETA]</td>     </tr>     <tr>      <td class="label">Autorización:&nbsp;&nbsp;</td>      <td>[AUTID]</td>     </tr>     <tr>      <td class="label">Tipo de transacción:&nbsp;&nbsp;</td>      <td>[TIPOTRX]</td>     </tr>     <tr>      <td class="label">Moneda:&nbsp;&nbsp;</td>      <td>[MONEDA]</td>     </tr>     <tr>      <td class="label">Monto:&nbsp;&nbsp;</td>      <td>[MONTO]</td>     </tr>     <tr>      <td class="label">Fecha y hora:&nbsp;&nbsp;</td>      <td>[FECHA]</td>     </tr>    </table>    <div class="footer">     <p>Recuerda que Banpaís nunca solicitará tus datos personales ni contraseñas por mensajes de texto, WhatsApp o llamadas.</p>     <p>Si no reconoces esta actividad, comunícate con nuestros agentes de Contact Center vía llamada o WhatsApp al 2545-1212 o gratis *1212, también puedes escribir al correo: servicio@banpais.hn</p>    </div>    <!-- Pie de página con imagen -->    <div class="foter-container" style="width: 100%; margin-top: 30px;"> <img src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/footerni.png" alt="Footer gráfico Banpaís" style="width: 100%;" /> </div>   </div>  </body>    </html>	BP: Se ha realizado un reverso de [TIPOTRX] por [MONEDA].[MONTO] en el estab. [COMERCIO] [TIPOTARJETA]: [TARJETA] [FECHA] No. Ref. [AUTID]	BP Notifica <BanpaisNotifica@banpais.hn>	BANPAIS notifica	1
+3	RECHAZADA	<html lang="es">    <head>   <meta charset="UTF-8" />   <meta name="viewport" content="width=device-width, initial-scale=1.0" />   <title>Notificación de Transacción Exitosa</title>   <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />   <style>   body {    font-family: 'Open Sans', sans-serif;    color: #013f7c;    margin: 0;    padding: 0;    background-color: #ffffff;   }      .container {    width: 550px;    margin: 40px auto;    padding: 20px;   }      .icon-text {}      .icon-text img {    margin-right: 15px;   }      .info-table {    width: 100%;    border-collapse: collapse;    margin-top: 10px;   }      .info-table td {    padding: 0px 0;    vertical-align: top;   }      .label {    font-weight: bold;    width: 180px;    text-align: right;    padding-right: 10px;   }      .footer {    font-size: 14px;    margin-top: 30px;    color: #013f7c;    text-align: justify;   }   </style>  </head>    <body>   <div class="container">    <div style="width: 100%; text-align: right; margin-bottom: 10px;"> <img width="120" height="auto" src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/logoni.png" alt="Logo Banpaís" /> </div>    <p>Estimado (a): <b>[NOMBRE]</b></p>    <table role="presentation" border="0" cellpadding="0" cellspacing="0">     <tr>      <td width="40" valign="middle"> <img width="40" height="auto" src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/notini.png" alt="Campana" /> </td>      <td> &nbsp; Te notificamos que tu transacción fue <b>denegada</b>.       <br />&nbsp; A continuación, te compartimos el detalle de la misma: </td>     </tr>    </table>    </br>    <table class="info-table">     <tr>      <td class="label">Comercio:&nbsp;&nbsp;</td>      <td>[COMERCIO]</td>     </tr>     <tr>      <td class="label">Tarjeta:&nbsp;&nbsp;</td>      <td>[TARJETA]</td>     </tr>     <tr>      <td class="label">Tipo de transacción:&nbsp;&nbsp;</td>      <td>[TIPOTRX]</td>     </tr>     <tr>      <td class="label">Moneda:&nbsp;&nbsp;</td>      <td>[MONEDA]</td>     </tr>     <tr>      <td class="label">Monto:&nbsp;&nbsp;</td>      <td>[MONTO]</td>     </tr>                          <tr>      <td class="label">Motivo denegaci&oacute;n:&nbsp;&nbsp;</td>      <td>[MOTIVO]</td>     </tr>     <tr>      <td class="label">Fecha y hora:&nbsp;&nbsp;</td>      <td>[FECHA]</td>     </tr>    </table>    <div class="footer">     <p>Recuerda que Banpaís nunca solicitará tus datos personales ni contraseñas por mensajes de texto, WhatsApp o llamadas.</p>     <p>Si no reconoces esta actividad, comunícate con nuestros agentes de Contact Center vía llamada o WhatsApp al 2545-1212 o gratis *1212, también puedes escribir al correo: servicio@banpais.hn</p>    </div>    <!-- Pie de página con imagen -->    <div class="foter-container" style="width: 100%; margin-top: 30px;"> <img src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/footerni.png" alt="Footer gráfico Banpaís" style="width: 100%;" /> </div>   </div>  </body>    </html>	BP: Se ha realizado una Denegación de [TIPOTRX] por [MONEDA].[MONTO] en el estab. [COMERCIO] [TIPOTARJETA]: [TARJETA] [FECHA] No. Ref. [AUTID]	BP Notifica <BanpaisNotifica@banpais.hn>	BANPAIS notifica	1
+
+
+
+Claro, estos son registros del proyecto que estamos tomando de ejemplo.
+
+
+
+Todos los objetos que te envié, fue porque me basé en el proyecto de ejemplo, pero, si hay algo que consideres que no necesitamos.. o que me hace falta .. necesito que me lo digas, o si hay que ingresar algun registro
+
+
+Necesito que me ayudes enviado paso a paso que tengo que hacer .... 
+
+Y me brindes archivos completos, recuerda que estoy trabajando en capas y no me quiero confundir, quiero hacer todo muy ordenado.
+
+
+
+
