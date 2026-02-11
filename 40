@@ -1,5 +1,25 @@
-Ok, ya funciona perfecto, veo que en la trama me devuelve solo el pin si es exitoso ...(No devuelve codigode error ni descripcion error)
-Me gustaría que empezaramos a manejar ... las cosas parametrizadas, asi como en el ejemplo del que nos guiamos ...
+Ok, ya funciona perfecto, veo que en la trama me devuelve solo el pin si es exitoso ...(No devuelve codigode error ni descripcion error)a
+
+Cosas que me gustaria cambiar:
+1. Me gustaria que, en la respuesta ... 
+
+namespace reposicion_pin.DTOs
+{
+    public class AS400ResponseDto
+    {
+        public string Pin {  get; set; }
+        public string CodigoError { get; set; }
+        public string DescripcionError { get; set; }
+
+    }
+}
+
+
+Me muestre el Pin que me manda en la trama ...
+
+Pero si viene el codigo error .. y el error.. entonces que no me muestre pin .. solo el error .. no se si me explico. 
+
+2. Me gustaría que empezaramos a manejar ... las cosas parametrizadas, asi como en el ejemplo del que nos guiamos ...
 
 Te enviaré ahorita como quedó mi código:
 
