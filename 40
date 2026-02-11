@@ -1,0 +1,311 @@
+Ok, ya funciona perfecto, veo que en la trama me devuelve solo el pin si es exitoso ...(No devuelve codigode error ni descripcion error)
+Me gustaría que empezaramos a manejar ... las cosas parametrizadas, asi como en el ejemplo del que nos guiamos ...
+
+Te enviaré ahorita como quedó mi código:
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using System.Configuration;
+using System.Data;
+using System.Data.OleDb;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        private readonly string _connectionString;
+        private readonly ILogger<AS400Repository> _logger;
+
+        public AS400Repository(
+            IConfiguration configuration,
+            ILogger<AS400Repository> logger)
+        {
+            _connectionString = configuration.GetConnectionString("AS400Connection")!;
+            _logger = logger;
+        }
+
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+        {
+            try
+            {
+                using var conn = new OleDbConnection(_connectionString);
+                await conn.OpenAsync();
+
+
+                await ConfigurarLibraryListAsync(conn);
+
+
+                string trama =
+                    request.NumeroTarjeta.PadRight(16) +
+                    request.FechaVencimiento.PadRight(8) +
+                    new string(' ', 57);
+
+                _logger.LogInformation("Trama enviada AS400: {Trama}", trama);
+
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandTimeout = 300;
+
+                // CALL clásico como en el sistema legacy
+                cmd.CommandText = "{{CALL BPPGM/REIMQ07RC(?)}}";
+
+                var paramTrama = new OleDbParameter
+                {
+                    ParameterName = "peTramaMQRcv",
+                    OleDbType = OleDbType.Char,
+                    Size = 81,
+                    Direction = ParameterDirection.InputOutput,
+                    Value = trama
+                };
+
+                cmd.Parameters.Add(paramTrama);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                string tramaRespuesta = paramTrama.Value?.ToString() ?? string.Empty;
+                _logger.LogInformation("Trama respuesta AS400: {Trama}", tramaRespuesta);
+
+                return ParsearRespuesta(tramaRespuesta);
+
+            }
+            catch (OleDbException ex)
+            {
+                _logger.LogError(ex, "Error OLE DB AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = ex.Message
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = ex.Message
+                };
+            }
+        }
+
+        private async Task ConfigurarLibraryListAsync(OleDbConnection conn)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandTimeout = 300;
+
+            // Limpia el LIBL
+            cmd.CommandText =
+                "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+            await cmd.ExecuteNonQueryAsync();
+
+            // Librerías en el orden correcto
+            string[] librerias =
+            {
+                "DP053DAT",
+                "CLIDAT",
+                "BPDAT",
+                "EQUIVALENP",
+                "BPPGM",
+                "TDBI20DAT",
+                "TARJETA"
+            };
+
+            foreach (var lib in librerias)
+            {
+                cmd.CommandText =
+                    $"{{{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB({lib})' 30)}}}}";
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        private static AS400ResponseDto ParsearRespuesta(string trama)
+        {
+            if (string.IsNullOrWhiteSpace(trama) || trama.Length < 41)
+            {
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = "TRAMA RESPUESTA INVÁLIDA"
+                };
+            }
+
+            return new AS400ResponseDto
+            {
+                Pin = trama.Substring(34, 4).Trim(),
+                CodigoError = trama.Substring(38, 3).Trim(),
+                DescripcionError = trama.Substring(41).Trim()
+            };
+        }
+    }
+}
+
+
+
+
+Mira, creé para parametrizar: 
+Tablas:
+  CallsAS400
+    SELECT TOP (1000) [idCallAS400]
+      ,[CallAs400]
+      ,[tipoCall]
+      ,[Activo]
+  FROM [ReposicionPinTC].[dbo].[CallsAS400]
+
+idCallAS400	CallAs400	tipoCall	Activo
+1	{{CALL BPPGM/REIMQ07R(?)}}	C	1
+
+
+---------------------------------------------
+  CallsCamposAS400
+
+  SELECT TOP (1000) [idCallCamposAS400]
+      ,[idCallAS400]
+      ,[Campo]
+      ,[TipoDato]
+      ,[Longitud]
+      ,[Direccion]
+  FROM [ReposicionPinTC].[dbo].[CallsCamposAS400]
+
+  idCallCamposAS400	idCallAS400	Campo	TipoDato	Longitud	Direccion
+1	1	peTramaMQRcv	Char	91	IO
+
+
+-----------------------------------------------
+  CallsLibreriasAS400
+
+
+  SELECT TOP (1000) [idLibreriasAS400]
+      ,[idCallAS400]
+      ,[Libreria]
+  FROM [ReposicionPinTC].[dbo].[CallsLibreriasAS400]
+
+idLibreriasAS400	idCallAS400	Libreria
+1	1	BPPGM
+2	1	DP053DAT
+3	1	CLIDAT
+4	1	BPDAT
+5	1	EQUIVALENP
+6	1	TDBI20DAT
+7	1	TARJETA
+----------------------------------------------------
+
+  LogEventos
+
+
+SELECT TOP (1000) [IdRows]
+      ,[FechaOperacion]
+      ,[HoraOperacion]
+      ,[CIF]
+      ,[DNI]
+      ,[Cliente]
+      ,[UltimosDigitosTD]
+      ,[Cuenta]
+      ,[MetodoEnvio]
+      ,[Telefono]
+      ,[OperadorTelefono]
+      ,[Correo]
+      ,[ContenidoSMS]
+      ,[ContenidoCorreo]
+      ,[TipoEvento]
+  FROM [ReposicionPinTC].[dbo].[LogEventos]
+
+-----------------------
+
+
+Stored Procedures:
+
+USE [ReposicionPinTC]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_AggEventos]    Script Date: 11/2/2026 10:12:33 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+/*=====================================================================================
+Autor:				PAMELA SUAZO
+Fecha creación:		10/02/2026
+Descripción:		Realiza la inserción del evento proveniente del ReposicionPinTC
+****************************************************************************************
+						HISTORIAL DE MODIFICACIONES
+****************************************************************************************
+Nombre:				Descripcion												Fecha
+PAMELA SUAZO	Creación del procedimiento								10/02/2026
+=======================================================================================*/
+ALTER PROCEDURE [dbo].[usp_AggEventos]
+	@FechaOperacion date          = NULL,
+	@HoraOperacion time           = NULL,
+	@CIF varchar(18)              = NULL,
+	@DNI varchar(18)              = NULL,
+	@Cliente varchar(255)         = NULL,
+	@UltimosDigitosTD varchar(4)  = NULL,
+	@Cuenta varchar(12)           = NULL,
+	@MetodoEnvio varchar(4)       = NULL,
+	@Telefono varchar(10)         = NULL,
+	@OperadorTelefono varchar(4)  = NULL,
+	@Correo varchar(60)           = NULL,
+	@ContenidoSMS varchar(150)    = NULL,
+	@ContenidoCorreo varchar(max) = NULL,
+	@TipoEvento varchar(max)      = NULL 
+
+AS
+BEGIN
+	INSERT INTO [dbo].[LogEventos] ([FechaOperacion] ,[HoraOperacion] ,[CIF] ,[DNI] ,[Cliente] ,[UltimosDigitosTD] ,[Cuenta] ,[MetodoEnvio] ,[Telefono] ,[OperadorTelefono] ,[Correo] ,[ContenidoSMS] ,[ContenidoCorreo] ,[TipoEvento])
+    VALUES (@FechaOperacion, @HoraOperacion, @CIF, @DNI, @Cliente, @UltimosDigitosTD, @Cuenta, @MetodoEnvio, @Telefono, @OperadorTelefono, @Correo, @ContenidoSMS, @ContenidoCorreo, @TipoEvento);
+END
+
+------------------------------------------------------------------------
+
+
+
+USE [ReposicionPinTC]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_configCallAs400]    Script Date: 11/2/2026 10:12:49 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+-- =============================================
+-- Author:		Pamela Suazo
+-- Create date: 10/02/2026
+-- Description:	Recupera toda la configuración para poder ejecutar call as400
+-- =============================================
+ALTER PROCEDURE [dbo].[usp_configCallAs400]
+	@idCallAS400 as int
+AS
+BEGIN
+
+	--Recupera nombre del programa
+	SELECT 
+			CallAs400
+			,tipoCall			
+	FROM CallsAS400
+	WHERE idCallAS400=@idCallAS400
+
+	--Recupera librerias del programa
+	SELECT 
+		Libreria
+	FROM CallsLibreriasAS400 
+	WHERE idCallAS400=@idCallAS400
+
+
+	
+END
+
+
+
+
+
+
+Ayudame a realizar las modificaciones para empezar a manejarlo de forma parametrizada
+
+
+  
+
+
