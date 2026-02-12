@@ -1,0 +1,45 @@
+private static AS400ResponseDto ParsearRespuesta(string trama)
+{
+    if (string.IsNullOrWhiteSpace(trama) || trama.Length < 81)
+    {
+        return new AS400ResponseDto
+        {
+            CodigoError = "99",
+            DescripcionError = "TRAMA RESPUESTA INVÁLIDA"
+        };
+    }
+
+    string pin = trama.Substring(24, 4).Trim();
+    string codigoError = trama.Substring(28, 3).Trim();
+    string descripcionError = trama.Substring(31, 50).Trim();
+
+    // 🔹 CASO EXITOSO: solo viene PIN
+    if (!string.IsNullOrWhiteSpace(pin) &&
+        string.IsNullOrWhiteSpace(codigoError) &&
+        string.IsNullOrWhiteSpace(descripcionError))
+    {
+        return new AS400ResponseDto
+        {
+            Pin = pin,
+            CodigoError = "00",
+            DescripcionError = "Pin generado exitosamente"
+        };
+    }
+
+    // 🔹 CASO ERROR
+    if (!string.IsNullOrWhiteSpace(codigoError))
+    {
+        return new AS400ResponseDto
+        {
+            Pin = null,
+            CodigoError = codigoError,
+            DescripcionError = ObtenerDescripcionCatalogo(codigoError, descripcionError)
+        };
+    }
+
+    return new AS400ResponseDto
+    {
+        CodigoError = "99",
+        DescripcionError = "Respuesta desconocida AS400"
+    };
+}
