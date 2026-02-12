@@ -711,6 +711,15 @@ public partial class ConfigGenerale
 
     public int? Estado { get; set; }
 }
+-------AQUI TERMINA EL EJEMPLO ------
+
+
+
+
+
+
+
+
 
 Ya tengo creado los siguientes objetos:
 
