@@ -1,0 +1,56 @@
+// Dentro de tu ReposicionPinService
+public async Task<ReposicionPinResponseDto> EnviarNotificacionAsync(
+    ReposicionPinRequestDto request,
+    string pin)
+{
+    try
+    {
+        bool enviado = false;
+
+        if (request.MetodoEnvio == 1) // SMS
+        {
+            // request.Telefono y request.ContenidoSMS ya fueron validados
+            string mensaje = $"{request.ContenidoSMS} Tu PIN es: {pin}";
+            enviado = await _notificacionService.EnviarSmsAsync(request.Telefono, mensaje);
+        }
+        else if (request.MetodoEnvio == 2) // Correo
+        {
+            // request.Correo y request.ContenidoCorreo ya fueron validados
+            string asunto = "Generación de PIN";
+            string cuerpo = $"{request.ContenidoCorreo} Tu PIN es: {pin}";
+            enviado = await _notificacionService.EnviarCorreoAsync(request.Correo, asunto, cuerpo);
+        }
+
+        if (!enviado)
+        {
+            _logger.LogWarning("No se pudo enviar la notificación para MetodoEnvio={Metodo}", request.MetodoEnvio);
+            return await ObtenerRespuestaDinamicaAsync(99, "Notificación", "No se pudo enviar SMS/Correo");
+        }
+
+        return new ReposicionPinResponseDto
+        {
+            CodigoInt = 0,
+            Descripcion = "PIN generado y notificación enviada exitosamente",
+            Pin = pin
+        };
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error al enviar notificación");
+        return await ObtenerRespuestaDinamicaAsync(99, "Excepción", ex.Message);
+    }
+}
+
+
+
+
+var fase2 = await Fase2_ConsumirAs400Async(tarjeta);
+
+// 🔹 DECISIÓN de envío
+if (fase2.CodigoInt == 0 && !string.IsNullOrWhiteSpace(fase2.Pin))
+{
+    return await EnviarNotificacionAsync(request, fase2.Pin);
+}
+
+return fase2; // si hubo error en AS400
+
