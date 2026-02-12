@@ -1,0 +1,124 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using wsBiMovil; // Tu Connected Service
+
+namespace Notificaciones.Services
+{
+    public class SmsService
+    {
+        private readonly BPNotificaContext _dbContext;
+
+        public SmsService(BPNotificaContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
+
+        /// <summary>
+        /// Envía un SMS usando wsBiMovil
+        /// </summary>
+        public async Task<bool> EnviarSmsAsync(string celular, string operador, string mensaje, string referencia, CancellationToken cancellationToken)
+        {
+            try
+            {
+                // 1. Obtener usuario y password desencriptados desde el SP
+                var config = _dbContext.usp_ObtenerConfigBiMovil.FirstOrDefault();
+                if (config == null)
+                    throw new Exception("No se encontró configuración de BiMovil.");
+
+                string usuario = config.UserBiMovil;
+                string password = config.PassBiMovil;
+
+                // 2. Crear cliente SOAP
+                var client = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
+
+                // 3. Llamar al servicio
+                var response = await client.Envia_MensajeAsync(
+                    usuario,
+                    password,
+                    celular,
+                    operador,
+                    mensaje,
+                    referencia,
+                    string.Empty,
+                    string.Empty
+                );
+
+                // 4. Analizar respuesta
+                var xmlDoc = new System.Xml.XmlDocument();
+                xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
+                var nodo = xmlDoc.GetElementsByTagName("respuesta");
+                string cadena = nodo[0].InnerText;
+
+                string codigo = cadena.Substring(0, 1);
+                string mensajeRespuesta = cadena.Substring(1);
+
+                return codigo == "0"; // true si enviado correctamente
+            }
+            catch (Exception ex)
+            {
+                // Aquí podrías loguear el error
+                Console.WriteLine($"Error al enviar SMS: {ex.Message}");
+                return false;
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+using System;
+using System.Net.Mail;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Notificaciones.Services
+{
+    public class EmailService
+    {
+        private readonly BPNotificaContext _dbContext;
+
+        public EmailService(BPNotificaContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
+
+        public async Task<bool> EnviarEmailAsync(string destinatario, string asunto, string cuerpo, CancellationToken cancellationToken)
+        {
+            try
+            {
+                // 1. Obtener configuración SMTP
+                var config = _dbContext.ConfigGenerales.FirstOrDefault();
+                if (config == null)
+                    throw new Exception("No se encontró configuración SMTP.");
+
+                string servidorSmtp = config.ServerEmail;
+
+                // 2. Desde qué correo se enviará
+                string from = config.ServerEmail; // o podrías tener otro campo
+
+                using var mensaje = new MailMessage(from, destinatario, asunto, cuerpo);
+                mensaje.IsBodyHtml = true;
+
+                using var cliente = new SmtpClient(servidorSmtp);
+                await cliente.SendMailAsync(mensaje, cancellationToken);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // Aquí podrías loguear el error
+                Console.WriteLine($"Error al enviar correo: {ex.Message}");
+                return false;
+            }
+        }
+    }
+}
+
