@@ -1,0 +1,33 @@
+Ok mira, hay algo que todavia no está haciendo bien, y es el mapeo de errores, el AS400 me puede responder con cualquiera de estos errores:
+
+A continuación, te detallo los errores:
+Cod Error	Descripción
+P01	EQUIVALENTE TARJETA EN BLANCO
+P02	FECHA VENCIMIENTO TARJETA EN BLANCO
+P04	TARJETA NO EXISTE
+P98	ERROR AL LLAMAR A MQ
+P99	TRAMA NO ENCONTRADA
+
+
+La trama se ve algo asi: " 10000000017044620271130    P04TARJETA NO EXISTE"
+
+
+
+Este es el catalogo de respuesta ofcial que debe responder mi servicio:
+
+	0	Pin generado exitosamente
+	1	Tarjeta inactiva
+	2	Tarjeta vencida
+	3	Formato de teléfono incorrecto
+	4	Formato de correo incorrecto
+	5	No se encontró ninguna tarjeta asociada en la cuenta
+	6	No se recibió respuesta de Autoriza
+	7	Error de envió por BIMOVIL:
+	8	Error de envió por correo:
+	9	Error en servicio AZ7:
+	10	Error en validación del campo
+	99	Error de sistema:
+
+
+
+Entonces ...Todos los errores que me devuelva el AS400 deben irse por el 9 (Error en servicio AZ7:) + el codigo y descripcion que me devuelva el AS400
