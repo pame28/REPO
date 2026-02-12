@@ -77,7 +77,7 @@ namespace reposicion_pin.Repository
                     {
                         // Elegir teléfono y operador según paramAmbiente
                         string telefono = _paramAmbiente?.Telefono ?? item.Celular;
-                        string operador = _paramAmbiente?.IdOperador ?? item.Operador;
+                        string operador = _paramAmbiente?.IdOperador ?? item.Telco;
 
                         var response = await _mensajesSoapClient.Envia_MensajeAsync(
                             _UsrBiMovil,
