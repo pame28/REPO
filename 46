@@ -1,0 +1,302 @@
+namespace BPNotifica.DTOs
+{
+    public class NotificacionDto
+    {
+        public string NumeroTarjeta { get; set; }
+        public string PIN { get; set; }
+        public string ContenidoSMS { get; set; }
+        public string ContenidoCorreo { get; set; }
+        public string Correo { get; set; }
+        public string Celular { get; set; }
+        public string Referencia { get; set; }
+        public int MetodEnvio { get; set; } // 1 = SMS, 2 = Email
+        public string TipoTarjeta { get; set; }
+    }
+}
+
+
+
+
+
+using BPNotifica.DTOs;
+using BPNotifica.Models.BPNotifica;
+using wsBiMovil;
+using System.Xml;
+
+namespace BPNotifica.Repositories
+{
+    public class SmsRepository
+    {
+        private readonly BPNotificaContext _dbContext;
+        private readonly MensajesSoapClient _mensajesSoapClient;
+        private readonly string _userBiMovil;
+        private readonly string _passBiMovil;
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+
+        public SmsRepository(BPNotificaContext dbContext)
+        {
+            _dbContext = dbContext;
+            _mensajesSoapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
+
+            var config = _dbContext.usp_ObtenerConfigBiMovil.FirstOrDefault();
+            _userBiMovil = config?.UserBiMovil;
+            _passBiMovil = config?.PassBiMovil;
+        }
+
+        public async Task EnviarAsync(NotificacionDto dto)
+        {
+            // Insertar en bandeja
+            var sms = new BandejaEnvioSm
+            {
+                NumeroTarjeta = dto.NumeroTarjeta,
+                Celular = dto.Celular,
+                Sms = $"{dto.ContenidoSMS} {dto.PIN}",
+                Referencia = dto.Referencia,
+                TipoTarjeta = dto.TipoTarjeta,
+                FechaInicio = DateTime.Now,
+                Estado = 0
+            };
+
+            _dbContext.BandejaEnvioSms.Add(sms);
+            await _dbContext.SaveChangesAsync();
+
+            try
+            {
+                // Llamada SOAP
+                var response = await _mensajesSoapClient.Envia_MensajeAsync(
+                    _userBiMovil,
+                    _passBiMovil,
+                    sms.Celular,
+                    "E", // Operador, si aplica dinámico
+                    sms.Sms,
+                    sms.Referencia,
+                    string.Empty,
+                    string.Empty
+                );
+
+                XmlDocument xml = new XmlDocument();
+                xml.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
+                var nodo = xml.GetElementsByTagName("respuesta")[0].InnerText;
+
+                string codigo = nodo.Substring(0, 1);
+                string mensajeR = nodo.Substring(1);
+
+                // Actualizar estado
+                await ActualizarEstadoAsync(sms.IdRow, codigo == "0" ? 1 : 2, mensajeR);
+            }
+            catch (Exception ex)
+            {
+                await ActualizarEstadoAsync(sms.IdRow, 3, ex.Message);
+            }
+        }
+
+        private async Task ActualizarEstadoAsync(int idRow, int estado, string descripcion)
+        {
+            await _semaphore.WaitAsync();
+            try
+            {
+                var registro = await _dbContext.BandejaEnvioSms.FindAsync(idRow);
+                if (registro != null)
+                {
+                    registro.Estado = estado;
+                    registro.DescripcionEstado = descripcion;
+                    registro.FechaFinal = DateTime.Now;
+                    await _dbContext.SaveChangesAsync();
+
+                    // Insertar en histórico
+                    var hist = new BandejaEnvioSmshistorico
+                    {
+                        NumeroTarjeta = registro.NumeroTarjeta,
+                        Celular = registro.Celular,
+                        Sms = registro.Sms,
+                        Referencia = registro.Referencia,
+                        TipoTarjeta = registro.TipoTarjeta,
+                        FechaInicio = registro.FechaInicio,
+                        FechaFinal = registro.FechaFinal,
+                        Estado = registro.Estado,
+                        DescripcionEstado = registro.DescripcionEstado
+                    };
+                    _dbContext.BandejaEnvioSmshistorico.Add(hist);
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+using BPNotifica.DTOs;
+using BPNotifica.Models.BPNotifica;
+using System.Net.Mail;
+
+namespace BPNotifica.Repositories
+{
+    public class EmailRepository
+    {
+        private readonly BPNotificaContext _dbContext;
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+
+        public EmailRepository(BPNotificaContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
+
+        public async Task EnviarAsync(NotificacionDto dto)
+        {
+            // Insertar en bandeja
+            var email = new BandejaEnvioEmail
+            {
+                NumeroTarjeta = dto.NumeroTarjeta,
+                Correo = dto.Correo,
+                CuerpoCorreo = $"{dto.ContenidoCorreo} {dto.PIN}",
+                Referencia = dto.Referencia,
+                TipoTarjeta = dto.TipoTarjeta,
+                FechaInicio = DateTime.Now,
+                Estado = 0
+            };
+
+            _dbContext.BandejaEnvioEmails.Add(email);
+            await _dbContext.SaveChangesAsync();
+
+            try
+            {
+                using (MailMessage msg = new MailMessage("no-reply@banpais.hn", email.Correo, "Notificación PIN", email.CuerpoCorreo))
+                {
+                    msg.IsBodyHtml = true;
+                    using (SmtpClient smtp = new SmtpClient(_dbContext.ConfigGenerales.Select(c => c.ServerEmail).FirstOrDefault()))
+                    {
+                        await smtp.SendMailAsync(msg);
+                    }
+                }
+
+                await ActualizarEstadoAsync(email.IdRow, 1, "Correo enviado satisfactoriamente");
+            }
+            catch (Exception ex)
+            {
+                await ActualizarEstadoAsync(email.IdRow, 3, ex.Message);
+            }
+        }
+
+        private async Task ActualizarEstadoAsync(int idRow, int estado, string descripcion)
+        {
+            await _semaphore.WaitAsync();
+            try
+            {
+                var registro = await _dbContext.BandejaEnvioEmails.FindAsync(idRow);
+                if (registro != null)
+                {
+                    registro.Estado = estado;
+                    registro.DescripcionEstado = descripcion;
+                    registro.FechaFinal = DateTime.Now;
+                    await _dbContext.SaveChangesAsync();
+
+                    var hist = new BandejaEnvioEmailHistorico
+                    {
+                        NumeroTarjeta = registro.NumeroTarjeta,
+                        Correo = registro.Correo,
+                        CuerpoCorreo = registro.CuerpoCorreo,
+                        Referencia = registro.Referencia,
+                        TipoTarjeta = registro.TipoTarjeta,
+                        FechaInicio = registro.FechaInicio,
+                        FechaFinal = registro.FechaFinal,
+                        Estado = registro.Estado,
+                        DescripcionEstado = registro.DescripcionEstado
+                    };
+                    _dbContext.BandejaEnvioEmailHistorico.Add(hist);
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+using BPNotifica.DTOs;
+using BPNotifica.Repositories;
+
+namespace BPNotifica.Services
+{
+    public class NotificacionService
+    {
+        private readonly SmsRepository _smsRepo;
+        private readonly EmailRepository _emailRepo;
+
+        public NotificacionService(SmsRepository smsRepo, EmailRepository emailRepo)
+        {
+            _smsRepo = smsRepo;
+            _emailRepo = emailRepo;
+        }
+
+        public async Task EnviarNotificacionAsync(NotificacionDto dto)
+        {
+            if (dto.MetodEnvio == 1)
+                await _smsRepo.EnviarAsync(dto);
+            else if (dto.MetodEnvio == 2)
+                await _emailRepo.EnviarAsync(dto);
+            else
+                throw new ArgumentException("Método de envío no válido.");
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+using BPNotifica.DTOs;
+using BPNotifica.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace BPNotifica.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class NotificacionController : ControllerBase
+    {
+        private readonly NotificacionService _service;
+
+        public NotificacionController(NotificacionService service)
+        {
+            _service = service;
+        }
+
+        [HttpPost("enviar")]
+        public async Task<IActionResult> Enviar([FromBody] NotificacionDto dto)
+        {
+            try
+            {
+                await _service.EnviarNotificacionAsync(dto);
+                return Ok(new { mensaje = "Notificación procesada correctamente" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+    }
+}
