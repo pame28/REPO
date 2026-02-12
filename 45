@@ -1,3 +1,13 @@
+
+public interface IConfiguracionAs400Repository
+{
+    Task<(string call, List<string> librerias)> ObtenerConfiguracionAsync(int idCall);
+}
+
+
+
+
+
 using Microsoft.Data.SqlClient;
 using System.Data;
 
