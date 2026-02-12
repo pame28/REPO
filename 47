@@ -1,0 +1,94 @@
+using Microsoft.EntityFrameworkCore;
+using BPNotifica.Models.BPNotifica;
+
+namespace BPNotifica.Data
+{
+    public class BPNotificaContext : DbContext
+    {
+        public BPNotificaContext(DbContextOptions<BPNotificaContext> options) : base(options) { }
+
+        // SMS
+        public DbSet<BandejaEnvioSm> BandejaEnvioSms { get; set; }
+        public DbSet<BandejaEnvioSmshistorico> BandejaEnvioSmshistorico { get; set; }
+        public DbSet<Usp_ObtenerConfigBiMovil> usp_ObtenerConfigBiMovil { get; set; }
+
+        // Email
+        public DbSet<BandejaEnvioEmail> BandejaEnvioEmails { get; set; }
+        public DbSet<BandejaEnvioEmailHistorico> BandejaEnvioEmailHistorico { get; set; }
+        public DbSet<ConfigGenerales> ConfigGenerales { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            // Aquí puedes agregar reglas específicas, llaves primarias, relaciones
+            modelBuilder.Entity<BandejaEnvioSm>().HasKey(b => b.IdRow);
+            modelBuilder.Entity<BandejaEnvioEmail>().HasKey(e => e.IdRow);
+
+            base.OnModelCreating(modelBuilder);
+        }
+    }
+}
+
+
+
+
+
+
+
+using BPNotifica.DTOs;
+using System.Threading.Tasks;
+
+namespace BPNotifica.Repositories.Interfaces
+{
+    public interface ISmsRepository
+    {
+        Task EnviarAsync(NotificacionDto dto);
+    }
+
+    public interface IEmailRepository
+    {
+        Task EnviarAsync(NotificacionDto dto);
+    }
+}
+
+
+
+
+
+
+
+using BPNotifica.DTOs;
+using System.Threading.Tasks;
+
+namespace BPNotifica.Services.Interfaces
+{
+    public interface INotificacionService
+    {
+        Task EnviarNotificacionAsync(NotificacionDto dto);
+    }
+}
+
+
+
+
+
+public class NotificacionService : INotificacionService
+{
+    private readonly ISmsRepository _smsRepo;
+    private readonly IEmailRepository _emailRepo;
+
+    public NotificacionService(ISmsRepository smsRepo, IEmailRepository emailRepo)
+    {
+        _smsRepo = smsRepo;
+        _emailRepo = emailRepo;
+    }
+
+    public async Task EnviarNotificacionAsync(NotificacionDto dto)
+    {
+        if (dto.MetodEnvio == 1)
+            await _smsRepo.EnviarAsync(dto);
+        else if (dto.MetodEnvio == 2)
+            await _emailRepo.EnviarAsync(dto);
+        else
+            throw new ArgumentException("Método de envío no válido.");
+    }
+}
