@@ -1,20 +1,18 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
-using reposicion_pin.Repository.Interface;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
+Un constructor declarado en un tipo con lista de parámetros debe tener un inicializador de constructor ''this''.
+El nombre del tipo o del espacio de nombres 'IEnvioSmsRepository' no se encontró (¿falta una directiva using o una referencia de ensamblado?)
+El nombre del tipo o del espacio de nombres 'Infrastructure' no se encontró (¿falta una directiva using o una referencia de ensamblado?)
 
-namespace reposicion_pin.Worker
+
+
+namespace Notificador
 {
-    public class EnvioSmsWorker : BackgroundService
+    public class Worker(ILogger<Worker> logger) : BackgroundService
     {
-        private readonly ILogger<EnvioSmsWorker> _logger;
+        private readonly ILogger<Worker> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly int _intervaloDefault = 5000; // intervalo en ms si no hay en BD
 
-        public EnvioSmsWorker(ILogger<EnvioSmsWorker> logger, IServiceProvider serviceProvider)
+        public Worker(ILogger<Worker> logger, IServiceProvider serviceProvider)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
