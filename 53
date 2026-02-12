@@ -1,204 +1,91 @@
-using reposicion_pin.DTOs;
-using reposicion_pin.Models;
-using reposicion_pin.Repository;
-using reposicion_pin.Repository.Interface;
-using reposicion_pin.Service.Interface;
-using System.ComponentModel.DataAnnotations;
-using System.Text.RegularExpressions;
+using BPNotificaSMS.Models.BPNotifica;
+using BPNotificaSMS.Repository;
+using log4net;
+using Microsoft.EntityFrameworkCore;
+using System.Configuration;
 
-namespace reposicion_pin.Service
+namespace BPNotificaSMS
 {
-    public class ReposicionPinService
-    {
-        private readonly ITarjetaRepository _tarjetaRepository;
-        private readonly ICatalogoRespuestaRepository _catalogoRepository;
-        private readonly IAS400Repository _as400Repository;
-        private readonly ILogger<ReposicionPinService> _logger;
+	public class Worker : BackgroundService
+	{
+		private readonly ILogger<Worker> _logger;
+		private readonly ILog _log;
+		private readonly IServiceProvider _serviceProvider;
+        private readonly string _TipoTarjeta;
+        public Worker(ILogger<Worker> logger, ILog log,IServiceProvider serviceProvider, IConfiguration configuration)
+		{
+			_logger = logger;
+			_serviceProvider = serviceProvider;
+			_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+            _TipoTarjeta = configuration.GetSection("TipoTarjeta").Value.Trim().ToUpper();
+            _log.Info("Iniciando servicio");
+		}
 
-        public ReposicionPinService(
-            ITarjetaRepository tarjetaRepository,
-            ICatalogoRespuestaRepository catalogoRepository,
-            IAS400Repository as400Repository,
-            ILogger<ReposicionPinService> logger)
-        {
-            _tarjetaRepository = tarjetaRepository;
-            _catalogoRepository = catalogoRepository;
-            _as400Repository = as400Repository;
-            _logger = logger;
-        }
+		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+		{
+			_log.Info($"Worker running");
+            int intervalo = 200;
 
-        #region FASE 1 - Validar tarjeta
-        public async Task<ReposicionPinResponseDto> ValidarTarjetaAsync(ReposicionPinRequestDto request)
-        {
-            try
-            {
-                // Validaciones básicas del request
-                if (string.IsNullOrWhiteSpace(request.CIF))
-                    return await ObtenerRespuestaDinamicaAsync(10, "CIF", "Se encuentra vacío o inválido");
+            while (!stoppingToken.IsCancellationRequested)
+			{
+				using (IServiceScope scope = _serviceProvider.CreateScope())
+				{
+                    BPNotificaContext dbContext = scope.ServiceProvider.GetRequiredService<BPNotificaContext>();
 
-                if (string.IsNullOrWhiteSpace(request.UltimosDigitosTC))
-                    return await ObtenerRespuestaDinamicaAsync(10, "UltimosDigitosTC", " Se encuentra vacío o inválido");
-
-                if (request.MetodoEnvio != 1 && request.MetodoEnvio != 2)
-                    return await ObtenerRespuestaDinamicaAsync(10, "MetodoEnvio", "Debe ser 1 (SMS) o 2 (Correo)");
-
-                if (request.MetodoEnvio == 1) // SMS
-                {
-                    if (string.IsNullOrWhiteSpace(request.Telefono))
-                        return await ObtenerRespuestaDinamicaAsync(10, "Telefono", "Es obligatorio para MetodoEnvio=1 (SMS)");
-                    else if (string.IsNullOrWhiteSpace(request.ContenidoSMS))
-                        return await ObtenerRespuestaDinamicaAsync(10, "Contenido SMS", "Es obligatorio para MetodoEnvio=1 (SMS)");
-                }
-                else if (request.MetodoEnvio == 2) // Correo
-                {
-                    if (string.IsNullOrWhiteSpace(request.Correo) || !request.Correo.Contains("@"))
-                        return await ObtenerRespuestaDinamicaAsync(10, "Correo", "Es obligatorio y debe ser válido para MetodoEnvio=2 (Correo)");
-                    else if (string.IsNullOrWhiteSpace(request.ContenidoCorreo))
-                        return await ObtenerRespuestaDinamicaAsync(10, "Contenido Correo", "Es obligatorio para MetodoEnvio=2 (Correo)");
+                    if (!await ValidarTablasAsync(dbContext, stoppingToken))
+                    {
+                        _log.Warn("Se omite el envío de SMS debido a que hay tablas vacías.");
+                    }
+                    else
+                    {
+                        EnviaMensajeRespository repository = scope.ServiceProvider.GetRequiredService<EnviaMensajeRespository>();
+                        await EnviarSMS(repository, stoppingToken);
+                    }
                 }
 
-                // Buscar tarjeta en BD
-                var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
-                if (tarjeta == null)
-                    return await ObtenerRespuestaAsync(5); // No se encontró tarjeta
+				using (IServiceScope scope = _serviceProvider.CreateScope())
+				{
+					BPNotificaContext _dbContext=scope.ServiceProvider.GetRequiredService<BPNotificaContext>();
+					intervalo = _dbContext.ParamIntervalosEjecucions.Where(s => s.TipoTarjeta == _TipoTarjeta).Select(s => s.Sms).First();
+				}
 
-                // Validaciones de tarjeta
-                if (tarjeta.EstadoTarjeta != 20)
-                    return await ObtenerRespuestaAsync(1); // Tarjeta inactiva
+				await Task.Delay(intervalo, stoppingToken);
+			}
+			_log.Info("Deteniendo servicio");
+		}
 
-                if (tarjeta.FechaFinVigencia < DateTime.Today)
-                    return await ObtenerRespuestaAsync(2); // Tarjeta vencida
-
-                if (!string.IsNullOrWhiteSpace(tarjeta.EstadoHabilitar))
-                    return await ObtenerRespuestaDinamicaAsync(10, "EstadoHabilitar", "debe estar vacío");
-
-                // Todo ok
-                return await ObtenerRespuestaAsync(0);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error inesperado en Fase1 de ReposicionPinService");
-                return await ObtenerRespuestaDinamicaAsync(99, "Excepción", ex.Message);
-            }
-        }
-        #endregion
-
-        #region Nuevo método público para que controller pueda usarlo
-        public async Task<TarjetaModel?> ObtenerTarjetaAsync(string cif, string ultimosDigitos)
+		protected async Task EnviarSMS(EnviaMensajeRespository enviaMensajeRespository, CancellationToken cancellationToken)
+		{
+			try
+			{
+				await enviaMensajeRespository.EnviarSMSAsync(cancellationToken);
+			}
+			catch (Exception ex)
+			{
+				_log.Error("Error en async Task EnviarSMS: ", ex);
+			}
+		}
+        private async Task<bool> ValidarTablasAsync(BPNotificaContext context, CancellationToken cancellationToken)
         {
-            return await _tarjetaRepository.ObtenerTarjetaAsync(cif, ultimosDigitos);
-        }
-        #endregion
-
-        #region FASE 2 - Consumir AS400
-        public async Task<ReposicionPinResponseDto> Fase2_ConsumirAs400Async(TarjetaModel tarjeta)
-        {
-            try
+            var tablasVacias = new List<string>();
+            if (!await context.ResponseCodes.AnyAsync(cancellationToken)) tablasVacias.Add("ResponseCode");
+            if (!await context.ProcessingCodes.AnyAsync(cancellationToken)) tablasVacias.Add("ProcessingCode");
+            if (!await context.ExcepcionesClientes.AnyAsync(cancellationToken)) tablasVacias.Add("ExcepcionesClientes");
+            if (!await context.Eusuarios.AnyAsync(cancellationToken)) tablasVacias.Add("EUsuarios");
+            if (!await context.Etarjetas.AnyAsync(cancellationToken)) tablasVacias.Add("ETarjetas");
+            if (!await context.DatosContactoClientes.AnyAsync(cancellationToken)) tablasVacias.Add("DatosContactoCliente");
+            if (!await context.TelcoPredeterminada.AnyAsync(cancellationToken)) tablasVacias.Add("TelcoPredeterminada");
+            if (tablasVacias.Any())
             {
-                var as400Request = new AS400RequestDto
-                {
-                    NumeroTarjeta = tarjeta.NumeroTarjeta.PadLeft(16, ' '),
-                    FechaVencimiento = tarjeta.FechaFinVigencia.ToString("yyyyMMdd")
-                };
-
-                var as400Response = await _as400Repository.EjecutarProgramaAsync(as400Request);
-
-                var codigoAs400 = as400Response.CodigoError?.Trim();
-
-
-                // Si hay error de AS400
-                if (!string.IsNullOrWhiteSpace(codigoAs400) && codigoAs400 != "00")
-                    return await MapearErrorAs400Async(as400Response);
-
-
-                var respuesta = await ObtenerRespuestaAsync(0);
-                respuesta.Pin = as400Response.Pin;
-
-
-                return respuesta;
-
+                _log.Warn($"Las siguientes tablas están vacías: {string.Join(", ", tablasVacias)}");
+                return false;
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error inesperado en Fase2 al consumir AS400");
-                return await ObtenerRespuestaDinamicaAsync(99, "Excepción", ex.Message);
-            }
+            return true;
         }
 
-
-        //private async Task<ReposicionPinResponseDto>MapearErrorAs400Async(AS400ResponseDto as400)
-        //{
-        //    if (!int.TryParse(as400.CodigoError, out int codigo))
-        //        codigo = 99;
-
-        //    return await ObtenerRespuestaAsync(codigo);
-        //}
-
-        private async Task<ReposicionPinResponseDto> MapearErrorAs400Async(AS400ResponseDto as400)
-        {
-            // Siempre será código 9 según catálogo oficial
-            var respuesta = await ObtenerRespuestaAsync(9);
-
-            string codigoAs400 = as400.CodigoError?.Trim() ?? "";
-            string descripcionAs400 = as400.DescripcionError?.Trim() ?? "";
-
-            respuesta.Descripcion = $"{respuesta.Descripcion} {codigoAs400} {descripcionAs400}".Trim();
-            respuesta.Pin = null;
-
-            return respuesta;
-        }
-        #endregion
-
-        #region Helpers de respuestas
-        public async Task<ReposicionPinResponseDto> ObtenerRespuestaAsync(int codigo, string fallbackDescripcion = null)
-        {
-            string descripcion = fallbackDescripcion;
-            try
-            {
-                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
-                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
-                    descripcion = catalogoDescripcion;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, $"No se pudo obtener descripción del catalogo para código {codigo}");
-            }
-
-            return new ReposicionPinResponseDto
-            {
-                CodigoInt = codigo,
-                Descripcion = descripcion
-            };
-        }
-
-        public async Task<ReposicionPinResponseDto> ObtenerRespuestaDinamicaAsync(int codigo, string campo, string detalle, string fallbackDescripcion = null)
-        {
-            string descripcion = fallbackDescripcion;
-            try
-            {
-                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
-                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
-                    descripcion = catalogoDescripcion;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, $"No se pudo obtener descripción del catálogo para código {codigo}");
-            }
-
-            string mensajeFinal = $"{descripcion ?? "Error"} {campo}: {detalle}";
-            return new ReposicionPinResponseDto
-            {
-                CodigoInt = codigo,
-                Descripcion = mensajeFinal
-            };
-        }
-        #endregion
     }
-
 }
 
 
+Mira lo encontré, como hago el mio?
 
-
-
-Como modifciao mi servicio para comprobar que funciona?
