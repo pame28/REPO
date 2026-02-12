@@ -1,0 +1,68 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using reposicion_pin.Repository.Interface;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace reposicion_pin.Worker
+{
+    public class EnvioSmsWorker : BackgroundService
+    {
+        private readonly ILogger<EnvioSmsWorker> _logger;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly int _intervaloDefault = 5000; // intervalo en ms si no hay en BD
+
+        public EnvioSmsWorker(ILogger<EnvioSmsWorker> logger, IServiceProvider serviceProvider)
+        {
+            _logger = logger;
+            _serviceProvider = serviceProvider;
+        }
+
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            _logger.LogInformation("EnvioSmsWorker iniciado.");
+
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    using (var scope = _serviceProvider.CreateScope())
+                    {
+                        var envioSmsRepository = scope.ServiceProvider.GetRequiredService<IEnvioSmsRepository>();
+
+                        // Aquí llamamos al método que envía los SMS pendientes
+                        await envioSmsRepository.EnviarSmsPendientesAsync(stoppingToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error general en EnvioSmsWorker");
+                }
+
+                // Esperamos el intervalo antes de la siguiente ejecución
+                int intervalo = _intervaloDefault;
+
+                try
+                {
+                    using (var scope = _serviceProvider.CreateScope())
+                    {
+                        var dbContext = scope.ServiceProvider.GetRequiredService<Infrastructure.Data.AppDbContext>();
+                        var intervaloBD = dbContext.ParamIntervalosEjecucions.FirstOrDefault();
+                        if (intervaloBD != null)
+                            intervalo = intervaloBD.Sms; // tomamos el intervalo desde BD si existe
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo obtener intervalo desde BD. Se usa valor default.");
+                }
+
+                await Task.Delay(intervalo, stoppingToken);
+            }
+
+            _logger.LogInformation("EnvioSmsWorker detenido.");
+        }
+    }
+}
