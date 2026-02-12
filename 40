@@ -323,9 +323,46 @@ END
 
 
 
-Ayudame a realizar las modificaciones para empezar a manejarlo de forma parametrizada
+Ayudame a realizar las modificaciones para empezar a manejarlo de forma parametrizada, no quiero que reemplaces nada de la estructura, solo quiero que ahora sea parametrizable, y que ademas...
+
+{
+  "codigo": "09",
+  "descripcion": "Error en servicio AZ7: CREADO CON EXITO",
+  "pin": null
+}
 
 
-  
+Cuando en la trama venga unicamente el pin .... (sin codigo de error, ni descripcion del error), entonces.. en esta esttructura me responda con el 00 y el pin tenga el valor del pin que me devuelve en la trama
+
+Recuerda las posiciones:
+Campo	Posición Inicial	Posición Final	Tamaño
+Equivalente TC	1	16	16
+Fecha Vencimiento TC	17	24	8
+PIN TC	25	28	4
+Código Error	29	31	3
+Descripción Error	32	81	50
+
+
+{
+  "codigo": "09",
+  "descripcion": "Error en servicio AZ7: CREADO CON EXITO",
+  "pin": null
+}
+
+
+  Este es el catalogo de respuestas:
+Codigo	Descripcion
+0	Pin generado exitosamente
+1	Tarjeta inactiva
+2	Tarjeta vencida
+3	Formato de teléfono incorrecto
+4	Formato de correo incorrecto
+5	No se encontró ninguna tarjeta asociada en la cuenta
+6	No se recibió respuesta de Autoriza
+7	Error de envió por BIMOVIL:
+8	Error de envió por correo:
+9	Error en servicio AZ7:
+10	Error en validación del campo
+99	Error de sistema:
 
 
