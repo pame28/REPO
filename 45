@@ -1,52 +1,173 @@
-
-public interface IConfiguracionAs400Repository
-{
-    Task<(string call, List<string> librerias)> ObtenerConfiguracionAsync(int idCall);
-}
-
-
-
-
-
-using Microsoft.Data.SqlClient;
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using System.Configuration;
 using System.Data;
+using System.Data.OleDb;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
-public class ConfiguracionAs400Repository : IConfiguracionAs400Repository
+namespace reposicion_pin.Repository
 {
-    private readonly string _sqlConnectionString;
-
-    public ConfiguracionAs400Repository(IConfiguration configuration)
+    public class AS400Repository : IAS400Repository
     {
-        _sqlConnectionString = configuration.GetConnectionString("DefaultConnection")!;
-    }
+        private readonly string _as400connectionString;
+        private readonly ILogger<AS400Repository> _logger;
+        private readonly IConfiguracionAs400Repository _configAs400Repository;
 
-    public async Task<(string call, List<string> librerias)> ObtenerConfiguracionAsync(int idCall)
-    {
-        var librerias = new List<string>();
-        string call = string.Empty;
-
-        using var sqlConn = new SqlConnection(_sqlConnectionString);
-        await sqlConn.OpenAsync();
-
-        using var cmd = new SqlCommand("usp_configCallAs400", sqlConn);
-        cmd.CommandType = CommandType.StoredProcedure;
-        cmd.Parameters.AddWithValue("@idCallAS400", idCall);
-
-        using var reader = await cmd.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
+        public AS400Repository(
+            IConfiguration configuration,
+            ILogger<AS400Repository> logger,
+            IConfiguracionAs400Repository configAs400Repository
+            )
         {
-            call = reader["CallAs400"].ToString() ?? "";
+            _as400connectionString = configuration.GetConnectionString("AS400Connection")!;
+            _logger = logger;
+            _configAs400Repository = configAs400Repository;
         }
 
-        if (await reader.NextResultAsync())
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
         {
-            while (await reader.ReadAsync())
+            try
             {
-                librerias.Add(reader["Libreria"].ToString() ?? "");
+                using var conn = new OleDbConnection(_as400connectionString);
+                await conn.OpenAsync();
+
+
+                //await ConfigurarLibraryListAsync(conn);
+                var config = await _configAs400Repository.ObtenerConfiguracionAsync(1);
+                await ConfigurarLibraryListAsync(conn, config.librerias);
+
+                string trama =
+                    request.NumeroTarjeta.PadRight(16) +
+                    request.FechaVencimiento.PadRight(8) +
+                    new string(' ', 57);
+
+                _logger.LogInformation("Trama enviada AS400: {Trama}", trama);
+
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandTimeout = 300;
+
+                // CALL clásico como en el sistema legacy
+                cmd.CommandText = config.call;
+
+                var paramTrama = new OleDbParameter
+                {
+                    ParameterName = "peTramaMQRcv",
+                    OleDbType = OleDbType.Char,
+                    Size = 81,
+                    Direction = ParameterDirection.InputOutput,
+                    Value = trama
+                };
+
+                cmd.Parameters.Add(paramTrama);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                string tramaRespuesta = paramTrama.Value?.ToString() ?? string.Empty;
+                _logger.LogInformation("Trama respuesta AS400: {Trama}", tramaRespuesta);
+
+                return ParsearRespuesta(tramaRespuesta);
+
+            }
+            catch (OleDbException ex)
+            {
+                _logger.LogError(ex, "Error OLE DB AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = ex.Message
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = ex.Message
+                };
             }
         }
 
-        return (call, librerias);
+        private async Task ConfigurarLibraryListAsync(OleDbConnection conn)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandTimeout = 300;
+
+            // Limpia el LIBL
+            cmd.CommandText =
+                "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+            await cmd.ExecuteNonQueryAsync();
+
+      
+         
+
+            foreach (var lib in librerias)
+            {
+                cmd.CommandText =
+                    $"{{{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB({lib})' 30)}}}}";
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        private static AS400ResponseDto ParsearRespuesta(string trama)
+        {
+            if (string.IsNullOrWhiteSpace(trama))
+            {
+                return new AS400ResponseDto
+                {
+                    CodigoError = "99",
+                    DescripcionError = "TRAMA RESPUESTA INVÁLIDA"
+                };
+            }
+
+            trama = trama.PadRight(81);
+
+            string pin = trama.Substring(24, 4).Trim();
+            string codigoError = trama.Substring(28, 3).Trim();
+            string descripcionError = trama.Substring(31, 50).Trim();
+
+            // 🔹 CASO EXITOSO: solo viene PIN
+            if (!string.IsNullOrWhiteSpace(pin) &&
+                string.IsNullOrWhiteSpace(codigoError) &&
+                string.IsNullOrWhiteSpace(descripcionError))
+            {
+                return new AS400ResponseDto
+                {
+                    Pin = pin,
+                    CodigoError = "00",
+                    DescripcionError = "Pin generado exitosamente"
+                };
+            }
+
+            // 🔹 CASO ERROR
+            if (!string.IsNullOrWhiteSpace(codigoError))
+            {
+                return new AS400ResponseDto
+                {
+                    Pin = null,
+                    CodigoError = codigoError,
+                    DescripcionError = descripcionError
+                };
+            }
+
+            return new AS400ResponseDto
+            {
+                CodigoError = "99",
+                DescripcionError = "Respuesta desconocida AS400"
+            };
+        }
     }
 }
+
+
+
+
+
+
+Ninguna sobrecarga para el método 'ConfigurarLibraryListAsync' toma 2 argumentos
+El nombre 'librerias' no existe en el contexto actual
