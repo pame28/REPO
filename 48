@@ -1,0 +1,353 @@
+using System;
+
+namespace BPNotifica.Models
+{
+    public class BandejaEnvioSms
+    {
+        public int IdRow { get; set; }
+        public string Celular { get; set; }
+        public string Sms { get; set; }
+        public string Telco { get; set; }
+        public string TipoTarjeta { get; set; }
+        public DateTime FechaRegistro { get; set; }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+using System;
+
+namespace BPNotifica.Models
+{
+    public class BandejaEnvioEmail
+    {
+        public int IdRow { get; set; }
+        public string Correo { get; set; }
+        public string MailFrom { get; set; }
+        public string MailSubject { get; set; }
+        public string Mensaje { get; set; }
+        public string TipoTarjeta { get; set; }
+        public DateTime FechaRegistro { get; set; }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+namespace BPNotifica.Models
+{
+    public class ConfigGenerales
+    {
+        public int IdRows { get; set; }
+        public string ServerEmail { get; set; }
+        public string UserEmail { get; set; }
+        public string PasswordEmail { get; set; }
+        public string ApiBiMovil { get; set; }
+    }
+}
+
+
+
+
+
+
+using System;
+
+namespace BPNotifica.Dtos
+{
+    public class BandejaEnvioSmsDto
+    {
+        public int IdRow { get; set; }
+        public string Celular { get; set; }
+        public string Sms { get; set; }
+        public string Telco { get; set; }
+        public string TipoTarjeta { get; set; }
+        public DateTime FechaRegistro { get; set; }
+    }
+}
+
+
+
+
+
+
+
+
+using System;
+
+namespace BPNotifica.Dtos
+{
+    public class BandejaEnvioEmailDto
+    {
+        public int IdRow { get; set; }
+        public string Correo { get; set; }
+        public string MailFrom { get; set; }
+        public string MailSubject { get; set; }
+        public string Mensaje { get; set; }
+        public string TipoTarjeta { get; set; }
+        public DateTime FechaRegistro { get; set; }
+    }
+}
+
+
+
+
+
+
+
+
+namespace BPNotifica.Dtos
+{
+    public class ConfigGeneralesDto
+    {
+        public int IdRows { get; set; }
+        public string ServerEmail { get; set; }
+        public string UserEmail { get; set; }
+        public string PasswordEmail { get; set; }
+        public string ApiBiMovil { get; set; }
+    }
+}
+
+
+
+
+
+
+using BPNotifica.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace BPNotifica.Interfaces
+{
+    public interface IBandejaEnvioSmsRepository
+    {
+        Task<IEnumerable<BandejaEnvioSms>> GetAllAsync();
+        Task<BandejaEnvioSms> GetByIdAsync(int id);
+        Task AddAsync(BandejaEnvioSms entity);
+        Task UpdateAsync(BandejaEnvioSms entity);
+        Task DeleteAsync(int id);
+    }
+}
+
+
+
+
+
+
+
+
+using BPNotifica.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace BPNotifica.Interfaces
+{
+    public interface IBandejaEnvioEmailRepository
+    {
+        Task<IEnumerable<BandejaEnvioEmail>> GetAllAsync();
+        Task<BandejaEnvioEmail> GetByIdAsync(int id);
+        Task AddAsync(BandejaEnvioEmail entity);
+        Task UpdateAsync(BandejaEnvioEmail entity);
+        Task DeleteAsync(int id);
+    }
+}
+
+
+
+
+
+
+
+using BPNotifica.Models;
+using System.Threading.Tasks;
+
+namespace BPNotifica.Interfaces
+{
+    public interface IConfigGeneralesRepository
+    {
+        Task<ConfigGenerales> GetAsync();
+        Task UpdateAsync(ConfigGenerales entity);
+    }
+}
+
+
+
+
+
+
+
+
+using BPNotifica.Data;
+using BPNotifica.Interfaces;
+using BPNotifica.Models;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace BPNotifica.Repositories
+{
+    public class BandejaEnvioSmsRepository : IBandejaEnvioSmsRepository
+    {
+        private readonly AppDbContext _context;
+
+        public BandejaEnvioSmsRepository(AppDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<BandejaEnvioSms>> GetAllAsync()
+        {
+            return await _context.BandejaEnvioSms.ToListAsync();
+        }
+
+        public async Task<BandejaEnvioSms> GetByIdAsync(int id)
+        {
+            return await _context.BandejaEnvioSms.FindAsync(id);
+        }
+
+        public async Task AddAsync(BandejaEnvioSms entity)
+        {
+            await _context.BandejaEnvioSms.AddAsync(entity);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task UpdateAsync(BandejaEnvioSms entity)
+        {
+            _context.BandejaEnvioSms.Update(entity);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(int id)
+        {
+            var entity = await _context.BandejaEnvioSms.FindAsync(id);
+            if (entity != null)
+            {
+                _context.BandejaEnvioSms.Remove(entity);
+                await _context.SaveChangesAsync();
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+using BPNotifica.Dtos;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace BPNotifica.Services
+{
+    public interface IBandejaEnvioSmsService
+    {
+        Task<IEnumerable<BandejaEnvioSmsDto>> GetAllAsync();
+        Task<BandejaEnvioSmsDto> GetByIdAsync(int id);
+        Task<BandejaEnvioSmsDto> CreateAsync(BandejaEnvioSmsDto dto);
+    }
+}
+
+
+
+
+
+
+using BPNotifica.Dtos;
+using BPNotifica.Interfaces;
+using BPNotifica.Models;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace BPNotifica.Services
+{
+    public class BandejaEnvioSmsService : IBandejaEnvioSmsService
+    {
+        private readonly IBandejaEnvioSmsRepository _repository;
+
+        public BandejaEnvioSmsService(IBandejaEnvioSmsRepository repository)
+        {
+            _repository = repository;
+        }
+
+        public async Task<IEnumerable<BandejaEnvioSmsDto>> GetAllAsync()
+        {
+            var entities = await _repository.GetAllAsync();
+            return entities.Select(x => new BandejaEnvioSmsDto
+            {
+                IdRow = x.IdRow,
+                Celular = x.Celular,
+                Sms = x.Sms,
+                Telco = x.Telco,
+                TipoTarjeta = x.TipoTarjeta,
+                FechaRegistro = x.FechaRegistro
+            });
+        }
+
+        public async Task<BandejaEnvioSmsDto> GetByIdAsync(int id)
+        {
+            var entity = await _repository.GetByIdAsync(id);
+            if (entity == null) return null;
+
+            return new BandejaEnvioSmsDto
+            {
+                IdRow = entity.IdRow,
+                Celular = entity.Celular,
+                Sms = entity.Sms,
+                Telco = entity.Telco,
+                TipoTarjeta = entity.TipoTarjeta,
+                FechaRegistro = entity.FechaRegistro
+            };
+        }
+
+        public async Task<BandejaEnvioSmsDto> CreateAsync(BandejaEnvioSmsDto dto)
+        {
+            var entity = new BandejaEnvioSms
+            {
+                Celular = dto.Celular,
+                Sms = dto.Sms,
+                Telco = dto.Telco,
+                TipoTarjeta = dto.TipoTarjeta,
+                FechaRegistro = dto.FechaRegistro
+            };
+
+            await _repository.AddAsync(entity);
+            dto.IdRow = entity.IdRow; // para devolver el ID generado
+            return dto;
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
