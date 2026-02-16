@@ -1,43 +1,5 @@
-using Dapper;
-using Microsoft.Data.SqlClient;
-using reposicion_pin.Repository.Interface;
-using System.Data;
-
-namespace reposicion_pin.Repository
-{
-    public class OperadorRepository : IOperadorRepository
-    {
-        private readonly string _connectionString;
-
-        public OperadorRepository(IConfiguration configuration)
-        {
-            _connectionString = configuration.GetConnectionString("ReposicionPinConnection")!;
-        }
-
-        public async Task<bool> ExisteOperadorAsync(string operador)
-        {
-            using var conn = new SqlConnection(_connectionString);
-
-            var result = await conn.QueryFirstOrDefaultAsync<int>(
-                "usp_OperadoresT",
-                new { idOperador = operador },
-                commandType: CommandType.StoredProcedure);
-
-            return result > 0;
-        }
-    }
-}
+InvalidOperationException: Error while validating the service descriptor 'ServiceType: reposicion_pin.Service.ReposicionPinService Lifetime: Scoped ImplementationType: reposicion_pin.Service.ReposicionPinService': Unable to resolve service for type 'reposicion_pin.Repository.Interface.IBandejaEnvioSmsRepository' while attempting to activate 'reposicion_pin.Service.ReposicionPinService'.
 
 
 
-
-
-
-namespace reposicion_pin.Repository.Interface
-{
-    public interface IOperadorRepository
-    {
-        Task<bool> ExisteOperadorAsync(string operador);
-    }
-}
-
+InvalidOperationException: Unable to resolve service for type 'reposicion_pin.Repository.Interface.IBandejaEnvioSmsRepository' while attempting to activate 'reposicion_pin.Service.ReposicionPinService'.
