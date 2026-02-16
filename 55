@@ -1,29 +1,43 @@
-private async Task InsertarEnBandejaAsync(
-    TarjetaModel tarjeta,
-    ReposicionPinRequestDto request,
-    string pin)
+using Dapper;
+using Microsoft.Data.SqlClient;
+using reposicion_pin.Repository.Interface;
+using System.Data;
+
+namespace reposicion_pin.Repository
 {
-    try
+    public class OperadorRepository : IOperadorRepository
     {
-        string tipoTarjeta = _configuration["ParametrosSMS:TipoTarjeta"] ?? "TDC";
+        private readonly string _connectionString;
 
-        var entidad = new BandejaEnvioSmsModel
+        public OperadorRepository(IConfiguration configuration)
         {
-            NumeroTarjeta = tarjeta.NumeroTarjeta,
-            Sms = request.ContenidoSMS.Replace("{PIN}", pin), 
-            Celular = request.Telefono,
-            Telco = request.OperadorTelefono,
-            Referencia = Guid.NewGuid().ToString(),
-            FechaInicio = DateTime.Now,
-            TipoTarjeta = tipoTarjeta,
-            Estado = 0,
-            DescripcionEstado = "NO ENVIADO"
-        };
+            _connectionString = configuration.GetConnectionString("ReposicionPinConnection")!;
+        }
 
-        await _bandejaRepository.AddAsync(entidad);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error insertando en BandejaEnvioSMS");
+        public async Task<bool> ExisteOperadorAsync(string operador)
+        {
+            using var conn = new SqlConnection(_connectionString);
+
+            var result = await conn.QueryFirstOrDefaultAsync<int>(
+                "usp_OperadoresT",
+                new { idOperador = operador },
+                commandType: CommandType.StoredProcedure);
+
+            return result > 0;
+        }
     }
 }
+
+
+
+
+
+
+namespace reposicion_pin.Repository.Interface
+{
+    public interface IOperadorRepository
+    {
+        Task<bool> ExisteOperadorAsync(string operador);
+    }
+}
+
