@@ -1,0 +1,51 @@
+using reposicion_pin.Infrastructure.Data;
+using reposicion_pin.Repository.Interface;
+using System.Configuration;
+
+namespace Notificador
+{
+    public class Worker: BackgroundService
+    {
+        private readonly ILogger<Worker> _logger;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly int _delay;
+
+        public Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IConfiguration configuration)
+        {
+            _logger = logger;
+            _serviceProvider = serviceProvider;
+            _delay = Convert.ToInt32(configuration.GetSection("Delay").Value.Trim());
+        }
+
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            _logger.LogInformation("EnvioSmsWorker iniciado.");
+
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    using (var scope = _serviceProvider.CreateScope())
+                    {
+                        var envioSmsRepository = scope.ServiceProvider.GetRequiredService<IEnvioSmsRepository>();
+
+                        // Aquí llamamos al método que envía los SMS pendientes
+                        await envioSmsRepository.EnviarSmsPendientesAsync(stoppingToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error general en EnvioSmsWorker");
+                }
+
+
+                await Task.Delay(_delay, stoppingToken);
+            }
+
+            _logger.LogInformation("EnvioSmsWorker detenido.");
+        }
+    }
+}
+
+
+Mira. asi me quedó el Worker, no se que piensas o si debo cambiar algo. No se cual seria el siguiente paso, dime detalladamente que es lo que sigue
