@@ -34,3 +34,5 @@ SELECT TOP (1000) [IdRow]
       ,[Estado]
       ,[DescripcionEstado]
   FROM [ReposicionPinTC].[dbo].[BandejaEnvioSMSHistorico]
+
+Dime paso a paso que debo hacer, si necesitas que te brinde un archivo completo me dices
