@@ -1,26 +1,23 @@
-private async Task InsertarEnBandejaAsync(TarjetaModel tarjeta, string pin)
+namespace reposicion_pin.DTOs
 {
-    try
+    public class ReposicionPinRequestDto
     {
-        string tipoTarjeta = _configuration["ParametrosSMS:TipoTarjeta"] ?? "TDC";
-
-        var entidad = new BandejaEnvioSmsModel
-        {
-            NumeroTarjeta = tarjeta.NumeroTarjeta,
-            Sms = $"Su PIN es: {pin}",
-            Celular = tarjeta.TelefonoCliente, // Ajusta si el teléfono viene del request
-            Telco = tarjeta.IdOperador,        // Ajusta según tu modelo
-            Referencia = Guid.NewGuid().ToString(),
-            FechaInicio = DateTime.Now,
-            TipoTarjeta = tipoTarjeta,
-            Estado = 0,
-            DescripcionEstado = "NO ENVIADO"
-        };
-
-        await _bandejaRepository.AddAsync(entidad);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error insertando en BandejaEnvioSMS");
+        public string CIF { get; set; } = string.Empty;
+        public string DNI { get; set; } = string.Empty;
+        public string Cliente { get; set; } = string.Empty;
+        public int MetodoEnvio { get; set; }
+        public string Telefono { get; set; } = string.Empty;
+        public string OperadorTelefono { get; set; } = string.Empty;
+        public string Correo { get; set; } = string.Empty;
+        public string UltimosDigitosTC { get; set; } = string.Empty;
+        public string ContenidoSMS { get; set; } = string.Empty;
+        public string ContenidoCorreo { get; set; } = string.Empty;
     }
 }
+
+
+Mira estos son los datos que me manda CRM .. basicamnete el request ... 
+
+
+
+de ahi se debe tomar lo que te mencioné, algunas cosas, claro
