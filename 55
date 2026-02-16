@@ -1,51 +1,22 @@
 using reposicion_pin.Infrastructure.Data;
+using reposicion_pin.Repository;
 using reposicion_pin.Repository.Interface;
-using System.Configuration;
+using Microsoft.EntityFrameworkCore;
 
-namespace Notificador
-{
-    public class Worker: BackgroundService
-    {
-        private readonly ILogger<Worker> _logger;
-        private readonly IServiceProvider _serviceProvider;
-        private readonly int _delay;
+var builder = Host.CreateApplicationBuilder(args);
 
-        public Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IConfiguration configuration)
-        {
-            _logger = logger;
-            _serviceProvider = serviceProvider;
-            _delay = Convert.ToInt32(configuration.GetSection("Delay").Value.Trim());
-        }
+// 🔹 Configuración
+var configuration = builder.Configuration;
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            _logger.LogInformation("EnvioSmsWorker iniciado.");
+// 🔹 DbContext
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                try
-                {
-                    using (var scope = _serviceProvider.CreateScope())
-                    {
-                        var envioSmsRepository = scope.ServiceProvider.GetRequiredService<IEnvioSmsRepository>();
+// 🔹 Repositorios
+builder.Services.AddScoped<IEnvioSmsRepository, EnvioSmsRepository>();
 
-                        // Aquí llamamos al método que envía los SMS pendientes
-                        await envioSmsRepository.EnviarSmsPendientesAsync(stoppingToken);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error general en EnvioSmsWorker");
-                }
+// 🔹 Worker
+builder.Services.AddHostedService<Worker>();
 
-
-                await Task.Delay(_delay, stoppingToken);
-            }
-
-            _logger.LogInformation("EnvioSmsWorker detenido.");
-        }
-    }
-}
-
-
-Mira. asi me quedó el Worker, no se que piensas o si debo cambiar algo. No se cual seria el siguiente paso, dime detalladamente que es lo que sigue
+var host = builder.Build();
+await host.RunAsync();
