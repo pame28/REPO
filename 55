@@ -1,140 +1,36 @@
-info: Notificador.Worker[0]
-      EnvioSmsWorker iniciado.
-info: Microsoft.Hosting.Lifetime[0]
-      Application started. Press Ctrl+C to shut down.
-info: Microsoft.Hosting.Lifetime[0]
-      Hosting environment: Development
-info: Microsoft.Hosting.Lifetime[0]
-      Content root path: C:\Users\80730.HN\Desktop\Projects\BH-24138 Procesador Regional\Microservicios\Reposicion PIN\reposicion_pin\Notificador
-info: Microsoft.EntityFrameworkCore.Database.Command[20101]
-      Executed DbCommand (20ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
-      EXEC usp_ObtenerConfigBiMovil
-fail: Microsoft.EntityFrameworkCore.Database.Command[20102]
-      Failed executing DbCommand (8ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
-      SELECT TOP(1) [p].[IdRow], [p].[Ambiente], [p].[Correo], [p].[Estado], [p].[IdOperador], [p].[Telefono]
-      FROM [ParamAmbientes] AS [p]
-      WHERE [p].[Estado] = 1
-      ORDER BY [p].[IdRow]
-fail: Microsoft.EntityFrameworkCore.Query[10100]
-      An exception occurred while iterating over the results of a query for context type 'reposicion_pin.Infrastructure.Data.AppDbContext'.
-      Microsoft.Data.SqlClient.SqlException (0x80131904): Invalid object name 'ParamAmbientes'.
-         at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
-         at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
-         at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
-         at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
-         at Microsoft.Data.SqlClient.SqlDataReader.TryConsumeMetaData()
-         at Microsoft.Data.SqlClient.SqlDataReader.get_MetaData()
-         at Microsoft.Data.SqlClient.SqlCommand.FinishExecuteReader(SqlDataReader ds, RunBehavior runBehavior, String resetOptionsString, Boolean isInternal, Boolean forDescribeParameterEncryption, Boolean shouldCacheForAlwaysEncrypted)
-         at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReaderTds(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, Boolean isAsync, Int32 timeout, Task& task, Boolean asyncWrite, Boolean inRetry, SqlDataReader ds, Boolean describeParameterEncryptionRequest)
-         at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, TaskCompletionSource`1 completion, Int32 timeout, Task& task, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry, String method)
-         at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, String method)
-         at Microsoft.Data.SqlClient.SqlCommand.ExecuteReader(CommandBehavior behavior)
-         at Microsoft.Data.SqlClient.SqlCommand.ExecuteDbDataReader(CommandBehavior behavior)
-         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReader(RelationalCommandParameterObject parameterObject)
-         at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.InitializeReader(Enumerator enumerator)
-         at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.<>c.<MoveNext>b__21_0(DbContext _, Enumerator enumerator)
-         at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
-         at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.MoveNext()
-      ClientConnectionId:1671672a-c1e0-4167-989d-848f711c0000
-      Error Number:208,State:1,Class:16
-      Microsoft.Data.SqlClient.SqlException (0x80131904): Invalid object name 'ParamAmbientes'.
-         at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
-         at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
-         at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
-         at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
-         at Microsoft.Data.SqlClient.SqlDataReader.TryConsumeMetaData()
-         at Microsoft.Data.SqlClient.SqlDataReader.get_MetaData()
-         at Microsoft.Data.SqlClient.SqlCommand.FinishExecuteReader(SqlDataReader ds, RunBehavior runBehavior, String resetOptionsString, Boolean isInternal, Boolean forDescribeParameterEncryption, Boolean shouldCacheForAlwaysEncrypted)
-         at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReaderTds(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, Boolean isAsync, Int32 timeout, Task& task, Boolean asyncWrite, Boolean inRetry, SqlDataReader ds, Boolean describeParameterEncryptionRequest)
-         at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, TaskCompletionSource`1 completion, Int32 timeout, Task& task, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry, String method)
-         at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, String method)
-         at Microsoft.Data.SqlClient.SqlCommand.ExecuteReader(CommandBehavior behavior)
-         at Microsoft.Data.SqlClient.SqlCommand.ExecuteDbDataReader(CommandBehavior behavior)
-         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReader(RelationalCommandParameterObject parameterObject)
-         at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.InitializeReader(Enumerator enumerator)
-         at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.<>c.<MoveNext>b__21_0(DbContext _, Enumerator enumerator)
-         at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
-         at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.MoveNext()
-      ClientConnectionId:1671672a-c1e0-4167-989d-848f711c0000
-      Error Number:208,State:1,Class:16
-fail: Notificador.Worker[0]
-      Error general en EnvioSmsWorker
-      Microsoft.Data.SqlClient.SqlException (0x80131904): Invalid object name 'ParamAmbientes'.
-         at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
-         at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
-         at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
-         at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
-         at Microsoft.Data.SqlClient.SqlDataReader.TryConsumeMetaData()
-         at Microsoft.Data.SqlClient.SqlDataReader.get_MetaData()
-         at Microsoft.Data.SqlClient.SqlCommand.FinishExecuteReader(SqlDataReader ds, RunBehavior runBehavior, String resetOptionsString, Boolean isInternal, Boolean forDescribeParameterEncryption, Boolean shouldCacheForAlwaysEncrypted)
-         at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReaderTds(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, Boolean isAsync, Int32 timeout, Task& task, Boolean asyncWrite, Boolean inRetry, SqlDataReader ds, Boolean describeParameterEncryptionRequest)
-         at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, TaskCompletionSource`1 completion, Int32 timeout, Task& task, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry, String method)
-         at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, String method)
-         at Microsoft.Data.SqlClient.SqlCommand.ExecuteReader(CommandBehavior behavior)
-         at Microsoft.Data.SqlClient.SqlCommand.ExecuteDbDataReader(CommandBehavior behavior)
-         at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReader(RelationalCommandParameterObject parameterObject)
-         at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.InitializeReader(Enumerator enumerator)
-         at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.<>c.<MoveNext>b__21_0(DbContext _, Enumerator enumerator)
-         at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
-         at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.MoveNext()
-         at System.Linq.Enumerable.TryGetSingle[TSource](IEnumerable`1 source, Boolean& found)
-         at lambda_method34(Closure, QueryContext)
-         at Microsoft.EntityFrameworkCore.Query.Internal.QueryCompiler.ExecuteCore[TResult](Expression query, Boolean async, CancellationToken cancellationToken)
-         at Microsoft.EntityFrameworkCore.Query.Internal.QueryCompiler.Execute[TResult](Expression query)
-         at Microsoft.EntityFrameworkCore.Query.Internal.EntityQueryProvider.Execute[TResult](Expression expression)
-         at reposicion_pin.Repository.EnvioSmsRepository..ctor(AppDbContext dbContext, IConfiguration configuration, ILogger`1 logger) in C:\Users\80730.HN\Desktop\Projects\BH-24138 Procesador Regional\Microservicios\Reposicion PIN\reposicion_pin\reposicion_pin\Repository\EnvioSmsRepository.cs:line 43
-         at InvokeStub_EnvioSmsRepository..ctor(Object, Span`1)
-         at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
-         at System.Reflection.RuntimeConstructorInfo.Invoke(BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
-         at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitConstructor(ConstructorCallSite constructorCallSite, RuntimeResolverContext context)
-         at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteVisitor`2.VisitCallSiteMain(ServiceCallSite callSite, TArgument argument)
-         at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
-         at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitScopeCache(ServiceCallSite callSite, RuntimeResolverContext context)
-         at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteVisitor`2.VisitCallSite(ServiceCallSite callSite, TArgument argument)
-         at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.Resolve(ServiceCallSite callSite, ServiceProviderEngineScope scope)
-         at Microsoft.Extensions.DependencyInjection.ServiceLookup.DynamicServiceProviderEngine.<>c__DisplayClass2_0.<RealizeService>b__0(ServiceProviderEngineScope scope)
-         at Microsoft.Extensions.DependencyInjection.ServiceProvider.GetService(ServiceIdentifier serviceIdentifier, ServiceProviderEngineScope serviceProviderEngineScope)
-         at Microsoft.Extensions.DependencyInjection.ServiceLookup.ServiceProviderEngineScope.GetService(Type serviceType)
-         at Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService(IServiceProvider provider, Type serviceType)
-         at Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService[T](IServiceProvider provider)
-         at Notificador.Worker.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\80730.HN\Desktop\Projects\BH-24138 Procesador Regional\Microservicios\Reposicion PIN\reposicion_pin\Notificador\Worker.cs:line 30
-      ClientConnectionId:1671672a-c1e0-4167-989d-848f711c0000
-      Error Number:208,State:1,Class:16
+Ok mira, ya el envio funciona perfecto. Si se envió el msj de prueba que creé manualmente, ahora, me gustaría que se integrara todo correctamente...
+
+Que esa tabla BandejaEnvioSMS se llene con los datos que correspondan con la info que obtenemos de CRM 
 
 
 
-using System.ComponentModel.DataAnnotations;
+SELECT [IdRow]
+      ,[NumeroTarjeta] - El numero de tarjeta que se le envia de parametro a AS400
+      ,[SMS] - El contenido que nos mande CRM en el primer ingreso de info .. el campo se llama ContenidoSMS
+      ,[Celular] - El celular que nos mande CRM en el primero ingreso de info .. el campo se llama Telefono
+      ,[Telco] - El operador que mande CRM si D o E .. aunque no se como podra funcionar esto ya que ... tambien tengo una tabla de operadores
+      ,[Referencia] - creo que esta hay que irla colocando nosotros
+      ,[FechaInicio]
+      ,[FechaFinal]
+      ,[TipoTarjeta] - pues deberia ser TDC porque es de credito, pero no se como podemos hacer para que sea "parametrizable o no quemarlo al menos"
+      ,[Estado] -0 cuando se cree y 1 cuando ya fue enviado
+      ,[DescripcionEstado] - ENVIADO o NO ENVIADO
+  FROM [ReposicionPinTC].[dbo].[BandejaEnvioSMS]
 
-namespace reposicion_pin.Models
-{
-    public class usp_ObtenerConfigBiMovil
-    {
-        [Key]
-        public int IdRows { get; set; }
-        public string UserBiMovil { get; set; } = "";
-        public string PassBiMovil { get; set; } = "";
-    }
-}
 
 
+Tambien tomar en cuenta que ... debo pasar a historicos ...
 
-using System.ComponentModel.DataAnnotations;
-
-namespace reposicion_pin.Models
-{
-    public class ParamAmbienteModel
-    {
-        [Key]
-        public int IdRow { get; set; }
-
-        public string? Ambiente { get; set; }
-
-        public string? Correo { get; set; }
-
-        public string? Telefono { get; set; }
-
-        public string? IdOperador { get; set; }
-
-        public int? Estado { get; set; }
-    }
-}
+pero no se como hacerlo ...
+SELECT TOP (1000) [IdRow]
+      ,[NumeroTarjeta]
+      ,[SMS]
+      ,[Celular]
+      ,[Telco]
+      ,[Referencia]
+      ,[FechaInicio]
+      ,[FechaFinal]
+      ,[TipoTarjeta]
+      ,[Estado]
+      ,[DescripcionEstado]
+  FROM [ReposicionPinTC].[dbo].[BandejaEnvioSMSHistorico]
