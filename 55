@@ -1,70 +1,37 @@
-Task<(bool Exitoso, string Codigo, string Mensaje)> 
-    EnviarSmsDirectoAsync(
-        string telefono,
-        string operador,
-        string mensaje,
-        string referencia,
-        CancellationToken cancellationToken);
+Sabes, lo unico es que, cuando, se hace la inserción me gustaría que tomara lo que responde el servicio:
 
-
-
-
-
-
-
-
-public async Task<(bool Exitoso, string Codigo, string Mensaje)> 
-    EnviarSmsDirectoAsync(
-        string telefono,
-        string operador,
-        string mensaje,
-        string referencia,
-        CancellationToken cancellationToken)
-{
-    try
-    {
-        // Aplicar override de ambiente si existe
-        string telefonoFinal = _paramAmbiente?.Telefono ?? telefono;
-        string operadorFinal = _paramAmbiente?.IdOperador ?? operador;
-
-        _logger.LogInformation("Enviando SMS directo Ref:{Referencia} a {Telefono}", 
-            referencia, telefonoFinal);
-
-        var response = await _mensajesSoapClient.Envia_MensajeAsync(
-            _UsrBiMovil,
-            _PassBiMovil,
-            telefonoFinal,
-            operadorFinal,
-            mensaje,
-            referencia,
-            string.Empty,
-            string.Empty
-        );
-
-        // Parsear XML de respuesta
-        XmlDocument xmlDoc = new XmlDocument();
-        xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
-
-        XmlNode nodo = xmlDoc.GetElementsByTagName("respuesta")[0];
-        string cadena = nodo.InnerText;
-
-        string codigo = cadena.Substring(0, 1);
-        string mensajeRespuesta = cadena.Length > 1 ? cadena.Substring(1) : "";
-
-        bool exitoso = codigo == "0";
-
-        _logger.LogInformation(
-            "Resultado SMS Ref:{Referencia} Código:{Codigo} Mensaje:{Mensaje}",
-            referencia, codigo, mensajeRespuesta);
-
-        return (exitoso, codigo, mensajeRespuesta);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error enviando SMS directo Ref:{Referencia}", referencia);
-        return (false, "9", ex.Message);
-    }
-}
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+   <soap:Body>
+      <Envia_MensajeResponse xmlns="http://10.2.0.189/bimovil_mensajesX">
+         <Envia_MensajeResult>
+            <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+               <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:MainDataTable="respuesta" msdata:UseCurrentLocale="true">
+                  <xs:complexType>
+                     <xs:choice minOccurs="0" maxOccurs="unbounded">
+                        <xs:element name="respuesta">
+                           <xs:complexType>
+                              <xs:sequence>
+                                 <xs:element name="cod_ret" type="xs:int" minOccurs="0"/>
+                                 <xs:element name="mensaje" type="xs:string" minOccurs="0"/>
+                              </xs:sequence>
+                           </xs:complexType>
+                        </xs:element>
+                     </xs:choice>
+                  </xs:complexType>
+               </xs:element>
+            </xs:schema>
+            <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+               <DocumentElement xmlns="">
+                  <respuesta diffgr:id="respuesta1" msdata:rowOrder="0" diffgr:hasChanges="inserted">
+                     <cod_ret>98</cod_ret>
+                     <mensaje>Usuario y password no coinciden</mensaje>
+                  </respuesta>
+               </DocumentElement>
+            </diffgr:diffgram>
+         </Envia_MensajeResult>
+      </Envia_MensajeResponse>
+   </soap:Body>
+</soap:Envelope>
 
 
 
@@ -75,32 +42,59 @@ public async Task<(bool Exitoso, string Codigo, string Mensaje)>
 
 
 
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+   <soap:Body>
+      <Envia_MensajeResponse xmlns="http://10.2.0.189/bimovil_mensajesX">
+         <Envia_MensajeResult>
+            <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+               <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:MainDataTable="respuesta" msdata:UseCurrentLocale="true">
+                  <xs:complexType>
+                     <xs:choice minOccurs="0" maxOccurs="unbounded">
+                        <xs:element name="respuesta">
+                           <xs:complexType>
+                              <xs:sequence>
+                                 <xs:element name="cod_ret" type="xs:int" minOccurs="0"/>
+                                 <xs:element name="mensaje" type="xs:string" minOccurs="0"/>
+                              </xs:sequence>
+                           </xs:complexType>
+                        </xs:element>
+                     </xs:choice>
+                  </xs:complexType>
+               </xs:element>
+            </xs:schema>
+            <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+               <DocumentElement xmlns="">
+                  <respuesta diffgr:id="respuesta1" msdata:rowOrder="0" diffgr:hasChanges="inserted">
+                     <cod_ret>0</cod_ret>
+                     <mensaje>Mensaje enviado satisfactoriamente</mensaje>
+                  </respuesta>
+               </DocumentElement>
+            </diffgr:diffgram>
+         </Envia_MensajeResult>
+      </Envia_MensajeResponse>
+   </soap:Body>
+</soap:Envelope>
 
-var pin = as400Response.Pin;
 
-if (request.MetodoEnvio == 1)
-{
-    var mensajeFinal = request.ContenidoSMS.Replace("{PIN}", pin);
 
-    var referencia = DateTime.Now.ToString("yyMMddHHmmss");
+Esta es mi tabla:
 
-    var resultado = await _envioSmsRepository.EnviarSmsDirectoAsync(
-        request.Telefono,
-        request.OperadorTelefono,
-        mensajeFinal,
-        referencia,
-        CancellationToken.None
-    );
-
-    await InsertarRegistroEnvioAsync(
-        tarjeta,
-        request,
-        referencia,
-        resultado.Exitoso,
-        resultado.Mensaje
-    );
-}
+SELECT  [IdRow]
+      ,[NumeroTarjeta]
+      ,[SMS]
+      ,[Celular]
+      ,[Telco]
+      ,[Referencia]
+      ,[FechaInicio]
+      ,[FechaFinal]
+      ,[TipoTarjeta]
+      ,[Estado]
+      ,[DescripcionEstado]
+  FROM [ReposicionPinTC].[dbo].[BandejaEnvioSMS]
 
 
 
+Quiero que el Estado (o sea el codigo del estado) y la Descripcion del Estado lo tome del response de biMovil 
 
+Y que todos los estados que no sean 0 Mensaje enviado satisfactoriamente utilice mi catalogo de respuesta 
+ return await ObtenerRespuestaDinamicaAsync(7, el codigo de error response biMovil + descripcion response biMovil );
