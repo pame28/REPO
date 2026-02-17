@@ -1,5 +1,18 @@
-InvalidOperationException: Error while validating the service descriptor 'ServiceType: reposicion_pin.Service.ReposicionPinService Lifetime: Scoped ImplementationType: reposicion_pin.Service.ReposicionPinService': Unable to resolve service for type 'reposicion_pin.Repository.Interface.IBandejaEnvioSmsRepository' while attempting to activate 'reposicion_pin.Service.ReposicionPinService'.
+
+                var entidad = new BandejaEnvioSmsModel
+                {
+                    NumeroTarjeta = tarjeta.NumeroTarjeta,
+                    Sms = request.ContenidoSMS.Replace("{PIN}", pin),
+                    Celular = request.Telefono,
+                    Telco = request.OperadorTelefono,
+                    Referencia = request.Telefono,
+                    FechaInicio = DateTime.Now,
+                    TipoTarjeta = tipoTarjeta,
+                    Estado = 0,
+                    DescripcionEstado = "Mensaje No Enviado"
+                };
 
 
 
-InvalidOperationException: Unable to resolve service for type 'reposicion_pin.Repository.Interface.IBandejaEnvioSmsRepository' while attempting to activate 'reposicion_pin.Service.ReposicionPinService'.
+
+Tengo una consulta en esta linea   Sms = request.ContenidoSMS.Replace("{PIN}", pin), y es que, ya sabemos que no podemos guardar ese pin ... pero como lo manjeamos ? en memoria? en alguna tabla a nivel de codigo? porque los correos en la tabla bandeja van a quedar como en cola, o no? 
