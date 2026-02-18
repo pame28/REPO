@@ -1,109 +1,109 @@
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace reposicion_pin.Repository.Interface
-{
-    public interface IEnvioEmailRepository
-    {
-        Task<(int Codigo, string Mensaje)> EnviarCorreoAsync(
-            string correoDestino,
-            string cuerpoBase,
-            string pin,
-            string referencia,
-            CancellationToken cancellationToken);
-    }
-}
-
-
-
-
-
-
-
-
-
-
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using reposicion_pin.Infrastructure.Data;
+using reposicion_pin.Models;
 using reposicion_pin.Repository.Interface;
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Mail;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
+using wsBIMovil;
 
 namespace reposicion_pin.Repository
 {
-    public class EnvioEmailRepository : IEnvioEmailRepository
+    public class EnvioSmsRepository : IEnvioSmsRepository
     {
         private readonly AppDbContext _dbContext;
-        private readonly ILogger<EnvioEmailRepository> _logger;
+        private readonly ILogger<EnvioSmsRepository> _logger;
+        private readonly MensajesSoapClient _mensajesSoapClient;
+        private readonly string _UsrBiMovil;
+        private readonly string _PassBiMovil;
+        private readonly ParamAmbienteModel _paramAmbiente;
 
-        public EnvioEmailRepository(
-            AppDbContext dbContext,
-            ILogger<EnvioEmailRepository> logger)
+        public EnvioSmsRepository(AppDbContext dbContext, IConfiguration configuration, ILogger<EnvioSmsRepository> logger)
         {
             _dbContext = dbContext;
             _logger = logger;
+
+            // Obtener configuración de BiMovil desde SP
+            var configBiMovil = _dbContext
+                .usp_ObtenerConfigBiMovil
+                .AsEnumerable()
+                .FirstOrDefault();
+            if (configBiMovil == null)
+                throw new Exception("No se encontró configuración de BiMovil.");
+
+            _UsrBiMovil = configBiMovil.UserBiMovil;
+            _PassBiMovil = configBiMovil.PassBiMovil;
+
+            _paramAmbiente = _dbContext.ParamAmbiente
+                .Where(p => p.Estado ==1)
+                .OrderBy(p => p.IdRow)
+                .FirstOrDefault();
+
+            _mensajesSoapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
         }
 
-        public async Task<(int Codigo, string Mensaje)> EnviarCorreoAsync(
-            string correoDestino,
-            string cuerpoBase,
-            string pin,
-            string referencia,
-            CancellationToken cancellationToken)
+        public async Task<(int Codigo, string Mensaje)>
+       EnviarSmsDirectoAsync(
+           string telefono,
+           string operador,
+           string mensajeBase,
+           string pin,
+           string referencia,
+           CancellationToken cancellationToken)
         {
             try
             {
-                var config = await _dbContext.ConfigEmail
-                    .Where(x => x.Estado == 1)
-                    .OrderBy(x => x.IdRows)
-                    .FirstOrDefaultAsync(cancellationToken);
+                string telefonoFinal = _paramAmbiente?.Telefono ?? telefono;
+                string operadorFinal = _paramAmbiente?.IdOperador ?? operador;
 
-                if (config == null)
-                {
-                    _logger.LogError("No existe configuración activa en ConfigEmail");
-                    return (8, "No existe configuración activa de correo.");
-                }
+                string mensajeFinal = mensajeBase + pin;
 
-                string cuerpoFinal = cuerpoBase.Replace("{PIN}", pin);
+                int enmascararDesde = mensajeBase.Length + 1;
+                int enmascararHasta = mensajeFinal.Length;
 
-                using var smtp = new SmtpClient(config.ServerEmail)
-                {
-                    DeliveryMethod = SmtpDeliveryMethod.Network,
-                    UseDefaultCredentials = true
-                };
 
-                using var mail = new MailMessage
-                {
-                    From = new MailAddress(config.MailFrom),
-                    Subject = config.MailSubject,
-                    Body = cuerpoFinal,
-                    IsBodyHtml = true
-                };
+                var response = await _mensajesSoapClient.Envia_MensajeAsync(
+                    _UsrBiMovil,
+                    _PassBiMovil,
+                    telefonoFinal,
+                    operadorFinal,
+                    mensajeFinal,
+                    referencia,
+                    enmascararDesde.ToString(),
+                    enmascararHasta.ToString()
+                  
+                );
 
-                mail.To.Add(correoDestino);
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
 
-                await smtp.SendMailAsync(mail, cancellationToken);
+                XmlNode nodoCod = xmlDoc.GetElementsByTagName("cod_ret")[0];
+                XmlNode nodoMensaje = xmlDoc.GetElementsByTagName("mensaje")[0];
+
+               
+                int codigo = nodoCod != null ? int.Parse(nodoCod.InnerText) : 99;
+                string mensajeRespuesta = nodoMensaje?.InnerText ?? "Respuesta inválida";
 
                 _logger.LogInformation(
-                    "Correo enviado Ref:{Referencia} Destino:{Destino}",
-                    referencia, correoDestino);
+                    "BiMovil Ref:{Referencia} Codigo:{Codigo} Mensaje:{Mensaje}",
+                    referencia, codigo, mensajeRespuesta);
 
-                return (0, "Correo enviado correctamente.");
+                return (codigo, mensajeRespuesta);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Error enviando correo Ref:{Referencia} Destino:{Destino}",
-                    referencia, correoDestino);
-
-                return (8, ex.Message);
+                _logger.LogError(ex, "Error enviando SMS Ref:{Referencia}", referencia);
+                return (99, ex.Message);
             }
         }
+      
+
+        
     }
 }
 
@@ -115,79 +115,6 @@ namespace reposicion_pin.Repository
 
 
 
-
-
-
-
-
-private async Task InsertarRegistroEnvioEmailAsync(
-    TarjetaModel tarjeta,
-    ReposicionPinRequestDto request,
-    string referencia,
-    int codigo,
-    string mensaje)
-{
-    try
-    {
-        string tipoTarjeta = _configuration["ParametrosSMS:TipoTarjeta"] ?? "TDC";
-
-        var entidad = new BandejaEnvioEmailModel
-        {
-            NumeroTarjeta = tarjeta.NumeroTarjeta,
-            CuerpoCorreo = request.ContenidoCorreo,
-            MailFrom = null, // puedes traerlo si deseas
-            MailSubject = null,
-            Correo = request.Correo,
-            Referencia = referencia,
-            FechaInicio = DateTime.Now,
-            FechaFinal = DateTime.Now,
-            TipoTarjeta = tipoTarjeta,
-            Estado = codigo,
-            DescripcionEstado = mensaje
-        };
-
-        _dbContext.BandejaEnvioEmail.Add(entidad);
-        await _dbContext.SaveChangesAsync();
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error registrando resultado Email");
-    }
-}
-
-
-
-
-
-if (request.MetodoEnvio == 2)
-{
-    long numeroTransaccion = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    string referencia = numeroTransaccion.ToString();
-
-    var resultado = await _envioEmailRepository.EnviarCorreoAsync(
-        request.Correo,
-        request.ContenidoCorreo,
-        pin,
-        referencia,
-        CancellationToken.None
-    );
-
-    await InsertarRegistroEnvioEmailAsync(
-        tarjeta,
-        request,
-        referencia,
-        resultado.Codigo,
-        resultado.Mensaje
-    );
-
-    if (resultado.Codigo != 0)
-    {
-        return await ObtenerRespuestaDinamicaAsync(
-            8,
-            "Codigo de Respuesta:",
-            $"{resultado.Codigo} - {resultado.Mensaje}"
-        );
-    }
-}
-
-
+El nombre 'configEmail' no existe en el contexto actual
+El nombre 'configEmail' no existe en el contexto actual
+El nombre 'configEmail' no existe en el contexto actual
