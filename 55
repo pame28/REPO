@@ -1,241 +1,3 @@
-namespace reposicion_pin.Repository.Interface
-{
-    public interface IEnvioSmsRepository
-    {
-        Task EnviarSmsPendientesAsync(CancellationToken cancellationToken);
-
-        Task<(int Codigo, string Mensaje)>
-           EnviarSmsDirectoAsync(
-               string telefono,
-               string operador,
-               string mensajeBase,
-               string pin,
-               string referencia,
-               CancellationToken cancellationToken);
-
-    }
-}
-
-
-
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using reposicion_pin.Infrastructure.Data;
-using reposicion_pin.Models;
-using reposicion_pin.Repository.Interface;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Xml;
-using wsBIMovil;
-
-namespace reposicion_pin.Repository
-{
-    public class EnvioSmsRepository : IEnvioSmsRepository
-    {
-        private readonly AppDbContext _dbContext;
-        private readonly ILogger<EnvioSmsRepository> _logger;
-        private readonly MensajesSoapClient _mensajesSoapClient;
-        private readonly string _UsrBiMovil;
-        private readonly string _PassBiMovil;
-        private readonly ParamAmbienteModel _paramAmbiente;
-        private static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(1, 1);
-
-        public EnvioSmsRepository(AppDbContext dbContext, IConfiguration configuration, ILogger<EnvioSmsRepository> logger)
-        {
-            _dbContext = dbContext;
-            _logger = logger;
-
-            // Obtener configuración de BiMovil desde SP
-            var configBiMovil = _dbContext
-                .usp_ObtenerConfigBiMovil
-                .AsEnumerable()
-                .FirstOrDefault();
-            if (configBiMovil == null)
-                throw new Exception("No se encontró configuración de BiMovil.");
-
-            _UsrBiMovil = configBiMovil.UserBiMovil;
-            _PassBiMovil = configBiMovil.PassBiMovil;
-
-            _paramAmbiente = _dbContext.ParamAmbiente
-                .Where(p => p.Estado ==1)
-                .OrderBy(p => p.IdRow)
-                .FirstOrDefault();
-
-            _mensajesSoapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
-        }
-
-        public async Task<(int Codigo, string Mensaje)>
-       EnviarSmsDirectoAsync(
-           string telefono,
-           string operador,
-           string mensajeBase,  
-           string referencia,
-            string pin,
-
-           CancellationToken cancellationToken)
-        {
-            try
-            {
-                string telefonoFinal = _paramAmbiente?.Telefono ?? telefono;
-                string operadorFinal = _paramAmbiente?.IdOperador ?? operador;
-
-                string mensajeFinal = mensajeBase + pin;
-
-                int enmascararDesde = mensajeBase.Length + 1;
-                int enmascararHasta = mensajeFinal.Length;
-
-                var response = await _mensajesSoapClient.Envia_MensajeAsync(
-                    _UsrBiMovil,
-                    _PassBiMovil,
-                    telefonoFinal,
-                    operadorFinal,
-                    mensajeFinal,
-                    referencia,
-                    enmascararDesde.ToString(),
-                    enmascararHasta.ToString()
-                  
-                );
-
-                XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
-
-                XmlNode nodoCod = xmlDoc.GetElementsByTagName("cod_ret")[0];
-                XmlNode nodoMensaje = xmlDoc.GetElementsByTagName("mensaje")[0];
-
-               
-                int codigo = nodoCod != null ? int.Parse(nodoCod.InnerText) : 99;
-                string mensajeRespuesta = nodoMensaje?.InnerText ?? "Respuesta inválida";
-
-                _logger.LogInformation(
-                    "BiMovil Ref:{Referencia} Codigo:{Codigo} Mensaje:{Mensaje}",
-                    referencia, codigo, mensajeRespuesta);
-
-                return (codigo, mensajeRespuesta);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error enviando SMS Ref:{Referencia}", referencia);
-                return (99, ex.Message);
-            }
-        }
-        /// <summary>
-        /// Envía todos los SMS pendientes en la bandeja
-        /// </summary>
-        public async Task EnviarSmsPendientesAsync(CancellationToken cancellationToken)
-        {
-            try
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    _logger.LogInformation("EnvioSmsRepository: Servicio detenido por CancellationToken");
-                    return;
-                }
-
-                var bandeja = _dbContext.BandejaEnvioSms
-                    .Where(b => b.Estado == 0)
-                    .ToList();
-
-                _logger.LogInformation("Procesando {Count} SMS pendientes.", bandeja.Count);
-
-                var maxHilos = _dbContext.ParamHilos.Select(p => p.Sms).FirstOrDefault();
-
-                var options = new ParallelOptions
-                {
-                    MaxDegreeOfParallelism = maxHilos > 0 ? maxHilos : 5
-                };
-
-                await Parallel.ForEachAsync(bandeja, options, async (item, _) =>
-                {
-                    string codigo = string.Empty;
-                    string mensajeRespuesta = string.Empty;
-
-                    try
-                    {
-                        // Elegir teléfono y operador según paramAmbiente
-                        string telefono = _paramAmbiente?.Telefono ?? item.Celular;
-                        string operador = _paramAmbiente?.IdOperador ?? item.Telco;
-
-                        var response = await _mensajesSoapClient.Envia_MensajeAsync(
-                            _UsrBiMovil,
-                            _PassBiMovil,
-                            telefono,
-                            operador,
-                            item.Sms,
-                            item.Referencia,
-                            string.Empty,
-                            string.Empty
-                        );
-
-                        // Parsear XML de respuesta
-                        XmlDocument xmlDoc = new XmlDocument();
-                        xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
-
-                        XmlNode nodo = xmlDoc.GetElementsByTagName("respuesta")[0];
-                        string cadena = nodo.InnerText;
-
-                        codigo = cadena.Substring(0, 1);
-                        mensajeRespuesta = cadena.Substring(1);
-
-                        int estado = codigo == "0" ? 1 : 2;
-
-                        _logger.LogInformation("SMS Ref:{Referencia} enviado. Estado BiMovil:{Codigo} - {Mensaje}",
-                            item.Referencia, codigo, mensajeRespuesta);
-
-                        await ActualizarEstadoAsync(item.IdRow, estado, mensajeRespuesta, cancellationToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error al enviar SMS Ref:{Referencia}", item.Referencia);
-                        await ActualizarEstadoAsync(item.IdRow, 3, ex.Message, cancellationToken);
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error general en EnviarSmsPendientesAsync");
-            }
-        }
-
-        /// <summary>
-        /// Actualiza el estado de un SMS en la bandeja de envío
-        /// </summary>
-        private async Task ActualizarEstadoAsync(int idRow, int estado, string descripcion, CancellationToken cancellationToken)
-        {
-            await _semaphoreSlim.WaitAsync(cancellationToken);
-            try
-            {
-                var registro = await _dbContext.BandejaEnvioSms.FindAsync(idRow);
-                if (registro != null)
-                {
-                    registro.Estado = estado;
-                    registro.DescripcionEstado = descripcion;
-                    registro.FechaFinal = DateTime.Now;
-
-                    await _dbContext.SaveChangesAsync(cancellationToken);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error en ActualizarEstadoAsync IdRow:{IdRow}", idRow);
-            }
-            finally
-            {
-                _semaphoreSlim.Release();
-            }
-        }
-    }
-}
-
-
-
-
-
-
 using reposicion_pin.DTOs;
 using reposicion_pin.Models;
 using reposicion_pin.Repository;
@@ -376,16 +138,15 @@ namespace reposicion_pin.Service
 
                 if (request.MetodoEnvio == 1)
                 {
-                    var mensajeFinal = request.ContenidoSMS;
+                    
                     var referencia = DateTime.Now.ToString("yyMMddHHmmss");
 
                     var resultado = await _envioSmsRepository.EnviarSmsDirectoAsync(
                         request.Telefono,
                         request.OperadorTelefono,
-                        mensajeFinal,
-                      
-                        referencia,
-                        
+                        request.ContenidoSMS,
+                        pin,
+                        referencia,                      
                         CancellationToken.None
                     );
 
@@ -433,6 +194,7 @@ namespace reposicion_pin.Service
                     NumeroTarjeta = tarjeta.NumeroTarjeta,
                     Celular = request.Telefono,
                     Telco = request.OperadorTelefono,
+                    Sms = request.ContenidoSMS,
                     Referencia = referencia,
                     FechaInicio = DateTime.Now,
                     FechaFinal = DateTime.Now,
@@ -514,3 +276,141 @@ namespace reposicion_pin.Service
 
 }
 
+
+
+
+
+
+namespace reposicion_pin.Repository.Interface
+{
+    public interface IEnvioSmsRepository
+    {
+
+
+        Task<(int Codigo, string Mensaje)>
+           EnviarSmsDirectoAsync(
+               string telefono,
+               string operador,
+               string mensajeBase,
+               string pin,
+               string referencia,           
+               CancellationToken cancellationToken);
+
+    }
+}
+
+
+
+
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using reposicion_pin.Infrastructure.Data;
+using reposicion_pin.Models;
+using reposicion_pin.Repository.Interface;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml;
+using wsBIMovil;
+
+namespace reposicion_pin.Repository
+{
+    public class EnvioSmsRepository : IEnvioSmsRepository
+    {
+        private readonly AppDbContext _dbContext;
+        private readonly ILogger<EnvioSmsRepository> _logger;
+        private readonly MensajesSoapClient _mensajesSoapClient;
+        private readonly string _UsrBiMovil;
+        private readonly string _PassBiMovil;
+        private readonly ParamAmbienteModel _paramAmbiente;
+
+        public EnvioSmsRepository(AppDbContext dbContext, IConfiguration configuration, ILogger<EnvioSmsRepository> logger)
+        {
+            _dbContext = dbContext;
+            _logger = logger;
+
+            // Obtener configuración de BiMovil desde SP
+            var configBiMovil = _dbContext
+                .usp_ObtenerConfigBiMovil
+                .AsEnumerable()
+                .FirstOrDefault();
+            if (configBiMovil == null)
+                throw new Exception("No se encontró configuración de BiMovil.");
+
+            _UsrBiMovil = configBiMovil.UserBiMovil;
+            _PassBiMovil = configBiMovil.PassBiMovil;
+
+            _paramAmbiente = _dbContext.ParamAmbiente
+                .Where(p => p.Estado ==1)
+                .OrderBy(p => p.IdRow)
+                .FirstOrDefault();
+
+            _mensajesSoapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
+        }
+
+        public async Task<(int Codigo, string Mensaje)>
+       EnviarSmsDirectoAsync(
+           string telefono,
+           string operador,
+           string mensajeBase,  
+           string referencia,
+           string pin,
+
+           CancellationToken cancellationToken)
+        {
+            try
+            {
+                string telefonoFinal = _paramAmbiente?.Telefono ?? telefono;
+                string operadorFinal = _paramAmbiente?.IdOperador ?? operador;
+
+                string mensajeFinal = mensajeBase + pin;
+
+                int enmascararDesde = mensajeBase.Length + 1;
+                int enmascararHasta = mensajeFinal.Length;
+
+                var response = await _mensajesSoapClient.Envia_MensajeAsync(
+                    _UsrBiMovil,
+                    _PassBiMovil,
+                    telefonoFinal,
+                    operadorFinal,
+                    mensajeFinal,
+                    referencia,
+                    enmascararDesde.ToString(),
+                    enmascararHasta.ToString()
+                  
+                );
+
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
+
+                XmlNode nodoCod = xmlDoc.GetElementsByTagName("cod_ret")[0];
+                XmlNode nodoMensaje = xmlDoc.GetElementsByTagName("mensaje")[0];
+
+               
+                int codigo = nodoCod != null ? int.Parse(nodoCod.InnerText) : 99;
+                string mensajeRespuesta = nodoMensaje?.InnerText ?? "Respuesta inválida";
+
+                _logger.LogInformation(
+                    "BiMovil Ref:{Referencia} Codigo:{Codigo} Mensaje:{Mensaje}",
+                    referencia, codigo, mensajeRespuesta);
+
+                return (codigo, mensajeRespuesta);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando SMS Ref:{Referencia}", referencia);
+                return (99, ex.Message);
+            }
+        }
+      
+
+        
+    }
+}
+
+
+Se me sigue alternando y no se porque
