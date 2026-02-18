@@ -1,149 +1,332 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using reposicion_pin.Infrastructure.Data;
+Necesito crear el repository e interface para BandejaEnvioEmailRepository para enviar el pin por correo electronico... 
+
+Quiero que tenga el mismo flujo que ya tenemos con el envio de SMS, para este tento una tabla aparte: BandejaEnvioEmail
+
+
+SELECT [IdRow]
+      ,[NumeroTarjeta]
+      ,[CuerpoCorreo]
+      ,[MailFrom]
+      ,[MailSubject]
+      ,[Correo]
+      ,[Referencia]
+      ,[FechaInicio]
+      ,[FechaFinal]
+      ,[TipoTarjeta]
+      ,[Estado]
+      ,[DescripcionEstado]
+  FROM [ReposicionPinTC].[dbo].[BandejaEnvioEmail]
+
+
+
+
+Todos los errores se van a dirigir al catalogo de respuesta... en este caso al Codigo	Descripcion
+8	Error de envió por correo:
+Manejarlos de la misma forma que lo hemos estado manejando
+
+
+Esta es la tabla que tengo designada para la parametrización:
+SELECT TOP (1000) [IdRows]
+      ,[CommandTimeOut]
+      ,[ServerEmail]
+      ,[MailFrom]
+      ,[MailSubject]
+      ,[Estado]
+  FROM [ReposicionPinTC].[dbo].[ConfigEmail]
+
+
+
+Ayudame a brindarme archivos completos, y bien organizados.
+
+
+De ultimo ayudame a realizar la integración en ReposicionPinService
+
+
+using reposicion_pin.DTOs;
 using reposicion_pin.Models;
+using reposicion_pin.Repository;
 using reposicion_pin.Repository.Interface;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Xml;
-using wsBIMovil;
+using reposicion_pin.Service.Interface;
+using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 
-namespace reposicion_pin.Repository
+namespace reposicion_pin.Service
 {
-    public class EnvioSmsRepository : IEnvioSmsRepository
+    public class ReposicionPinService
     {
-        private readonly AppDbContext _dbContext;
-        private readonly ILogger<EnvioSmsRepository> _logger;
-        private readonly MensajesSoapClient _mensajesSoapClient;
-        private readonly string _UsrBiMovil;
-        private readonly string _PassBiMovil;
-        private readonly ParamAmbienteModel _paramAmbiente;
+        private readonly ITarjetaRepository _tarjetaRepository;
+        private readonly ICatalogoRespuestaRepository _catalogoRepository;
+        private readonly IAS400Repository _as400Repository;
+        private readonly ILogger<ReposicionPinService> _logger;
+        private readonly IEnvioSmsRepository _envioSmsRepository;
+        private readonly IBandejaEnvioSmsRepository _bandejaSmsRepository;
+        private readonly IConfiguration _configuration;
+        private readonly IOperadorRepository _operadorRepository;
 
-        public EnvioSmsRepository(AppDbContext dbContext, IConfiguration configuration, ILogger<EnvioSmsRepository> logger)
+        public ReposicionPinService(
+            ITarjetaRepository tarjetaRepository,
+            ICatalogoRespuestaRepository catalogoRepository,
+            IAS400Repository as400Repository,
+            ILogger<ReposicionPinService> logger,
+            IEnvioSmsRepository envioSmsRepository,
+            IBandejaEnvioSmsRepository bandejaSmsRepository,
+            IConfiguration configuration,
+            IOperadorRepository operadorRepository)
         {
-            _dbContext = dbContext;
+            _tarjetaRepository = tarjetaRepository;
+            _catalogoRepository = catalogoRepository;
+            _as400Repository = as400Repository;
             _logger = logger;
-
-            // Obtener configuración de BiMovil desde SP
-            var configBiMovil = _dbContext
-                .usp_ObtenerConfigBiMovil
-                .AsEnumerable()
-                .FirstOrDefault();
-            if (configBiMovil == null)
-                throw new Exception("No se encontró configuración de BiMovil.");
-
-            _UsrBiMovil = configBiMovil.UserBiMovil;
-            _PassBiMovil = configBiMovil.PassBiMovil;
-
-            _paramAmbiente = _dbContext.ParamAmbiente
-                .Where(p => p.Estado ==1)
-                .OrderBy(p => p.IdRow)
-                .FirstOrDefault();
-
-            _mensajesSoapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
+            _envioSmsRepository = envioSmsRepository;
+            _bandejaSmsRepository = bandejaSmsRepository;
+            _configuration = configuration;
+            _operadorRepository = operadorRepository;
         }
 
-        public async Task<(int Codigo, string Mensaje)>
-       EnviarSmsDirectoAsync(
-           string telefono,
-           string operador,
-           string mensajeBase,
-           string pin,
-           string referencia,
-           CancellationToken cancellationToken)
+        #region FASE 1 - Validar tarjeta
+        public async Task<ReposicionPinResponseDto> ValidarTarjetaAsync(ReposicionPinRequestDto request)
         {
             try
             {
-                string telefonoFinal = _paramAmbiente?.Telefono ?? telefono;
-                string operadorFinal = _paramAmbiente?.IdOperador ?? operador;
+                // Validaciones básicas del request
+                if (string.IsNullOrWhiteSpace(request.CIF))
+                    return await ObtenerRespuestaDinamicaAsync(10, "CIF", "Se encuentra vacío o inválido");
 
-                string mensajeFinal = mensajeBase + pin;
+                if (string.IsNullOrWhiteSpace(request.UltimosDigitosTC))
+                    return await ObtenerRespuestaDinamicaAsync(10, "UltimosDigitosTC", " Se encuentra vacío o inválido");
 
-                int enmascararDesde = mensajeBase.Length + 1;
-                int enmascararHasta = mensajeFinal.Length;
+                if (request.MetodoEnvio != 1 && request.MetodoEnvio != 2)
+                    return await ObtenerRespuestaDinamicaAsync(10, "MetodoEnvio", "Debe ser 1 (SMS) o 2 (Correo)");
 
-
-
-                if (_paramAmbiente is null)
+                if (request.MetodoEnvio == 1) // SMS
                 {
-                    var response = await _mensajesSoapClient.Envia_MensajeAsync(
-                      _UsrBiMovil,
-                      _PassBiMovil,
-                      telefonoFinal,
-                      operadorFinal,
-                      mensajeFinal,
-                      referencia,
-                      enmascararDesde.ToString(),
-                      enmascararHasta.ToString()
-
-                  );
+                    if (string.IsNullOrWhiteSpace(request.Telefono))
+                        return await ObtenerRespuestaDinamicaAsync(10, "Telefono", "Es obligatorio para MetodoEnvio=1 (SMS)");
+                    else if (string.IsNullOrWhiteSpace(request.ContenidoSMS))
+                        return await ObtenerRespuestaDinamicaAsync(10, "Contenido SMS", "Es obligatorio para MetodoEnvio=1 (SMS)");
                 }
-                else
+                else if (request.MetodoEnvio == 2) // Correo
                 {
-                    var response = await _mensajesSoapClient.Envia_MensajeAsync(
-                      _UsrBiMovil,
-                      _PassBiMovil,
-                      telefono,
-                      operador,
-                      mensajeFinal,
-                      referencia,
-                      enmascararDesde.ToString(),
-                      enmascararHasta.ToString()
-
-                  );
+                    if (string.IsNullOrWhiteSpace(request.Correo) || !request.Correo.Contains("@"))
+                        return await ObtenerRespuestaDinamicaAsync(10, "Correo", "Es obligatorio y debe ser válido para MetodoEnvio=2 (Correo)");
+                    else if (string.IsNullOrWhiteSpace(request.ContenidoCorreo))
+                        return await ObtenerRespuestaDinamicaAsync(10, "Contenido Correo", "Es obligatorio para MetodoEnvio=2 (Correo)");
                 }
 
-                //var response = await _mensajesSoapClient.Envia_MensajeAsync(
-                //    _UsrBiMovil,
-                //    _PassBiMovil,
-                //    telefonoFinal,
-                //    operadorFinal,
-                //    mensajeFinal,
-                //    referencia,
-                //    enmascararDesde.ToString(),
-                //    enmascararHasta.ToString()
-                  
-                //);
+                // Buscar tarjeta en BD
+                var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
+                if (tarjeta == null)
+                    return await ObtenerRespuestaAsync(5); // No se encontró tarjeta
 
-                XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
+                // Validaciones de tarjeta
+                if (tarjeta.EstadoTarjeta != 20)
+                    return await ObtenerRespuestaAsync(1); // Tarjeta inactiva
 
-                XmlNode nodoCod = xmlDoc.GetElementsByTagName("cod_ret")[0];
-                XmlNode nodoMensaje = xmlDoc.GetElementsByTagName("mensaje")[0];
+                if (tarjeta.FechaFinVigencia < DateTime.Today)
+                    return await ObtenerRespuestaAsync(2); // Tarjeta vencida
 
-               
-                int codigo = nodoCod != null ? int.Parse(nodoCod.InnerText) : 99;
-                string mensajeRespuesta = nodoMensaje?.InnerText ?? "Respuesta inválida";
+                if (!string.IsNullOrWhiteSpace(tarjeta.EstadoHabilitar))
+                    return await ObtenerRespuestaDinamicaAsync(10, "EstadoHabilitar", "debe estar vacío");
 
-                _logger.LogInformation(
-                    "BiMovil Ref:{Referencia} Codigo:{Codigo} Mensaje:{Mensaje}",
-                    referencia, codigo, mensajeRespuesta);
 
-                return (codigo, mensajeRespuesta);
+                var operadorValido = await _operadorRepository.ExisteOperadorAsync(request.OperadorTelefono);
+
+                if (!operadorValido)
+                {
+                    return await ObtenerRespuestaDinamicaAsync(10, "Operador de Teléfono", "No es válido");
+                }
+
+                // Todo ok
+                return await ObtenerRespuestaAsync(0);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error enviando SMS Ref:{Referencia}", referencia);
-                return (99, ex.Message);
+                _logger.LogError(ex, "Error inesperado en Fase1 de ReposicionPinService");
+                return await ObtenerRespuestaDinamicaAsync(99, "Excepción", ex.Message);
             }
         }
-      
+        #endregion
 
-        
+        #region Nuevo método público para que controller pueda usarlo
+        public async Task<TarjetaModel?> ObtenerTarjetaAsync(string cif, string ultimosDigitos)
+        {
+            return await _tarjetaRepository.ObtenerTarjetaAsync(cif, ultimosDigitos);
+        }
+        #endregion
+
+        #region FASE 2 - Consumir AS400
+        public async Task<ReposicionPinResponseDto> Fase2_ConsumirAs400Async(TarjetaModel tarjeta, ReposicionPinRequestDto request)
+        {
+            try
+            {
+                var as400Request = new AS400RequestDto
+                {
+                    NumeroTarjeta = tarjeta.NumeroTarjeta.PadLeft(16, ' '),
+                    FechaVencimiento = tarjeta.FechaFinVigencia.ToString("yyyyMMdd")
+                };
+
+                var as400Response = await _as400Repository.EjecutarProgramaAsync(as400Request);
+
+                var codigoAs400 = as400Response.CodigoError?.Trim();
+
+
+                // Si hay error de AS400
+                if (!string.IsNullOrWhiteSpace(codigoAs400) && codigoAs400 != "00")
+                    return await MapearErrorAs400Async(as400Response);
+
+
+                var respuesta = await ObtenerRespuestaAsync(0);
+                respuesta.Pin = as400Response.Pin;
+
+                var pin = as400Response.Pin;
+
+                if (request.MetodoEnvio == 1)
+                {
+                    
+                    //var referencia = (DateTime.UtcNow.Ticks - new DateTime(2018, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks).ToString();
+
+
+                    long numeroTransaccion = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    string referencia = numeroTransaccion.ToString();
+
+
+                    var resultado = await _envioSmsRepository.EnviarSmsDirectoAsync(
+                        request.Telefono,
+                        request.OperadorTelefono,
+                        request.ContenidoSMS.Replace("{PIN}", ""),
+                        pin,
+                        referencia,
+                        CancellationToken.None
+                    ); 
+
+                    // Guardar lo que responde BiMovil
+                    await InsertarRegistroEnvioAsync(
+                        tarjeta,
+                        request,
+                        referencia,
+                        resultado.Codigo,
+                        resultado.Mensaje
+                    );
+
+                    // Si no es exitoso, usar tu catálogo
+                    if (resultado.Codigo != 0)
+                    {
+                        return await ObtenerRespuestaDinamicaAsync(
+                            7,
+                            "Codigo de Respuesta: ",
+                            $"{resultado.Codigo} - {resultado.Mensaje}"
+                        );
+                    }
+                }
+
+                return respuesta;
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inesperado en Fase2 al consumir AS400");
+                return await ObtenerRespuestaDinamicaAsync(99, "Excepción", ex.Message);
+            }
+        }
+
+
+
+
+        private async Task InsertarRegistroEnvioAsync(TarjetaModel tarjeta,ReposicionPinRequestDto request,string referencia,int codigoBiMovil,string mensajeBiMovil)
+        {
+            try
+            {
+                string tipoTarjeta = _configuration["ParametrosSMS:TipoTarjeta"] ?? "TDC";
+
+                var entidad = new BandejaEnvioSmsModel
+                {
+                    NumeroTarjeta = tarjeta.NumeroTarjeta,
+                    Celular = request.Telefono,
+                    Telco = request.OperadorTelefono,
+                    Sms = request.ContenidoSMS,
+                    Referencia = referencia,
+                    FechaInicio = DateTime.Now,
+                    FechaFinal = DateTime.Now,
+                    TipoTarjeta = tipoTarjeta,
+                    Estado = codigoBiMovil, //cod_ret de biMovil
+                    DescripcionEstado = mensajeBiMovil
+                };
+
+                await _bandejaSmsRepository.AddAsync(entidad);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error registrando resultado SMS");
+            }
+        }
+
+
+
+        private async Task<ReposicionPinResponseDto> MapearErrorAs400Async(AS400ResponseDto as400)
+        {
+            // Siempre será código 9 según catálogo oficial
+            var respuesta = await ObtenerRespuestaAsync(9);
+
+            string codigoAs400 = as400.CodigoError?.Trim() ?? "";
+            string descripcionAs400 = as400.DescripcionError?.Trim() ?? "";
+
+            respuesta.Descripcion = $"{respuesta.Descripcion} {codigoAs400} {descripcionAs400}".Trim();
+            respuesta.Pin = null;
+
+            return respuesta;
+        }
+        #endregion
+
+        #region Helpers de respuestas
+        public async Task<ReposicionPinResponseDto> ObtenerRespuestaAsync(int codigo, string fallbackDescripcion = null)
+        {
+            string descripcion = fallbackDescripcion;
+            try
+            {
+                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
+                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
+                    descripcion = catalogoDescripcion;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"No se pudo obtener descripción del catalogo para código {codigo}");
+            }
+
+            return new ReposicionPinResponseDto
+            {
+                CodigoInt = codigo,
+                Descripcion = descripcion
+            };
+        }
+
+        public async Task<ReposicionPinResponseDto> ObtenerRespuestaDinamicaAsync(int codigo, string campo, string detalle, string fallbackDescripcion = null)
+        {
+            string descripcion = fallbackDescripcion;
+            try
+            {
+                var catalogoDescripcion = await _catalogoRepository.ObtenerDescripcionAsync(codigo);
+                if (!string.IsNullOrWhiteSpace(catalogoDescripcion))
+                    descripcion = catalogoDescripcion;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"No se pudo obtener descripción del catálogo para código {codigo}");
+            }
+
+            string mensajeFinal = $"{descripcion ?? "Error"} {campo}: {detalle}";
+            return new ReposicionPinResponseDto
+            {
+                CodigoInt = codigo,
+                Descripcion = mensajeFinal
+            };
+        }
+        #endregion
     }
+
 }
 
 
 
 
 
-
-El nombre 'response' no existe en el contexto actual
-
-
-
-Ayudame a corregir esto, por favor, creo que tambien la estructura del codigo puede ser mas limpio
+En donde, si el metodoEnvio es = 2 entonces mande el pin usando el correo
