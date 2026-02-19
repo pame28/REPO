@@ -49,13 +49,25 @@ namespace reposicion_pin.Repository
         {
             try
             {
+                // 🔹 Si existe correo ambiente lo usa, sino usa el real
                 string correoFinal = _paramAmbiente?.Correo ?? correoDestino;
-             //   string cuerpoFinal = cuerpoBase.Replace("{PIN}", pin);
 
-                var ruta = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "PinCorreo.html");
-                var html = await File.ReadAllTextAsync(ruta);
-               var cuerpoFinal = plantillaHtml.Replace("{PIN}", pin);
+                // 🔹 Ruta correcta a Templates/Correo.html
+                var ruta = Path.Combine(
+                    Directory.GetCurrentDirectory(),
+                    "Templates",
+                    "Correo.html");
 
+                if (!File.Exists(ruta))
+                    throw new Exception($"No se encontró la plantilla en: {ruta}");
+
+                // 🔹 Leer plantilla
+                var plantillaHtml = await File.ReadAllTextAsync(ruta, cancellationToken);
+
+                // 🔹 Reemplazar variables dinámicas
+                var cuerpoFinal = plantillaHtml
+                    .Replace("{PIN}", pin)
+                    .Replace("{REFERENCIA}", referencia ?? string.Empty);
 
                 using var smtp = new SmtpClient(_serverEmail)
                 {
@@ -92,8 +104,3 @@ namespace reposicion_pin.Repository
         }
     }
 }
-
-
-
-
-Ayudame a corregir el codigo completo, veo que tambien hay que modificar la interface. Por cierto mi plantilla está en una carpeta dentro del proyecto general llamada Templates y el archivo se llama Correo.html
