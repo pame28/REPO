@@ -1,116 +1,65 @@
-var htmlView = AlternateView.CreateAlternateViewFromString(cuerpoFinal, null, MediaTypeNames.Text.Html);
+<div class="wrapper">
+  <div class="card" style="max-width: 400px; padding: 20px;">
+    <div class="card-header" style="background-color:#1a73e8; color:#fff; padding: 15px; display:flex; align-items:center; gap:10px;">
+      <img src="cid:logoBI" alt="Corporacion BI" style="height:40px; width:auto;">
+      <h1 style="font-size:18px; margin:0;">Tu PIN Temporal</h1>
+    </div>
+    <div class="card-body" style="text-align:center; padding:20px;">
+      <p style="font-size:14px; color:#555;">Estimado usuario,</p>
+      <p style="font-size:14px; color:#555;">Tu PIN temporal es:</p>
+      <div class="pin" style="font-size:28px; font-weight:bold; color:#1a73e8; margin:15px 0; letter-spacing:2px;">{PIN}</div>
+      <p style="font-size:12px; color:#555;">Referencia: {REFERENCIA}</p>
+      <a href="{LINK_PLATAFORMA}" style="display:inline-block; background-color:#1a73e8; color:#fff; padding:10px 20px; border-radius:5px; text-decoration:none; font-size:14px; margin-top:10px;">Ir a la plataforma</a>
+    </div>
+    <div class="footer" style="font-size:10px; color:#999; text-align:center; padding:10px; border-top:1px solid #e0e0e0;">
+      Este correo es de uso interno, propiedad de Corporacion BI.<br>
+      No compartas información con personal externo sin autorización.
+    </div>
+  </div>
+</div>
 
-var inlineLogo = new LinkedResource(Path.Combine(Directory.GetCurrentDirectory(), "Templates", "logo.png"))
+
+
+
+
+
+
+
+using System.Net.Mime;
+
+// Leer plantilla
+var ruta = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "Correo.html");
+var plantillaHtml = await File.ReadAllTextAsync(ruta);
+string cuerpoFinal = plantillaHtml
+    .Replace("{PIN}", pin)
+    .Replace("{REFERENCIA}", referencia)
+    .Replace("{LINK_PLATAFORMA}", _configuration["UrlPlataforma"] ?? "#");
+
+using var smtp = new SmtpClient(_serverEmail)
+{
+    DeliveryMethod = SmtpDeliveryMethod.Network,
+    UseDefaultCredentials = true
+};
+
+using var mail = new MailMessage
+{
+    From = new MailAddress(_mailFrom),
+    Subject = _mailSubject,
+    IsBodyHtml = true
+};
+
+// Agregar destinatario
+mail.To.Add(correoDestino);
+
+// Crear vista HTML con logo inline
+var htmlView = AlternateView.CreateAlternateViewFromString(cuerpoFinal, null, MediaTypeNames.Text.Html);
+var logoInline = new LinkedResource(Path.Combine(Directory.GetCurrentDirectory(), "Templates", "logo.png"))
 {
     ContentId = "logoBI",
     TransferEncoding = TransferEncoding.Base64
 };
-
-htmlView.LinkedResources.Add(inlineLogo);
+htmlView.LinkedResources.Add(logoInline);
 mail.AlternateViews.Add(htmlView);
 
-
-
-
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Tu PIN Temporal</title>
-  <style>
-    body {
-      font-family: 'Arial', sans-serif;
-      background-color: #f4f4f7;
-      margin: 0;
-      padding: 0;
-    }
-    .wrapper {
-      width: 100%;
-      padding: 40px 0;
-      display: flex;
-      justify-content: center;
-      background-color: #f4f4f7;
-    }
-    .card {
-      background-color: #ffffff;
-      border-radius: 10px;
-      width: 100%;
-      max-width: 500px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
-    .card-header {
-      background-color: #1a73e8;
-      color: #ffffff;
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-    }
-    .card-header img {
-      height: 50px;
-      width: auto;
-    }
-    .card-header h1 {
-      font-size: 20px;
-      margin: 0;
-    }
-    .card-body {
-      padding: 30px;
-      text-align: center;
-    }
-    .card-body p {
-      font-size: 16px;
-      color: #555555;
-      line-height: 1.5;
-      margin: 10px 0;
-    }
-    .pin {
-      font-size: 36px;
-      font-weight: bold;
-      color: #1a73e8;
-      margin: 20px 0;
-      letter-spacing: 3px;
-    }
-    .button {
-      display: inline-block;
-      background-color: #1a73e8;
-      color: #ffffff;
-      padding: 14px 28px;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: bold;
-      margin-top: 20px;
-      font-size: 16px;
-    }
-    .footer {
-      font-size: 12px;
-      color: #999999;
-      text-align: center;
-      padding: 20px;
-      border-top: 1px solid #e0e0e0;
-    }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="card">
-      <div class="card-header">
-        <img src="cid:logoBI" alt="Corporacion BI Logo"/>
-        <h1>Tu PIN Temporal</h1>
-      </div>
-      <div class="card-body">
-        <p>Estimado usuario,</p>
-        <p>Tu PIN temporal para acceder a tu cuenta es:</p>
-        <div class="pin">{PIN}</div>
-        <p>Referencia de la transacción: {REFERENCIA}</p>
-        <a href="{LINK_PLATAFORMA}" class="button">Ir a la plataforma</a>
-      </div>
-      <div class="footer">
-        Este correo es de uso interno, propiedad de Corporacion BI.<br/>
-        Por favor no compartas información con personal externo sin autorización.
-      </div>
-    </div>
-  </div>
-</body>
-</html>
+// Enviar
+await smtp.SendMailAsync(mail, cancellationToken);
