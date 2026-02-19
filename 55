@@ -12,8 +12,8 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -22,193 +22,163 @@
         }
 
         .card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            width: 100%;
-            max-width: 320px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+            background: #ffffff;
+            border-radius: 20px;
+            width: 360px;
+            height: 500px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
             overflow: hidden;
-            transition: transform 0.3s ease;
-            animation: slideUp 0.5s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            display: flex;
+            flex-direction: column;
         }
 
         .card-header {
-            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
-            padding: 25px 20px;
+            background: #ffffff;
+            padding: 28px 24px 16px;
             display: flex;
             justify-content: center;
             align-items: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .card-header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: rotate 20s linear infinite;
-        }
-
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            border-bottom: 1px solid #f1f5f9;
+            flex-shrink: 0;
+            height: 100px;
         }
 
         .card-header img {
-            height: 48px;
+            height: 36px;
             width: auto;
             max-width: 140px;
             display: block;
-            filter: brightness(0) invert(1);
-            position: relative;
-            z-index: 1;
-            transition: transform 0.3s ease;
-        }
-
-        .card-header img:hover {
-            transform: scale(1.05);
+            object-fit: contain;
         }
 
         .card-body {
-            padding: 30px 25px;
+            padding: 20px 24px;
             text-align: center;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         .greeting {
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #1a73e8;
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 4px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .title {
+            color: #0f172a;
+            font-size: 22px;
             font-weight: 600;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
-        .card-body p {
-            font-size: 15px;
-            color: #4a5568;
-            line-height: 1.6;
-            margin: 8px 0;
+        .message {
+            color: #475569;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 16px;
         }
 
-        .pin-container {
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+        .pin-wrapper {
+            background: #f8fafc;
             border-radius: 16px;
-            padding: 20px;
-            margin: 20px 0;
-            border: 1px solid rgba(26, 115, 232, 0.2);
-            box-shadow: 0 4px 15px rgba(26, 115, 232, 0.1);
+            padding: 20px 16px;
+            margin: 8px 0 12px;
+            border: 1px solid #e9eef2;
         }
 
         .pin-label {
-            font-size: 12px;
-            color: #718096;
+            color: #64748b;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.8px;
             margin-bottom: 8px;
         }
 
         .pin {
             font-size: 42px;
-            font-weight: 700;
-            color: #1a73e8;
+            font-weight: 600;
+            color: #0f172a;
             letter-spacing: 8px;
-            line-height: 1.2;
-            text-shadow: 2px 2px 4px rgba(26, 115, 232, 0.2);
             font-family: 'Courier New', monospace;
+            line-height: 1.2;
+            margin-bottom: 8px;
         }
 
         .expiry {
+            color: #94a3b8;
             font-size: 12px;
-            color: #718096;
-            margin-top: 15px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 5px;
+            gap: 4px;
         }
 
-        .expiry-icon {
-            font-size: 14px;
+        .security-note {
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 12px;
+            padding: 10px 14px;
+            border-radius: 30px;
+            margin: 8px auto 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            width: fit-content;
         }
 
         .footer {
-            background: #f8fafc;
-            padding: 18px 20px;
+            background: #ffffff;
+            padding: 16px 24px;
             text-align: center;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        .footer-text {
-            font-size: 11px;
-            color: #718096;
-            line-height: 1.5;
-        }
-
-        .security-badge {
+            border-top: 1px solid #f1f5f9;
+            flex-shrink: 0;
+            height: 80px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 5px;
-            margin-top: 10px;
-            font-size: 10px;
-            color: #48bb78;
         }
 
-        .security-badge span {
-            font-size: 12px;
+        .footer-text {
+            color: #94a3b8;
+            font-size: 11px;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
     <div class="card">
         <div class="card-header">
-            <img src="cid:logoBI" alt="Corporacion BI" onerror="this.style.display='none'">
+            <img src="cid:logoBI" alt="Corporacion BI">
         </div>
         
         <div class="card-body">
-            <div class="greeting">🔐 Acceso Seguro</div>
-            <p>Hola,</p>
-            <p>Has solicitado un PIN temporal para acceder a tu cuenta.</p>
+            <div class="greeting">VERIFICACIÓN DE SEGURIDAD</div>
+            <div class="title">Tu PIN temporal</div>
             
-            <div class="pin-container">
+            <p class="message">Hola, has solicitado un código de acceso para ingresar a tu cuenta.</p>
+            
+            <div class="pin-wrapper">
                 <div class="pin-label">Código de verificación</div>
                 <div class="pin">{PIN}</div>
+                <div class="expiry">
+                    <span>⏱️</span>
+                    <span>Válido por 10 minutos</span>
+                </div>
             </div>
             
-            <div class="expiry">
-                <span class="expiry-icon">⏱️</span>
-                <span>Este PIN expirará en 10 minutos</span>
+            <div class="security-note">
+                <span>🔒</span>
+                No compartas este código con nadie
             </div>
-            
-            <p style="font-size: 13px; color: #718096; margin-top: 15px;">
-                Por seguridad, no compartas este código con nadie.
-            </p>
         </div>
         
         <div class="footer">
             <div class="footer-text">
-                © 2024 Corporación BI. Todos los derechos reservados.<br>
-                Este es un mensaje automático, por favor no responder.
-            </div>
-            <div class="security-badge">
-                <span>🔒</span>
-                Comunicación segura y encriptada
+                Este es un mensaje automático de Corporación BI.<br>
+                © 2024 Todos los derechos reservados.
             </div>
         </div>
     </div>
