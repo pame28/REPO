@@ -9,109 +9,81 @@
             background-color: #f4f4f7;
             margin: 0;
             padding: 0;
-        }
-
-        .wrapper {
-            width: 100%;
-            padding: 40px 0;
+            min-height: 100vh;
             display: flex;
+            align-items: center;
             justify-content: center;
-            background-color: #f4f4f7;
         }
 
         .card {
             background-color: #ffffff;
             border-radius: 10px;
             width: 100%;
-            max-width: 300px;
+            max-width: 280px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             overflow: hidden;
+            margin: 20px;
         }
 
         .card-header {
             background-color: #1a73e8;
             color: #ffffff;
-            padding: 20px;
+            padding: 15px;
             display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 15px;
         }
 
-            .card-header img {
-                height: 50px;
-                width: auto;
-            }
-
-            .card-header h1 {
-                font-size: 20px;
-                margin: 0;
-            }
+        .card-header img {
+            height: 40px;
+            width: auto;
+            max-width: 100px;
+            display: block;
+        }
 
         .card-body {
-            padding: 30px;
+            padding: 25px;
             text-align: center;
         }
 
-            .card-body p {
-                font-size: 16px;
-                color: #555555;
-                line-height: 1.5;
-                margin: 10px 0;
-            }
+        .card-body p {
+            font-size: 14px;
+            color: #555555;
+            line-height: 1.5;
+            margin: 8px 0;
+        }
 
         .pin {
-            font-size: 36px;
+            font-size: 32px;
             font-weight: bold;
             color: #1a73e8;
-            margin: 20px 0;
+            margin: 15px 0;
             letter-spacing: 3px;
         }
 
-        .button {
-            display: inline-block;
-            background-color: #1a73e8;
-            color: #ffffff;
-            padding: 14px 28px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: bold;
-            margin-top: 20px;ud
-            font-size: 16px;
-        }
-
         .footer {
-            font-size: 12px;
+            font-size: 10px;
             color: #999999;
             text-align: center;
-            padding: 20px;
+            padding: 15px;
             border-top: 1px solid #e0e0e0;
         }
     </style>
 </head>
 <body>
-    <div class="wrapper">
-        <div class="card" style="max-width: 100px; padding: 20px;">
-            <div class="card-header" style="background-color:#1a73e8; color:#fff; padding: 15px; display:flex; align-items:center; gap:10px;">
-                <img src="cid:logoBI" alt="Corporacion BI" style="display:block;height:40px; width:80px; max-width:80px">
-                <h1 style="font-size:18px; margin:0;">Tu PIN Temporal</h1>
-            </div>
-            <div class="card-body" style="text-align:center; padding:20px;">
-                <p style="font-size:14px; color:#555;">Estimado usuario,</p>
-                <p style="font-size:14px; color:#555;">Tu PIN temporal es:</p>
-                <div class="pin" style="font-size:28px; font-weight:bold; color:#1a73e8; margin:15px 0; letter-spacing:2px;">{PIN}</div>
-              </div>
-            <div class="footer" style="font-size:10px; color:#999; text-align:center; padding:10px; border-top:1px solid #e0e0e0;">
-                Este correo es de uso interno, propiedad de Corporacion BI.<br>
-                No compartas información con personal externo sin autorización.
-            </div>
+    <div class="card">
+        <div class="card-header">
+            <img src="cid:logoBI" alt="Corporacion BI">
+        </div>
+        <div class="card-body">
+            <p>Estimado usuario,</p>
+            <p>Tu PIN temporal es:</p>
+            <div class="pin">{PIN}</div>
+        </div>
+        <div class="footer">
+            Este correo es de uso interno, propiedad de Corporacion BI.<br>
+            No compartas información con personal externo sin autorización.
         </div>
     </div>
-
 </body>
 </html>
-
-
-
-
-
-Ayudame a modificar esto, de manera que el logo quede enmedio de la franja de arriba del card, y que además, el card sea pequeño, no quiero que abarque el tamaño de la pantalla, sin embargo si quiero que quede en medio de la pantalla
