@@ -24,10 +24,11 @@
         .card {
             background: #ffffff;
             border-radius: 20px;
-            width: 320px;  /* Card más angosto */
+            width: 360px;  /* TAMAÑO FIJO - NO CAMBIA */
+            min-width: 360px;  /* Forzamos que nunca sea más pequeño */
+            max-width: 360px;  /* Forzamos que nunca sea más grande */
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
             overflow: hidden;
-            margin: 0 auto;  /* Centrado */
         }
 
         .card-header {
