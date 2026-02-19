@@ -1,111 +1,97 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using reposicion_pin.Infrastructure.Data;
 using reposicion_pin.Models;
 using reposicion_pin.Repository.Interface;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Xml;
-using wsBIMovil;
+using System.Net.Mail;
 
 namespace reposicion_pin.Repository
 {
-    public class EnvioSmsRepository : IEnvioSmsRepository
+    public class EnvioEmailRepository : IEnvioEmailRepository
     {
         private readonly AppDbContext _dbContext;
-        private readonly ILogger<EnvioSmsRepository> _logger;
-        private readonly MensajesSoapClient _mensajesSoapClient;
-        private readonly string _UsrBiMovil;
-        private readonly string _PassBiMovil;
+        private readonly ILogger<EnvioEmailRepository> _logger;
         private readonly ParamAmbienteModel _paramAmbiente;
 
-        public EnvioSmsRepository(AppDbContext dbContext, IConfiguration configuration, ILogger<EnvioSmsRepository> logger)
+        public EnvioEmailRepository(
+            AppDbContext dbContext,
+            ILogger<EnvioEmailRepository> logger)
         {
             _dbContext = dbContext;
             _logger = logger;
 
-            // Obtener configuración de BiMovil desde SP
-            var configBiMovil = _dbContext
-                .usp_ObtenerConfigBiMovil
+
+            // Obtener configuración de Email desde SP
+            var configEmail = _dbContext
+                .usp_ObtenerConfigEmail
                 .AsEnumerable()
                 .FirstOrDefault();
-            if (configBiMovil == null)
-                throw new Exception("No se encontró configuración de BiMovil.");
 
-            _UsrBiMovil = configBiMovil.UserBiMovil;
-            _PassBiMovil = configBiMovil.PassBiMovil;
+
+            if (configEmail == null)
+            {
+                _logger.LogError("No existe configuración activa en ConfigEmail");
+                throw new Exception("No se encontró configuración de ConfigEmail.");
+            }
+
 
             _paramAmbiente = _dbContext.ParamAmbiente
-                .Where(p => p.Estado ==1)
-                .OrderBy(p => p.IdRow)
-                .FirstOrDefault();
-
-            _mensajesSoapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
+               .Where(p => p.Estado == 1)
+               .OrderBy(p => p.IdRow)
+               .FirstOrDefault();
         }
 
-        public async Task<(int Codigo, string Mensaje)>
-       EnviarSmsDirectoAsync(
-           string telefono,
-           string operador,
-           string mensajeBase,
-           string pin,
-           string referencia,
-           CancellationToken cancellationToken)
+
+
+
+        public async Task<(int Codigo, string Mensaje)> EnviarCorreoAsync(
+            string correoDestino,
+            string cuerpoBase,
+            string pin,
+            string referencia,
+            CancellationToken cancellationToken)
         {
             try
             {
-                string telefonoFinal = _paramAmbiente?.Telefono ?? telefono;
-                string operadorFinal = _paramAmbiente?.IdOperador ?? operador;
 
-                string mensajeFinal = mensajeBase + pin;
+                string correo = _paramAmbiente?.Correo ?? correoDestino;
 
-                int enmascararDesde = mensajeBase.Length + 1;
-                int enmascararHasta = mensajeFinal.Length;
+                string cuerpoFinal = cuerpoBase.Replace("{PIN}", pin);
 
+                using var smtp = new SmtpClient(configEmail.ServerEmail)
+                {
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = true
+                };
 
-                var response = await _mensajesSoapClient.Envia_MensajeAsync(
-                    _UsrBiMovil,
-                    _PassBiMovil,
-                    telefonoFinal,
-                    operadorFinal,
-                    mensajeFinal,
-                    referencia,
-                    enmascararDesde.ToString(),
-                    enmascararHasta.ToString()
-                  
-                );
+                using var mail = new MailMessage
+                {
+                    From = new MailAddress(configEmail.MailFrom),
+                    Subject = configEmail.MailSubject,
+                    Body = cuerpoFinal,
+                    IsBodyHtml = true
+                };
 
-                XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
+                mail.To.Add(correoDestino);
 
-                XmlNode nodoCod = xmlDoc.GetElementsByTagName("cod_ret")[0];
-                XmlNode nodoMensaje = xmlDoc.GetElementsByTagName("mensaje")[0];
-
-               
-                int codigo = nodoCod != null ? int.Parse(nodoCod.InnerText) : 99;
-                string mensajeRespuesta = nodoMensaje?.InnerText ?? "Respuesta inválida";
+                await smtp.SendMailAsync(mail, cancellationToken);
 
                 _logger.LogInformation(
-                    "BiMovil Ref:{Referencia} Codigo:{Codigo} Mensaje:{Mensaje}",
-                    referencia, codigo, mensajeRespuesta);
+                    "Correo enviado Ref:{Referencia} Destino:{Destino}",
+                    referencia, correoDestino);
 
-                return (codigo, mensajeRespuesta);
+                return (0, "Correo enviado correctamente.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error enviando SMS Ref:{Referencia}", referencia);
-                return (99, ex.Message);
+                _logger.LogError(ex,
+                    "Error enviando correo Ref:{Referencia} Destino:{Destino}",
+                    referencia, correoDestino);
+
+                return (8, ex.Message);
             }
         }
-      
-
-        
     }
 }
+
 
 
 
