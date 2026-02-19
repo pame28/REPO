@@ -2,87 +2,214 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tu PIN Temporal</title>
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f4f4f7;
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
 
         .card {
-            background-color: #ffffff;
-            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
             width: 100%;
-            max-width: 280px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 320px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
             overflow: hidden;
-            margin: 20px;
+            transition: transform 0.3s ease;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .card-header {
-            background-color: #1a73e8;
-            color: #ffffff;
-            padding: 15px;
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            padding: 25px 20px;
             display: flex;
             justify-content: center;
             align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         .card-header img {
-            height: 40px;
+            height: 48px;
             width: auto;
-            max-width: 100px;
+            max-width: 140px;
             display: block;
+            filter: brightness(0) invert(1);
+            position: relative;
+            z-index: 1;
+            transition: transform 0.3s ease;
+        }
+
+        .card-header img:hover {
+            transform: scale(1.05);
         }
 
         .card-body {
-            padding: 25px;
+            padding: 30px 25px;
             text-align: center;
+        }
+
+        .greeting {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #1a73e8;
+            font-weight: 600;
+            margin-bottom: 10px;
         }
 
         .card-body p {
-            font-size: 14px;
-            color: #555555;
-            line-height: 1.5;
+            font-size: 15px;
+            color: #4a5568;
+            line-height: 1.6;
             margin: 8px 0;
         }
 
+        .pin-container {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            border-radius: 16px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(26, 115, 232, 0.2);
+            box-shadow: 0 4px 15px rgba(26, 115, 232, 0.1);
+        }
+
+        .pin-label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
         .pin {
-            font-size: 32px;
-            font-weight: bold;
+            font-size: 42px;
+            font-weight: 700;
             color: #1a73e8;
-            margin: 15px 0;
-            letter-spacing: 3px;
+            letter-spacing: 8px;
+            line-height: 1.2;
+            text-shadow: 2px 2px 4px rgba(26, 115, 232, 0.2);
+            font-family: 'Courier New', monospace;
+        }
+
+        .expiry {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .expiry-icon {
+            font-size: 14px;
         }
 
         .footer {
-            font-size: 10px;
-            color: #999999;
+            background: #f8fafc;
+            padding: 18px 20px;
             text-align: center;
-            padding: 15px;
-            border-top: 1px solid #e0e0e0;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .footer-text {
+            font-size: 11px;
+            color: #718096;
+            line-height: 1.5;
+        }
+
+        .security-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 10px;
+            font-size: 10px;
+            color: #48bb78;
+        }
+
+        .security-badge span {
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
     <div class="card">
         <div class="card-header">
-            <img src="cid:logoBI" alt="Corporacion BI">
+            <img src="cid:logoBI" alt="Corporacion BI" onerror="this.style.display='none'">
         </div>
+        
         <div class="card-body">
-            <p>Estimado usuario,</p>
-            <p>Tu PIN temporal es:</p>
-            <div class="pin">{PIN}</div>
+            <div class="greeting">🔐 Acceso Seguro</div>
+            <p>Hola,</p>
+            <p>Has solicitado un PIN temporal para acceder a tu cuenta.</p>
+            
+            <div class="pin-container">
+                <div class="pin-label">Código de verificación</div>
+                <div class="pin">{PIN}</div>
+            </div>
+            
+            <div class="expiry">
+                <span class="expiry-icon">⏱️</span>
+                <span>Este PIN expirará en 10 minutos</span>
+            </div>
+            
+            <p style="font-size: 13px; color: #718096; margin-top: 15px;">
+                Por seguridad, no compartas este código con nadie.
+            </p>
         </div>
+        
         <div class="footer">
-            Este correo es de uso interno, propiedad de Corporacion BI.<br>
-            No compartas información con personal externo sin autorización.
+            <div class="footer-text">
+                © 2024 Corporación BI. Todos los derechos reservados.<br>
+                Este es un mensaje automático, por favor no responder.
+            </div>
+            <div class="security-badge">
+                <span>🔒</span>
+                Comunicación segura y encriptada
+            </div>
         </div>
     </div>
 </body>
