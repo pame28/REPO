@@ -13,20 +13,20 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
+            background-color: #eef2f6;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 10px;
         }
 
         .card {
             background: #ffffff;
-            border-radius: 16px;
-            width: 300px;
-            height: 400px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            width: 260px;
+            height: 340px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -34,26 +34,25 @@
 
         .card-header {
             background: #ffffff;
-            padding: 20px 20px 10px;
+            padding: 15px 15px 8px;
             display: flex;
             justify-content: center;
             align-items: center;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid #f0f3f7;
             flex-shrink: 0;
-            height: 70px;
+            height: 55px;
         }
 
         .card-header img {
-            width: 100px !important;
+            width: 70px !important;
             height: auto !important;
-            max-width: 100px !important;
-            min-width: 80px !important;
+            max-width: 70px !important;
+            min-width: 60px !important;
             display: block !important;
-            object-fit: contain !important;
         }
 
         .card-body {
-            padding: 12px 20px;
+            padding: 8px 15px;
             text-align: center;
             flex: 1;
             display: flex;
@@ -61,130 +60,130 @@
         }
 
         .greeting {
-            color: #64748b;
-            font-size: 10px;
+            color: #7c8b9a;
+            font-size: 8px;
             margin-bottom: 2px;
             font-weight: 500;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
         }
 
         .title {
-            color: #0f172a;
-            font-size: 18px;
+            color: #1a2634;
+            font-size: 14px;
             font-weight: 600;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .message {
-            color: #475569;
-            font-size: 12px;
-            line-height: 1.4;
-            margin-bottom: 8px;
+            color: #556575;
+            font-size: 10px;
+            line-height: 1.3;
+            margin-bottom: 6px;
         }
 
         .pin-wrapper {
-            background: #f8fafc;
-            border-radius: 14px;
-            padding: 12px;
-            margin: 4px 0 8px;
-            border: 1px solid #e9eef2;
+            background: #f5f8fc;
+            border-radius: 10px;
+            padding: 8px;
+            margin: 2px 0 5px;
+            border: 1px solid #e2e8f0;
         }
 
         .pin-label {
-            color: #64748b;
-            font-size: 9px;
+            color: #7c8b9a;
+            font-size: 7px;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
         }
 
         .pin {
-            font-size: 32px;
+            font-size: 24px;
             font-weight: 600;
-            color: #0f172a;
-            letter-spacing: 5px;
+            color: #1a2634;
+            letter-spacing: 3px;
             font-family: 'Courier New', monospace;
-            line-height: 1.2;
-            margin-bottom: 4px;
+            line-height: 1.1;
+            margin-bottom: 3px;
         }
 
         .expiry {
-            color: #94a3b8;
-            font-size: 10px;
+            color: #9aa9b8;
+            font-size: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 3px;
         }
 
         .security-note {
-            background: #f1f5f9;
-            color: #475569;
-            font-size: 10px;
-            padding: 6px 12px;
+            background: #f0f4fa;
+            color: #556575;
+            font-size: 8px;
+            padding: 4px 8px;
             border-radius: 30px;
-            margin: 6px auto 0;
+            margin: 4px auto 0;
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
             width: fit-content;
         }
 
         .footer {
             background: #ffffff;
-            padding: 12px 20px;
+            padding: 8px 15px;
             text-align: center;
-            border-top: 1px solid #f1f5f9;
+            border-top: 1px solid #f0f3f7;
             flex-shrink: 0;
-            height: 60px;
+            height: 45px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
         .footer-text {
-            color: #94a3b8;
-            font-size: 9px;
-            line-height: 1.3;
+            color: #9aa9b8;
+            font-size: 7px;
+            line-height: 1.2;
         }
 
-        /* Emojis más pequeños */
         .expiry span, .security-note span {
-            font-size: 11px;
+            font-size: 9px;
         }
     </style>
 </head>
 <body>
     <div class="card">
         <div class="card-header">
-            <img src="cid:logoBI" alt="Corporacion BI" width="100" height="auto" style="width: 100px !important; height: auto !important; max-width: 100px !important; display: block !important;">
+            <img src="cid:logoBI" alt="Corporacion BI" width="70" height="auto" style="width: 70px !important; height: auto !important; max-width: 70px !important; display: block !important;">
         </div>
         
         <div class="card-body">
-            <div class="greeting">VERIFICACIÓN DE SEGURIDAD</div>
-            <div class="title">Tu PIN temporal</div>
+            <div class="greeting">SEGURIDAD</div>
+            <div class="title">PIN temporal</div>
             
-            <p class="message">Hola, has solicitado un código de acceso.</p>
+            <p class="message">Código de acceso</p>
             
             <div class="pin-wrapper">
-                <div class="pin-label">Código de verificación</div>
+                <div class="pin-label">Código</div>
                 <div class="pin">{PIN}</div>
                 <div class="expiry">
                     <span>⏱️</span>
-                    <span>Válido 10 min</span>
+                    <span>10 min</span>
                 </div>
             </div>
             
             <div class="security-note">
                 <span>🔒</span>
-                No compartas este código
+                Confidencial
             </div>
         </div>
         
         <div class="footer">
             <div class="footer-text">
-                Mensaje automático de Corporación BI.<br>
-                © 2024 Todos los derechos reservados.
+                Corporación BI · Automático<br>
+                © 2024
             </div>
         </div>
     </div>
