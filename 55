@@ -34,25 +34,28 @@
 
         .card-header {
             background: #ffffff;
-            padding: 28px 24px 16px;
+            padding: 25px 24px 15px;
             display: flex;
             justify-content: center;
             align-items: center;
             border-bottom: 1px solid #f1f5f9;
             flex-shrink: 0;
-            height: 100px;
+            height: 90px;
         }
 
         .card-header img {
-            height: 36px;
-            width: auto;
-            max-width: 140px;
-            display: block;
-            object-fit: contain;
+            width: 120px !important;
+            height: auto !important;
+            max-width: 120px !important;
+            min-width: 100px !important;
+            display: block !important;
+            object-fit: contain !important;
+            border: 0 !important;
+            line-height: 0 !important;
         }
 
         .card-body {
-            padding: 20px 24px;
+            padding: 15px 24px;
             text-align: center;
             flex: 1;
             display: flex;
@@ -71,21 +74,21 @@
             color: #0f172a;
             font-size: 22px;
             font-weight: 600;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
 
         .message {
             color: #475569;
             font-size: 14px;
-            line-height: 1.5;
-            margin-bottom: 16px;
+            line-height: 1.4;
+            margin-bottom: 12px;
         }
 
         .pin-wrapper {
             background: #f8fafc;
             border-radius: 16px;
-            padding: 20px 16px;
-            margin: 8px 0 12px;
+            padding: 16px;
+            margin: 5px 0 10px;
             border: 1px solid #e9eef2;
         }
 
@@ -94,17 +97,17 @@
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
 
         .pin {
-            font-size: 42px;
+            font-size: 40px;
             font-weight: 600;
             color: #0f172a;
-            letter-spacing: 8px;
+            letter-spacing: 6px;
             font-family: 'Courier New', monospace;
             line-height: 1.2;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
 
         .expiry {
@@ -120,7 +123,7 @@
             background: #f1f5f9;
             color: #475569;
             font-size: 12px;
-            padding: 10px 14px;
+            padding: 8px 14px;
             border-radius: 30px;
             margin: 8px auto 0;
             display: inline-flex;
@@ -131,11 +134,11 @@
 
         .footer {
             background: #ffffff;
-            padding: 16px 24px;
+            padding: 15px 24px;
             text-align: center;
             border-top: 1px solid #f1f5f9;
             flex-shrink: 0;
-            height: 80px;
+            height: 75px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -144,14 +147,22 @@
         .footer-text {
             color: #94a3b8;
             font-size: 11px;
-            line-height: 1.5;
+            line-height: 1.4;
+        }
+
+        /* FIX para clientes de correo */
+        .outlook-fix {
+            width: 120px !important;
+            height: auto !important;
+            display: block !important;
         }
     </style>
 </head>
 <body>
     <div class="card">
         <div class="card-header">
-            <img src="cid:logoBI" alt="Corporacion BI">
+            <!-- Versión con tamaño forzado para la imagen -->
+            <img src="cid:logoBI" alt="Corporacion BI" width="120" height="auto" style="width: 120px !important; height: auto !important; max-width: 120px !important; display: block !important;">
         </div>
         
         <div class="card-body">
