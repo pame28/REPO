@@ -1,27 +1,6 @@
-private async Task ConfigurarLibraryListAsync(OdbcConnection conn, List<string> librerias)
-{
-    using var cmd = conn.CreateCommand();
-    cmd.CommandType = CommandType.Text;
-    cmd.CommandTimeout = 300;
+idCallAS400	CallAs400	tipoCall	Activo
+1	{{CALL BPPGM/REIMQ07RC(?)}}	C	1
 
-    cmd.CommandText = "CALL QSYS2.QCMDEXC(?, ?)";
 
-    // 🔹 Limpia LIBL
-    string limpiar = "CHGLIBL LIBL(*NONE)";
-    cmd.Parameters.Clear();
-    cmd.Parameters.Add(new OdbcParameter { OdbcType = OdbcType.VarChar, Value = limpiar });
-    cmd.Parameters.Add(new OdbcParameter { OdbcType = OdbcType.Decimal, Value = limpiar.Length });
-    await cmd.ExecuteNonQueryAsync();
 
-    // 🔹 Agrega librerías
-    foreach (var lib in librerias)
-    {
-        string comando = $"ADDLIBLE LIB({lib})";
-
-        cmd.Parameters.Clear();
-        cmd.Parameters.Add(new OdbcParameter { OdbcType = OdbcType.VarChar, Value = comando });
-        cmd.Parameters.Add(new OdbcParameter { OdbcType = OdbcType.Decimal, Value = comando.Length });
-
-        await cmd.ExecuteNonQueryAsync();
-    }
-}
+Mira que tengo esto parametrizado en una tbala para llamar al programa, como debria actualizarlo?
