@@ -1,1 +1,5 @@
-"AS400Connection": "Driver={IBM i Access ODBC Driver};System=ASDES01;Uid=*****;Pwd=*****;"
+System.Data.Odbc.OdbcException: 'ERROR [42000] [IBM][Controlador ODBC de System i Access][DB2 para i5/OS]SQL0104 - Símbolo PARM no válido. Símbolos válidos: <FIN DE SENTENCIA>.'
+Esta excepción se generó originalmente en esta pila de llamadas:
+    [Código externo]
+    reposicion_pin.Repository.AS400Repository.ConfigurarLibraryListAsync(System.Data.Odbc.OdbcConnection, System.Collections.Generic.List<string>) en AS400Repository.cs
+    reposicion_pin.Repository.AS400Repository.EjecutarProgramaAsync(reposicion_pin.DTOs.AS400RequestDto) en AS400Repository.cs
