@@ -4,17 +4,23 @@ private async Task ConfigurarLibraryListAsync(OdbcConnection conn, List<string> 
     cmd.CommandType = CommandType.Text;
     cmd.CommandTimeout = 300;
 
-    // Limpia LIBL
+    cmd.CommandText = "CALL QSYS2.QCMDEXC(?, ?)";
+
+    // 🔹 Limpia LIBL
     string limpiar = "CHGLIBL LIBL(*NONE)";
-    cmd.CommandText =
-        $"CALL QSYS2.QCMDEXC('{limpiar}', {limpiar.Length}.00000)";
+    cmd.Parameters.Clear();
+    cmd.Parameters.Add(new OdbcParameter { OdbcType = OdbcType.VarChar, Value = limpiar });
+    cmd.Parameters.Add(new OdbcParameter { OdbcType = OdbcType.Decimal, Value = limpiar.Length });
     await cmd.ExecuteNonQueryAsync();
 
+    // 🔹 Agrega librerías
     foreach (var lib in librerias)
     {
         string comando = $"ADDLIBLE LIB({lib})";
-        cmd.CommandText =
-            $"CALL QSYS2.QCMDEXC('{comando}', {comando.Length}.00000)";
+
+        cmd.Parameters.Clear();
+        cmd.Parameters.Add(new OdbcParameter { OdbcType = OdbcType.VarChar, Value = comando });
+        cmd.Parameters.Add(new OdbcParameter { OdbcType = OdbcType.Decimal, Value = comando.Length });
 
         await cmd.ExecuteNonQueryAsync();
     }
