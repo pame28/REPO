@@ -1,5 +1,1 @@
-System.Data.Odbc.OdbcException: 'ERROR [42000] [IBM][Controlador ODBC de System i Access][DB2 para i5/OS]SQL0104 - Símbolo BPPGM no válido. Símbolos válidos: ( CL END GET SET TAG CALL DROP FREE HOLD LOCK OPEN WITH ALTER
-
-Esta excepción se generó originalmente en esta pila de llamadas:
-    [Código externo]
-    reposicion_pin.Repository.AS400Repository.EjecutarProgramaAsync(reposicion_pin.DTOs.AS400RequestDto) en AS400Repository.cs
+System.Data.Odbc.OdbcException: 'ERROR [HY000] [IBM][Controlador ODBC de System i Access][DB2 para i5/OS]CEE9901 - Error de aplicación. MCH3601 no supervisado por REIMQ07RC en la sentencia 0000000461, instrucción X'0000'.'
