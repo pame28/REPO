@@ -1,199 +1,181 @@
-kind: Build
-apiVersion: build.openshift.io/v1
-metadata:
-  annotations:
-    openshift.io/build-config.name: api-reposicion-pin-tc
-    openshift.io/build.number: '2'
-    openshift.io/build.pod-name: api-reposicion-pin-tc-2-build
-  resourceVersion: '506234129'
-  name: api-reposicion-pin-tc-2
-  uid: 833530f2-3e04-40fb-8cd0-1a8407f9d0d9
-  creationTimestamp: '2026-02-20T16:08:31Z'
-  generation: 2
-  managedFields:
-    - manager: openshift-apiserver
-      operation: Update
-      apiVersion: build.openshift.io/v1
-      time: '2026-02-20T16:08:31Z'
-      fieldsType: FieldsV1
-      fieldsV1:
-        'f:metadata':
-          'f:annotations':
-            .: {}
-            'f:openshift.io/build-config.name': {}
-            'f:openshift.io/build.number': {}
-          'f:labels':
-            'f:app': {}
-            'f:app.kubernetes.io/name': {}
-            .: {}
-            'f:app.kubernetes.io/part-of': {}
-            'f:app.kubernetes.io/instance': {}
-            'f:openshift.io/build-config.name': {}
-            'f:app.kubernetes.io/component': {}
-            'f:buildconfig': {}
-            'f:openshift.io/build.start-policy': {}
-          'f:ownerReferences':
-            .: {}
-            'k:{"uid":"4b8f6872-7c48-40c7-8302-a15c836cd825"}': {}
-        'f:spec':
-          'f:output':
-            'f:to': {}
-          'f:serviceAccount': {}
-          'f:source':
-            'f:contextDir': {}
-            'f:git':
-              .: {}
-              'f:ref': {}
-              'f:uri': {}
-            'f:sourceSecret': {}
-            'f:type': {}
-          'f:strategy':
-            'f:dockerStrategy':
-              .: {}
-              'f:dockerfilePath': {}
-            'f:type': {}
-          'f:triggeredBy': {}
-        'f:status':
-          'f:conditions':
-            .: {}
-            'k:{"type":"New"}':
-              .: {}
-              'f:lastTransitionTime': {}
-              'f:lastUpdateTime': {}
-              'f:status': {}
-              'f:type': {}
-          'f:config': {}
-    - manager: openshift-controller-manager
-      operation: Update
-      apiVersion: build.openshift.io/v1
-      time: '2026-02-20T16:10:51Z'
-      fieldsType: FieldsV1
-      fieldsV1:
-        'f:metadata':
-          'f:annotations':
-            'f:openshift.io/build.pod-name': {}
-        'f:spec':
-          'f:output':
-            'f:pushSecret': {}
-        'f:status':
-          'f:completionTimestamp': {}
-          'f:duration': {}
-          'f:logSnippet': {}
-          'f:outputDockerImageReference': {}
-          'f:phase': {}
-          'f:startTimestamp': {}
-  namespace: des-procesadortc-bp
-  ownerReferences:
-    - apiVersion: build.openshift.io/v1
-      kind: BuildConfig
-      name: api-reposicion-pin-tc
-      uid: 4b8f6872-7c48-40c7-8302-a15c836cd825
-      controller: true
-  labels:
-    app: api-reposicion-pin-tc
-    app.kubernetes.io/component: api-reposicion-pin-tc
-    app.kubernetes.io/instance: api-reposicion-pin-tc
-    app.kubernetes.io/name: api-reposicion-pin-tc
-    app.kubernetes.io/part-of: ReposicionPinTC
-    buildconfig: api-reposicion-pin-tc
-    openshift.io/build-config.name: api-reposicion-pin-tc
-    openshift.io/build.start-policy: Serial
-spec:
-  nodeSelector: null
-  output:
-    to:
-      kind: ImageStreamTag
-      name: 'api-reposicion-pin-tc:latest'
-    pushSecret:
-      name: builder-dockercfg-d8fb6
-  resources: {}
-  triggeredBy:
-    - message: Manually triggered
-  strategy:
-    type: Docker
-    dockerStrategy:
-      dockerfilePath: Dockerfile
-  postCommit: {}
-  serviceAccount: builder
-  source:
-    type: Git
-    git:
-      uri: 'http://gitlabde.banpais.hn/procesadorregional/microservicios/api_reposicion_pin.git'
-      ref: master
-    contextDir: /reposicion_pin
-    sourceSecret:
-      name: gitlab-source-secret-80730
-  revision:
-    type: Git
-    git:
-      commit: 55f9f5bbb78e4133f9f48265f8ad774fe4458254
-      author:
-        name: Pamela Suazo
-        email: pamelas@banpais.hn
-      committer:
-        name: Pamela Suazo
-        email: pamelas@banpais.hn
-      message: Update README.md
-status:
-  output: {}
-  config:
-    kind: BuildConfig
-    namespace: des-procesadortc-bp
-    name: api-reposicion-pin-tc
-  reason: DockerBuildFailed
-  message: Dockerfile build strategy has failed.
-  outputDockerImageReference: 'image-registry.openshift-image-registry.svc:5000/des-procesadortc-bp/api-reposicion-pin-tc:latest'
-  duration: 138000000000
-  startTimestamp: '2026-02-20T16:08:31Z'
-  stages:
-    - name: FetchInputs
-      startTime: '2026-02-20T16:08:33Z'
-      durationMilliseconds: 2771
-      steps:
-        - name: FetchGitSource
-          startTime: '2026-02-20T16:08:33Z'
-          durationMilliseconds: 2771
-    - name: PullImages
-      startTime: '2026-02-20T16:08:39Z'
-      durationMilliseconds: 115353
-      steps:
-        - name: PullBaseImage
-          startTime: '2026-02-20T16:08:39Z'
-          durationMilliseconds: 16408
-        - name: PullBaseImage
-          startTime: '2026-02-20T16:08:56Z'
-          durationMilliseconds: 98945
-    - name: Build
-      startTime: '2026-02-20T16:10:34Z'
-      durationMilliseconds: 14803
-      steps:
-        - name: DockerBuild
-          startTime: '2026-02-20T16:10:34Z'
-          durationMilliseconds: 14803
-  conditions:
-    - type: New
-      status: 'False'
-      lastUpdateTime: '2026-02-20T16:08:31Z'
-      lastTransitionTime: '2026-02-20T16:08:31Z'
-    - type: Pending
-      status: 'False'
-      lastUpdateTime: '2026-02-20T16:08:34Z'
-      lastTransitionTime: '2026-02-20T16:08:34Z'
-    - type: Running
-      status: 'False'
-      lastUpdateTime: '2026-02-20T16:10:49Z'
-      lastTransitionTime: '2026-02-20T16:10:49Z'
-    - type: Failed
-      status: 'True'
-      lastUpdateTime: '2026-02-20T16:10:49Z'
-      lastTransitionTime: '2026-02-20T16:10:49Z'
-      reason: DockerBuildFailed
-      message: Dockerfile build strategy has failed.
-  logSnippet: |-
-    --> 8f770c915b33
-    [1/2] STEP 8/10: RUN dotnet restore
-      Determining projects to restore...
-    /usr/share/dotnet/sdk/8.0.418/Sdks/Microsoft.NET.Sdk/targe...https://aka.ms/dotnet/download [/src/reposicion_pin.csproj]
-    error: build error: building at STEP "RUN dotnet restore": while running runtime: exit status 1
-  completionTimestamp: '2026-02-20T16:10:49Z'
-  phase: Failed
+Por el problema en openshift necesito migrar de Oledb a odbc, peroo... estoy teniendo problemas ... 
+
+
+
+ERROR [IM002] [Microsoft][Administrador de controladores ODBC] No se encuentra el nombre del origen de datos y no se especificó ningún controlador predeterminado"
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using System.Configuration;
+using System.Data;
+//using System.Data.OleDb;
+
+using System.Data.Odbc;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        private readonly string _as400connectionString;
+        private readonly ILogger<AS400Repository> _logger;
+        private readonly IConfiguracionAs400Repository _configAs400Repository;
+
+        public AS400Repository(
+            IConfiguration configuration,
+            ILogger<AS400Repository> logger,
+            IConfiguracionAs400Repository configAs400Repository
+            )
+        {
+            _as400connectionString = configuration.GetConnectionString("AS400Connection")!;
+            _logger = logger;
+            _configAs400Repository = configAs400Repository;
+        }
+
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+        {
+            try
+            {
+                //using var conn = new OleDbConnection(_as400connectionString);
+
+                using var conn = new OdbcConnection( _as400connectionString );
+                await conn.OpenAsync();
+
+
+                //await ConfigurarLibraryListAsync(conn);
+                var config = await _configAs400Repository.ObtenerConfiguracionAsync(1);
+                await ConfigurarLibraryListAsync(conn, config.librerias);
+
+                string trama =
+                    request.NumeroTarjeta.PadRight(16) +
+                    request.FechaVencimiento.PadRight(8) +
+                    new string(' ', 57);
+
+                _logger.LogInformation("Trama enviada AS400: {Trama}", trama);
+
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandTimeout = 300;
+
+                // CALL clásico como en el sistema legacy
+                cmd.CommandText = config.call;
+
+                //var paramTrama = new OleDbParameter
+                var paramTrama = new OdbcParameter
+                {
+                    ParameterName = "peTramaMQRcv",
+                    //OleDbType = OleDbType.Char,
+                    OdbcType = OdbcType.Char,
+                    Size = 81,
+                    Direction = ParameterDirection.InputOutput,
+                    Value = trama
+                };
+
+                cmd.Parameters.Add(paramTrama);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                string tramaRespuesta = paramTrama.Value?.ToString() ?? string.Empty;
+                _logger.LogInformation("Trama respuesta AS400: {Trama}", tramaRespuesta);
+
+                return ParsearRespuesta(tramaRespuesta);
+
+            }
+            //catch (OleDbException ex)
+            catch(OdbcException ex)
+            {
+                _logger.LogError(ex, "Error OLE DB AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = ex.Message
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = ex.Message
+                };
+            }
+        }
+
+        //private async Task ConfigurarLibraryListAsync(OleDbConnection conn, List<string> librerias)
+        private async Task ConfigurarLibraryListAsync(OdbcConnection conn, List<string> librerias)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandTimeout = 300;
+
+            // Limpia el LIBL
+            cmd.CommandText =
+                "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+            await cmd.ExecuteNonQueryAsync();
+
+      
+            foreach (var lib in librerias)
+            {
+                cmd.CommandText =
+                    $"{{{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB({lib})' 30)}}}}";
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        private static AS400ResponseDto ParsearRespuesta(string trama)
+        {
+            if (string.IsNullOrWhiteSpace(trama))
+            {
+                return new AS400ResponseDto
+                {
+                    CodigoError = "99",
+                    DescripcionError = "TRAMA RESPUESTA INVÁLIDA"
+                };
+            }
+
+            trama = trama.PadRight(81);
+
+            string pin = trama.Substring(24, 4).Trim();
+            string codigoError = trama.Substring(28, 3).Trim();
+            string descripcionError = trama.Substring(31, 50).Trim();
+
+            // 🔹 CASO EXITOSO: solo viene PIN
+            if (!string.IsNullOrWhiteSpace(pin) &&
+                string.IsNullOrWhiteSpace(codigoError) &&
+                string.IsNullOrWhiteSpace(descripcionError))
+            {
+                return new AS400ResponseDto
+                {
+                    Pin = pin,
+                    CodigoError = "00",
+                    DescripcionError = "Pin generado exitosamente"
+                };
+            }
+
+            // 🔹 CASO ERROR
+            if (!string.IsNullOrWhiteSpace(codigoError))
+            {
+                return new AS400ResponseDto
+                {
+                    Pin = null,
+                    CodigoError = codigoError,
+                    DescripcionError = descripcionError
+                };
+            }
+
+            return new AS400ResponseDto
+            {
+                CodigoError = "99",
+                DescripcionError = "Respuesta desconocida AS400"
+            };
+        }
+    }
+}
+
+
+
+
