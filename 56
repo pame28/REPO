@@ -1,8 +1,1 @@
- "AS400Connection": "Provider=IBMDA400.DataSource.1;Data Source=ASDES01;Persist Security Info=True;Password=***;User ID=*****;"
-
-
-Mira esta es mi cadena de conexión
-
-
-Ya configuré en el administrador de origen de datos ODBC en el DSN de usuario el ASDES01, PERO SIGO TENIENDO EL MISMO ERROR
-
+"AS400Connection": "Driver={IBM i Access ODBC Driver};System=ASDES01;Uid=*****;Pwd=*****;"
