@@ -2,7 +2,19 @@ Por el problema en openshift necesito migrar de Oledb a odbc, peroo... estoy ten
 
 
 
-ERROR [IM002] [Microsoft][Administrador de controladores ODBC] No se encuentra el nombre del origen de datos y no se especificó ningún controlador predeterminado"
+System.Data.Odbc.OdbcException: 'ERROR [IM002] [Microsoft][Administrador de controladores ODBC] No se encuentra el nombre del origen de datos y no se especificó ningún controlador predeterminado'
+
+
+Esta excepción se generó originalmente en esta pila de llamadas:
+    [Código externo]
+    reposicion_pin.Repository.AS400Repository.EjecutarProgramaAsync(reposicion_pin.DTOs.AS400RequestDto) en AS400Repository.cs
+
+
+
+No pasa de este segmento en especifico:     await conn.OpenAsync();
+
+
+
 
 using reposicion_pin.DTOs;
 using reposicion_pin.Repository.Interface;
