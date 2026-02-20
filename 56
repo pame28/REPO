@@ -1,6 +1,5 @@
-idCallAS400	CallAs400	tipoCall	Activo
-1	{{CALL BPPGM/REIMQ07RC(?)}}	C	1
+System.Data.Odbc.OdbcException: 'ERROR [42000] [IBM][Controlador ODBC de System i Access][DB2 para i5/OS]SQL0104 - Símbolo BPPGM no válido. Símbolos válidos: ( CL END GET SET TAG CALL DROP FREE HOLD LOCK OPEN WITH ALTER
 
-
-
-Mira que tengo esto parametrizado en una tbala para llamar al programa, como debria actualizarlo?
+Esta excepción se generó originalmente en esta pila de llamadas:
+    [Código externo]
+    reposicion_pin.Repository.AS400Repository.EjecutarProgramaAsync(reposicion_pin.DTOs.AS400RequestDto) en AS400Repository.cs
