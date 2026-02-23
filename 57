@@ -1,1 +1,33 @@
-https://m365.cloud.microsoft/chat/?fromcode=bingchat&redirectid=298C8320CD8C471AAB4AC578F1CB90D2&auth=2
+Ayudame a agregar lo que necesito:
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copiar csproj y NuGet.Config
+COPY *.csproj ./
+COPY nuget.config ./
+COPY proxy-root.crt /usr/local/share/ca-certificates/
+
+# Actualizar certificados dentro del contenedor
+RUN update-ca-certificates
+
+# Probar conexión
+RUN curl -I https://api.nuget.org/v3/index.json || echo "❌ No hay acceso a NuGet.org"
+
+# Restaurar dependencias
+RUN dotnet restore
+
+COPY . .
+RUN dotnet publish -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "reposicion_pin.dll"]
+
+
+
+
+
+
+Dependency unixODBC with minimum version 2.3.1 is required.\nUnable to load shared library 'libodbc.so.2' or one of its dependencies. In order to help diagnose loading problems, consider using a tool like strace. If you're using glibc, consider setting the LD_DEBUG environment variable: \n/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.3/libodbc.so.2: cannot open shared object file: No such file or directory\n/app/runtimes/unix/lib/net10.0/libodbc.so.2: cannot open shared object file: No such file or directory\n/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.3/liblibodbc.so.2: cannot open shared object file: No such file or directory\n/app/runtimes/unix/lib/net10.0/liblibodbc.so.2: cannot open shared object file: No such file or directory\n/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.3/libodbc.so.2.so: cannot open shared object file: No such file or directory\n/app/runtimes/unix/lib/net10.0/libodbc.so.2.so: cannot open shared object file: No such file or directory\n/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.3/liblibodbc.so.2.so: cannot open shared object file: No such file or directory\n/app/runtimes/unix/lib/net10.0/liblibodbc.so.2.so: cannot open shared object file: No such file or directory"
