@@ -1,45 +1,7 @@
-private async Task ConfigurarLibraryListAsync(OdbcConnection conn, List<string> librerias)
-{
-    foreach (var comando in ConstruirComandos(librerias))
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.CommandType = CommandType.Text;
-        cmd.CommandTimeout = 300;
+System.Data.Odbc.OdbcException: 'ERROR [42S02] [IBM][Controlador ODBC de System i Access][DB2 para i5/OS]SQL0204 - QCMDEXC en QSYS de tipo *N no encontrado.'
 
-        cmd.CommandText = "CALL QSYS.QCMDEXC(?, ?)";
 
-        var parametroComando = new OdbcParameter
-        {
-            OdbcType = OdbcType.Char,
-            Size = comando.Length,
-            Value = comando
-        };
-
-        var parametroLongitud = new OdbcParameter
-        {
-            OdbcType = OdbcType.Decimal,
-            Precision = 15,
-            Scale = 5,
-            Value = (decimal)comando.Length
-        };
-
-        cmd.Parameters.Add(parametroComando);
-        cmd.Parameters.Add(parametroLongitud);
-
-        await cmd.ExecuteNonQueryAsync();
-    }
-}
-
-private List<string> ConstruirComandos(List<string> librerias)
-{
-    var comandos = new List<string>();
-
-    comandos.Add("CHGLIBL LIBL(*NONE)");
-
-    foreach (var lib in librerias)
-    {
-        comandos.Add($"ADDLIBLE LIB({lib})");
-    }
-
-    return comandos;
-}
+Esta excepción se generó originalmente en esta pila de llamadas:
+    [Código externo]
+    reposicion_pin.Repository.AS400Repository.ConfigurarLibraryListAsync(System.Data.Odbc.OdbcConnection, System.Collections.Generic.List<string>) en AS400Repository.cs
+    reposicion_pin.Repository.AS400Repository.EjecutarProgramaAsync(reposicion_pin.DTOs.AS400RequestDto) en AS400Repository.cs
