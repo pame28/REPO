@@ -3,3 +3,7 @@ Quiero hacer enfasis, en que, me dijeron que, para hacer consumo del programa...
 CALL PGM(REIMQ07RC) PARM(('100000000170384120191130'))
 
 La pregunta es ... esto no tiene nada que ver que se consuma usando Oledb o odbc o si ? Tal vez me puede explicar mejor
+
+
+
+Y por cierto... obtuve esta respuesta: Arithmetic operation resulted in an overflow.
