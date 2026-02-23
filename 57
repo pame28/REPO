@@ -1,9 +1,45 @@
-Quiero hacer enfasis, en que, me dijeron que, para hacer consumo del programa... el equipo que desarolló el programa en AS400 ... hacia el consumo asi:
+private async Task ConfigurarLibraryListAsync(OdbcConnection conn, List<string> librerias)
+{
+    foreach (var comando in ConstruirComandos(librerias))
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandType = CommandType.Text;
+        cmd.CommandTimeout = 300;
 
-CALL PGM(REIMQ07RC) PARM(('100000000170384120191130'))
+        cmd.CommandText = "CALL QSYS.QCMDEXC(?, ?)";
 
-La pregunta es ... esto no tiene nada que ver que se consuma usando Oledb o odbc o si ? Tal vez me puede explicar mejor
+        var parametroComando = new OdbcParameter
+        {
+            OdbcType = OdbcType.Char,
+            Size = comando.Length,
+            Value = comando
+        };
 
+        var parametroLongitud = new OdbcParameter
+        {
+            OdbcType = OdbcType.Decimal,
+            Precision = 15,
+            Scale = 5,
+            Value = (decimal)comando.Length
+        };
 
+        cmd.Parameters.Add(parametroComando);
+        cmd.Parameters.Add(parametroLongitud);
 
-Y por cierto... obtuve esta respuesta: Arithmetic operation resulted in an overflow.
+        await cmd.ExecuteNonQueryAsync();
+    }
+}
+
+private List<string> ConstruirComandos(List<string> librerias)
+{
+    var comandos = new List<string>();
+
+    comandos.Add("CHGLIBL LIBL(*NONE)");
+
+    foreach (var lib in librerias)
+    {
+        comandos.Add($"ADDLIBLE LIB({lib})");
+    }
+
+    return comandos;
+}
