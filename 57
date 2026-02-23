@@ -1,9 +1,11 @@
-System.Data.Odbc.OdbcException: 'ERROR [42S02] [IBM][Controlador ODBC de System i Access][DB2 para i5/OS]SQL0204 - QCMDEXC en QSYS de tipo *N no encontrado.'
+{
+  "ConnectionStrings": {
+    "AS400Connection": "Driver={IBM i Access ODBC Driver};System=MI_IP_AS400;Uid=usuario;Pwd=clave;Naming=1;DefaultLibraries=BPPGM,DP053DAT,CLIDAT,BPDAT,EQUIVALENP,TDBI20DAT,TARJETA;"
+  }
+}
 
-Esta excepción se generó originalmente en esta pila de llamadas:
-    [Código externo]
-    reposicion_pin.Repository.AS400Repository.ConfigurarLibraryListAsync(System.Data.Odbc.OdbcConnection, System.Collections.Generic.List<string>) en AS400Repository.cs
-    reposicion_pin.Repository.AS400Repository.EjecutarProgramaAsync(reposicion_pin.DTOs.AS400RequestDto) en AS400Repository.cs
+
+
 
 
 using reposicion_pin.DTOs;
@@ -17,16 +19,13 @@ namespace reposicion_pin.Repository
     {
         private readonly string _as400connectionString;
         private readonly ILogger<AS400Repository> _logger;
-        private readonly IConfiguracionAs400Repository _configAs400Repository;
 
         public AS400Repository(
             IConfiguration configuration,
-            ILogger<AS400Repository> logger,
-            IConfiguracionAs400Repository configAs400Repository)
+            ILogger<AS400Repository> logger)
         {
             _as400connectionString = configuration.GetConnectionString("AS400Connection")!;
             _logger = logger;
-            _configAs400Repository = configAs400Repository;
         }
 
         public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
@@ -36,38 +35,37 @@ namespace reposicion_pin.Repository
                 using var conn = new OdbcConnection(_as400connectionString);
                 await conn.OpenAsync();
 
-                var config = await _configAs400Repository.ObtenerConfiguracionAsync(1);
+                // Construcción segura de la trama
+                string numeroTarjeta = (request.NumeroTarjeta ?? string.Empty).PadRight(16);
+                string fechaVencimiento = (request.FechaVencimiento ?? string.Empty).PadRight(8);
 
-                await ConfigurarLibraryListAsync(conn, config.librerias);
+                string trama = numeroTarjeta + fechaVencimiento + new string(' ', 57);
 
-                string trama =
-                    request.NumeroTarjeta.PadRight(16) +
-                    request.FechaVencimiento.PadRight(8) +
-                    new string(' ', 57);
-
-                _logger.LogInformation("Trama enviada AS400: {Trama}", trama);
+                _logger.LogInformation("Trama enviada AS400 >>>[{Trama}]<<< Longitud:{Longitud}", trama, trama.Length);
 
                 using var cmd = conn.CreateCommand();
                 cmd.CommandType = CommandType.Text;
                 cmd.CommandTimeout = 300;
 
-                // IMPORTANTE: ODBC usa ?
-                cmd.CommandText = "CALL BPPGM/REIMQ07RC(?)";
+                // IMPORTANTE: con Naming=1 y DefaultLibraries ya no necesitas prefijo BPPGM/
+                cmd.CommandText = "{ CALL REIMQ07RC(?) }";
 
                 var paramTrama = new OdbcParameter
                 {
                     OdbcType = OdbcType.Char,
                     Size = 81,
                     Direction = ParameterDirection.InputOutput,
-                   // Value = trama
+                    Value = trama
                 };
-                paramTrama.Value = trama;
+
                 cmd.Parameters.Add(paramTrama);
 
                 await cmd.ExecuteNonQueryAsync();
 
                 string tramaRespuesta = paramTrama.Value?.ToString() ?? string.Empty;
-                _logger.LogInformation("Trama respuesta AS400: {Trama}", tramaRespuesta);
+
+                _logger.LogInformation("Trama respuesta AS400 >>>[{Trama}]<<< Longitud:{Longitud}",
+                    tramaRespuesta, tramaRespuesta.Length);
 
                 return ParsearRespuesta(tramaRespuesta);
             }
@@ -93,52 +91,6 @@ namespace reposicion_pin.Repository
             }
         }
 
-        private async Task ConfigurarLibraryListAsync(OdbcConnection conn, List<string> librerias)
-        {
-            foreach (var comando in ConstruirComandos(librerias))
-            {
-                using var cmd = conn.CreateCommand();
-                cmd.CommandType = CommandType.Text;
-                cmd.CommandTimeout = 300;
-
-                cmd.CommandText = "{ CALL QSYS.QCMDEXC(?, ?) }";
-
-                var parametroComando = new OdbcParameter
-                {
-                    OdbcType = OdbcType.Char,
-                    Size = comando.Length,
-                    Value = comando
-                };
-
-                var parametroLongitud = new OdbcParameter
-                {
-                    OdbcType = OdbcType.Decimal,
-                    Precision = 15,
-                    Scale = 5,
-                    Value = (decimal)comando.Length
-                };
-
-                cmd.Parameters.Add(parametroComando);
-                cmd.Parameters.Add(parametroLongitud);
-
-                await cmd.ExecuteNonQueryAsync();
-            }
-        }
-
-        private List<string> ConstruirComandos(List<string> librerias)
-        {
-            var comandos = new List<string>();
-
-            comandos.Add("CHGLIBL LIBL(*NONE)");
-
-            foreach (var lib in librerias)
-            {
-                comandos.Add($"ADDLIBLE LIB({lib})");
-            }
-
-            return comandos;
-        }
-
         private static AS400ResponseDto ParsearRespuesta(string trama)
         {
             if (string.IsNullOrWhiteSpace(trama))
@@ -156,6 +108,7 @@ namespace reposicion_pin.Repository
             string codigoError = trama.Substring(28, 3).Trim();
             string descripcionError = trama.Substring(31, 50).Trim();
 
+            // Caso exitoso
             if (!string.IsNullOrWhiteSpace(pin) &&
                 string.IsNullOrWhiteSpace(codigoError) &&
                 string.IsNullOrWhiteSpace(descripcionError))
@@ -168,10 +121,12 @@ namespace reposicion_pin.Repository
                 };
             }
 
+            // Caso error controlado
             if (!string.IsNullOrWhiteSpace(codigoError))
             {
                 return new AS400ResponseDto
                 {
+                    Pin = null,
                     CodigoError = codigoError,
                     DescripcionError = descripcionError
                 };
