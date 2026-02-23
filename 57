@@ -1,0 +1,216 @@
+Mira, tengo un serio problema con mi conexión a AS400 usando OLEDB, y es que, en mi maquina, yo logro consumir el programa a la perfección. Pero, si despliego mi proyecto en Openshift es el problema, me dice que OleDb is not supported in this platform.
+Y la intrucción que recibí fue .. hacer la conexión usando ODBC, por lo que, necesito realizar la migración de OLEDB  a ODBC 
+
+
+Te dejo mi codigo actual:
+
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using System.Configuration;
+using System.Data;
+using System.Data.OleDb;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        private readonly string _as400connectionString;
+        private readonly ILogger<AS400Repository> _logger;
+        private readonly IConfiguracionAs400Repository _configAs400Repository;
+
+        public AS400Repository(
+            IConfiguration configuration,
+            ILogger<AS400Repository> logger,
+            IConfiguracionAs400Repository configAs400Repository
+            )
+        {
+            _as400connectionString = configuration.GetConnectionString("AS400Connection")!;
+            _logger = logger;
+            _configAs400Repository = configAs400Repository;
+        }
+
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+        {
+            try
+            {
+                using var conn = new OleDbConnection(_as400connectionString);
+                await conn.OpenAsync();
+
+
+                //await ConfigurarLibraryListAsync(conn);
+                var config = await _configAs400Repository.ObtenerConfiguracionAsync(1);
+                await ConfigurarLibraryListAsync(conn, config.librerias);
+
+                string trama =
+                    request.NumeroTarjeta.PadRight(16) +
+                    request.FechaVencimiento.PadRight(8) +
+                    new string(' ', 57);
+
+                _logger.LogInformation("Trama enviada AS400: {Trama}", trama);
+
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandTimeout = 300;
+
+                // CALL clásico como en el sistema legacy
+                cmd.CommandText = config.call;
+
+                var paramTrama = new OleDbParameter
+                {
+                    ParameterName = "peTramaMQRcv",
+                    OleDbType = OleDbType.Char,
+                    Size = 81,
+                    Direction = ParameterDirection.InputOutput,
+                    Value = trama
+                };
+
+                cmd.Parameters.Add(paramTrama);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                string tramaRespuesta = paramTrama.Value?.ToString() ?? string.Empty;
+                _logger.LogInformation("Trama respuesta AS400: {Trama}", tramaRespuesta);
+
+                return ParsearRespuesta(tramaRespuesta);
+
+            }
+            catch (OleDbException ex)
+            {
+                _logger.LogError(ex, "Error OLE DB AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = ex.Message
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = ex.Message
+                };
+            }
+        }
+
+        private async Task ConfigurarLibraryListAsync(OleDbConnection conn, List<string> librerias)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandTimeout = 300;
+
+            // Limpia el LIBL
+            cmd.CommandText =
+                "{{CALL PGM(QSYS/QCMDEXC) PARM('CHGLIBL LIBL(*NONE)' 30)}}";
+            await cmd.ExecuteNonQueryAsync();
+
+      
+            foreach (var lib in librerias)
+            {
+                cmd.CommandText =
+                    $"{{{{CALL PGM(QSYS/QCMDEXC) PARM('ADDLIBLE LIB({lib})' 30)}}}}";
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        private static AS400ResponseDto ParsearRespuesta(string trama)
+        {
+            if (string.IsNullOrWhiteSpace(trama))
+            {
+                return new AS400ResponseDto
+                {
+                    CodigoError = "99",
+                    DescripcionError = "TRAMA RESPUESTA INVÁLIDA"
+                };
+            }
+
+            trama = trama.PadRight(81);
+
+            string pin = trama.Substring(24, 4).Trim();
+            string codigoError = trama.Substring(28, 3).Trim();
+            string descripcionError = trama.Substring(31, 50).Trim();
+
+            // 🔹 CASO EXITOSO: solo viene PIN
+            if (!string.IsNullOrWhiteSpace(pin) &&
+                string.IsNullOrWhiteSpace(codigoError) &&
+                string.IsNullOrWhiteSpace(descripcionError))
+            {
+                return new AS400ResponseDto
+                {
+                    Pin = pin,
+                    CodigoError = "00",
+                    DescripcionError = "Pin generado exitosamente"
+                };
+            }
+
+            // 🔹 CASO ERROR
+            if (!string.IsNullOrWhiteSpace(codigoError))
+            {
+                return new AS400ResponseDto
+                {
+                    Pin = null,
+                    CodigoError = codigoError,
+                    DescripcionError = descripcionError
+                };
+            }
+
+            return new AS400ResponseDto
+            {
+                CodigoError = "99",
+                DescripcionError = "Respuesta desconocida AS400"
+            };
+        }
+    }
+}
+
+
+
+
+
+Y este es mi tabla donde tengo algunas cosas parametrizadas:
+
+SELECT  [idCallAS400]
+      ,[CallAs400]
+      ,[tipoCall]
+      ,[Activo]
+  FROM [ReposicionPinTC].[dbo].[CallsAS400]
+
+
+  idCallAS400	CallAs400	tipoCall	Activo
+1	CALL BPPGM/REIMQ07RC(?)	C	1
+
+
+
+---------------------------------------
+
+
+SELECT  [idLibreriasAS400]
+      ,[idCallAS400]
+      ,[Libreria]
+  FROM [ReposicionPinTC].[dbo].[CallsLibreriasAS400]
+
+idLibreriasAS400	idCallAS400	Libreria
+1	1	BPPGM
+2	1	DP053DAT
+3	1	CLIDAT
+4	1	BPDAT
+5	1	EQUIVALENP
+6	1	TDBI20DAT
+7	1	TARJETA
+
+
+----------------------------
+
+
+
+Quiero recalcar que, el codigo que te pasé actualmente funciona bien, el problema fue en el despliegue en Openshoft, por lo que, necesito tu apoyo para migrar, quiero que seas bien detallista y profesioanl. Brindame archivos completos y con una estructura limpia.
+
+
+
+
+
