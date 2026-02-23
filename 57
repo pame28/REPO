@@ -1,11 +1,145 @@
-Sabes busando en dbvisualizer me encontré con este Procedure
+using reposicion_pin.DTOs;
+using reposicion_pin.Repository.Interface;
+using System.Data;
+using System.Data.Odbc;
+
+namespace reposicion_pin.Repository
+{
+    public class AS400Repository : IAS400Repository
+    {
+        private readonly string _as400connectionString;
+        private readonly ILogger<AS400Repository> _logger;
+        private readonly IConfiguracionAs400Repository _configAs400Repository;
+
+        public AS400Repository(
+            IConfiguration configuration,
+            ILogger<AS400Repository> logger,
+            IConfiguracionAs400Repository configAs400Repository
+        )
+        {
+            _as400connectionString = configuration.GetConnectionString("AS400Connection")!;
+            _logger = logger;
+            _configAs400Repository = configAs400Repository;
+        }
+
+        public async Task<AS400ResponseDto> EjecutarProgramaAsync(AS400RequestDto request)
+        {
+            try
+            {
+                using var conn = new OdbcConnection(_as400connectionString);
+                await conn.OpenAsync();
+
+                // Trae la configuración de librerías, aunque DefaultLibraries ya lo cubre
+                var config = await _configAs400Repository.ObtenerConfiguracionAsync(1);
+
+                string trama =
+                    request.NumeroTarjeta.PadRight(16) +
+                    request.FechaVencimiento.PadRight(8) +
+                    new string(' ', 57);
+
+                _logger.LogInformation("Trama enviada AS400: {Trama}", trama);
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "BPPGM.SP_REIMQ07RC";
+
+                var paramTrama = new OdbcParameter
+                {
+                    ParameterName = "V_INFO",
+                    OdbcType = OdbcType.Char,
+                    Size = 81,
+                    Direction = ParameterDirection.InputOutput,
+                    Value = trama
+                };
+
+                cmd.Parameters.Add(paramTrama);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                string tramaRespuesta = paramTrama.Value?.ToString() ?? string.Empty;
+                _logger.LogInformation("Trama respuesta AS400: {Trama}", tramaRespuesta);
+
+                return ParsearRespuesta(tramaRespuesta);
+            }
+            catch (OdbcException ex)
+            {
+                _logger.LogError(ex, "Error ODBC AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P98",
+                    DescripcionError = ex.Message
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general AS400");
+
+                return new AS400ResponseDto
+                {
+                    CodigoError = "P99",
+                    DescripcionError = ex.Message
+                };
+            }
+        }
+
+        private static AS400ResponseDto ParsearRespuesta(string trama)
+        {
+            if (string.IsNullOrWhiteSpace(trama))
+            {
+                return new AS400ResponseDto
+                {
+                    CodigoError = "99",
+                    DescripcionError = "TRAMA RESPUESTA INVÁLIDA"
+                };
+            }
+
+            trama = trama.PadRight(81);
+
+            string pin = trama.Substring(24, 4).Trim();
+            string codigoError = trama.Substring(28, 3).Trim();
+            string descripcionError = trama.Substring(31, 50).Trim();
+
+            // CASO EXITOSO: solo viene PIN
+            if (!string.IsNullOrWhiteSpace(pin) &&
+                string.IsNullOrWhiteSpace(codigoError) &&
+                string.IsNullOrWhiteSpace(descripcionError))
+            {
+                return new AS400ResponseDto
+                {
+                    Pin = pin,
+                    CodigoError = "00",
+                    DescripcionError = "Pin generado exitosamente"
+                };
+            }
+
+            // CASO ERROR
+            if (!string.IsNullOrWhiteSpace(codigoError))
+            {
+                return new AS400ResponseDto
+                {
+                    Pin = null,
+                    CodigoError = codigoError,
+                    DescripcionError = descripcionError
+                };
+            }
+
+            return new AS400ResponseDto
+            {
+                CodigoError = "99",
+                DescripcionError = "Respuesta desconocida AS400"
+            };
+        }
+    }
+}
 
 
-PROCEDURE_CAT	PROCEDURE_SCHEM	PROCEDURE_NAME	COLUMN_NAME	COLUMN_TYPE	DATA_TYPE	TYPE_NAME	PRECISION	LENGTH	SCALE	RADIX	NULLABLE	REMARKS	SQL_DATA_TYPE	SQL_DATETIME_SUB	CHAR_OCTET_LENGTH	ORDINAL_POSITION	IS_NULLABLE	SPECIFIC_NAME
-SBP720P	BPPGM	SP_REIMQ07RC	V_INFO	1	1	CHAR	81	81	(null)	(null)	1	(null)	1	(null)	81	1	YES	SP_RPESINCONS
 
 
 
-No es le mismo que estaba usando con OLEDB .. porque no tenia el SP .. pero parece que no se ... es el mismo? o que será este? es que esto es lo unico que puedo ver ... 
+{
+  "ConnectionStrings": {
+    "AS400Connection": "Driver={IBM i Access ODBC Driver};System=TU_IP_AS400;Uid=USUARIO;Pwd=CONTRASEÑA;DefaultLibraries=BPPGM,DP053DAT,CLIDAT,BPDAT,EQUIVALENP,TDBI20DAT,TARJETA;Naming=1;ExtendedDynamic=1;"
+  }
+}
 
-Será que usando este llego al otro? 
