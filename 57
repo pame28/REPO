@@ -162,3 +162,22 @@ namespace reposicion_pin.Repository
 
 
 Podemos manejar cuando la trama viene vacia, es decir, cuando no viene ni pin ni error, igual tiene que enviarse por el el error 09
+
+
+
+
+
+            //  CASO ERROR
+            if (!string.IsNullOrWhiteSpace(codigoError))
+            {
+                return new AS400ResponseDto
+                {
+                    Pin = null,
+                    CodigoError = codigoError,
+                    DescripcionError = descripcionError
+                };
+            }
+
+
+
+O creees que ya lo estoy manejando aqui?
