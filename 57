@@ -1,8 +1,8 @@
-$ git checkout -b recuperar-branch 3641aed
-error: Your local changes to the following files would be overwritten by checkout:
-        .vs/reposicion_pin/DesignTimeBuild/.dtbcache.v2
-        reposicion_pin/obj/Debug/net10.0/reposicion_pin.AssemblyInfo.cs
-        reposicion_pin/obj/Debug/net10.0/reposicion_pin.AssemblyInfoInputs.cache
-        reposicion_pin/obj/Debug/net10.0/rpswa.dswa.cache.json
-Please commit your changes or stash them before you switch branches.
-Aborting
+
+80730@80730-BP1 MINGW64 ~/Desktop/Projects/BH-24138 Procesador Regional/Microservicios/Reposicion PIN/reposicion_pin (recuperar-branch)
+$ git push origin master
+git: 'credential-manager-core' is not a git command. See 'git --help'.
+Everything up-to-date
+
+80730@80730-BP1 MINGW64 ~/Desktop/Projects/BH-24138 Procesador Regional/Microservicios/Reposicion PIN/reposicion_pin (recuperar-branch)
+$
