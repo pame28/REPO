@@ -1,7 +1,127 @@
-ALTER TABLE BandejaEnvioEmail
-ALTER COLUMN Referencia VARCHAR(20);
+using reposicion_pin.Infrastructure.Data;
+using reposicion_pin.Models;
+using reposicion_pin.Repository.Interface;
+using System.Net.Mail;
+using System.Net.Mime;
+
+namespace reposicion_pin.Repository
+{
+    public class EnvioEmailRepository : IEnvioEmailRepository
+    {
+        private readonly AppDbContext _dbContext;
+        private readonly ILogger<EnvioEmailRepository> _logger;
+        private readonly ParamAmbienteModel _paramAmbiente;
+
+        private readonly string _serverEmail;
+        private readonly string _mailFrom;
+        private readonly string _mailSubject;
+
+        public EnvioEmailRepository(
+            AppDbContext dbContext,
+            ILogger<EnvioEmailRepository> logger)
+        {
+            _dbContext = dbContext;
+            _logger = logger;
+
+            var configEmail = _dbContext
+                .usp_ObtenerConfigEmail
+                .AsEnumerable()
+                .FirstOrDefault();
+
+            if (configEmail == null)
+                throw new Exception("No se encontró configuración de ConfigEmail.");
+
+            _serverEmail = configEmail.ServerEmail;
+            _mailFrom = configEmail.MailFrom;
+            _mailSubject = configEmail.MailSubject;
+
+            _paramAmbiente = _dbContext.ParamAmbiente
+                .Where(p => p.Estado == 1)
+                .OrderBy(p => p.IdRow)
+                .FirstOrDefault();
+        }
+
+        public async Task<(int Codigo, string Mensaje, string MailFrom, string MailSubject)> EnviarCorreoAsync(
+            string correoDestino,
+            string cuerpoBase,
+            string pin,
+            string referencia,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                string correoFinal = _paramAmbiente?.Correo ?? correoDestino;
+
+
+                // Ruta correcta a Templates/Correo.html
+                var ruta = Path.Combine(
+                    Directory.GetCurrentDirectory(),
+                    "Templates",
+                    "Correo.html");
+
+                if (!File.Exists(ruta))
+                    throw new Exception($"No se encontró la plantilla en: {ruta}");
+
+                //  Leer plantilla
+                var plantillaHtml = await File.ReadAllTextAsync(ruta, cancellationToken);
 
 
 
-ALTER TABLE BandejaEnvioSMS
-ALTER COLUMN Referencia VARCHAR(20);
+                //  Reemplazar variables dinámicas
+                var cuerpoFinal = plantillaHtml
+                    .Replace("@PIN", pin);
+                    
+
+                using var smtp = new SmtpClient(_serverEmail)
+                {
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = true
+                };
+
+                using var mail = new MailMessage
+                {
+                    From = new MailAddress(_mailFrom),
+                    Subject = _mailSubject,
+                    Body = cuerpoFinal,
+                    IsBodyHtml = true
+                };
+
+                mail.To.Add(correoFinal);
+
+                // Crear vista HTML con logo inline
+                var htmlView = AlternateView.CreateAlternateViewFromString(cuerpoFinal, null, MediaTypeNames.Text.Html);
+                var logoInline = new LinkedResource(Path.Combine(Directory.GetCurrentDirectory(), "Templates", "logo.png"))
+                {
+                    ContentId = "logoBI",
+                    TransferEncoding = TransferEncoding.Base64
+                };
+                htmlView.LinkedResources.Add(logoInline);
+                mail.AlternateViews.Add(htmlView);
+
+
+                await smtp.SendMailAsync(mail, cancellationToken);
+
+                _logger.LogInformation(
+                    "Correo enviado Ref:{Referencia} Destino:{Destino}",
+                    referencia, correoFinal);
+
+                return (0, "Correo enviado correctamente.", _mailFrom, _mailSubject);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error enviando correo Ref:{Referencia} Destino:{Destino}",
+                    referencia, correoDestino);
+
+                return (8, ex.Message, _mailFrom, _mailSubject);
+            }
+        }
+    }
+}
+
+
+
+
+
+Ya me dieron la instrucción de que, lo que CRM envie el campo contenidoEmail es lo que se enviará por correo, ellos aseguran será un HTML de nuestro lado solo tenemos que reemplazar @PIN con el que corresponda
+Ayudame a hacer las correcciones necesarias
