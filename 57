@@ -1,3 +1,34 @@
+
+// Notificar (SMS o Email)
+var codigoNotificacion = await _notificacionService.EnviarAsync(
+    tarjeta,
+    request,
+    as400Response.Pin
+);
+
+// Si hubo error de notificación, devolver código de catálogo correspondiente
+if (codigoNotificacion != 0)
+{
+    return await _respuestaService.ObtenerRespuestaAsync(codigoNotificacion);
+}
+
+// Respuesta exitosa
+return await _respuestaService.ObtenerRespuestaAsync(0, as400Response.Pin);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public async Task<int> EnviarAsync(
     TarjetaModel tarjeta,
     ReposicionPinRequestDto request,
