@@ -1,20 +1,8 @@
-hing to commit, working tree clean
-
-80730@80730-BP1 MINGW64 ~/Desktop/Projects/BH-24138 Procesador Regional/Microservicios/Reposicion PIN/reposicion_pin (master)
-$ git reflog
-a32e077 (HEAD -> master, origin/master, origin/HEAD) HEAD@{0}: checkout: moving from Migracion-OLEDB-ODBC to master
-3641aed (Migracion-OLEDB-ODBC) HEAD@{1}: commit: Eliminando template HTML
-ec850e2 (origin/Migracion-OLEDB-ODBC) HEAD@{2}: commit: Dockerfile Actualizado
-8c281f6 HEAD@{3}: checkout: moving from Migracion-OLEDB-ODBC to Migracion-OLEDB-ODBC
-8c281f6 HEAD@{4}: commit: Ya utilizando el SP creado
-a418af9 HEAD@{5}: checkout: moving from Migracion-OLEDB-ODBC to Migracion-OLEDB-ODBC
-a418af9 HEAD@{6}: commit: Migrando de OLEDB A ODBC
-a32e077 (HEAD -> master, origin/master, origin/HEAD) HEAD@{7}: checkout: moving from master to Migracion-OLEDB-ODBC
-a32e077 (HEAD -> master, origin/master, origin/HEAD) HEAD@{8}: commit (merge): Removiendo test
-1aff7a7 HEAD@{9}: commit: Removiendo test
-362a75c HEAD@{10}: checkout: moving from master to master
-362a75c HEAD@{11}: commit: Corrección de errores varios
-658fc60 HEAD@{12}: checkout: moving from master to master
-658fc60 HEAD@{13}: commit (initial): Initial commit
-
-80730@80730-BP1 MINGW64 ~/Desktop/Projects/BH-24138 Procesador Regional/Microservicios/Reposicion PIN/reposicion_pin (master)
+$ git checkout -b recuperar-branch 3641aed
+error: Your local changes to the following files would be overwritten by checkout:
+        .vs/reposicion_pin/DesignTimeBuild/.dtbcache.v2
+        reposicion_pin/obj/Debug/net10.0/reposicion_pin.AssemblyInfo.cs
+        reposicion_pin/obj/Debug/net10.0/reposicion_pin.AssemblyInfoInputs.cache
+        reposicion_pin/obj/Debug/net10.0/rpswa.dswa.cache.json
+Please commit your changes or stash them before you switch branches.
+Aborting
