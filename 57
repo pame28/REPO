@@ -1,8 +1,21 @@
-[HttpPost]
-[Route("reposicion-pin")]
-public async Task<ActionResult<ReposicionPinResponseDto>> GenerarPin(
-    [FromBody] ReposicionPinRequestDto request)
+// Interfaz
+public interface IReposicionPinNotificacionService
 {
-    var response = await _service.ProcesarAsync(request);
-    return Ok(response);
+    Task<(int Codigo, string Mensaje)> EnviarAsync(TarjetaModel tarjeta, ReposicionPinRequestDto request, string pin);
+}
+
+
+
+
+
+// Notificar
+var resultadoNotificacion = await _notificacionService.EnviarAsync(tarjeta, request, as400Response.Pin);
+
+if (resultadoNotificacion.Codigo != 0)
+{
+    return await _respuestaService.ObtenerRespuestaDinamicaAsync(
+        resultadoNotificacion.Codigo,
+        "Notificación",
+        resultadoNotificacion.Mensaje
+    );
 }
