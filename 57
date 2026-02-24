@@ -1,3 +1,1 @@
-El microservicio Reposición de PIN de Tarjeta de Crédito es responsable de procesar solicitudes de reposición de PIN a ***. 
-
-Ayudame a redactar y perfeccionar, alargar mejor este parrafo
+El microservicio Reposición de PIN de Tarjeta de Crédito es responsable de gestionar de manera integral las solicitudes de reposición de PIN asociadas a tarjetas de crédito emitidas por la institución. Su función principal es recibir, validar y procesar cada solicitud enviada desde los canales habilitados (como aplicaciones internas, plataformas digitales o sistemas externos), garantizando el cumplimiento de las políticas de seguridad y los controles establecidos.
