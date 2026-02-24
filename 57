@@ -1,3 +1,55 @@
+Tengo problemas en mi controller debido a las modificaciones que hicimos en el service:
+
+
+using Microsoft.AspNetCore.Mvc;
+using reposicion_pin.DTOs;
+using reposicion_pin.Service;
+
+// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+
+namespace reposicion_pin.Controllers
+{
+    [Route("api")]
+    [ApiController]
+    public class ReposicionPinController : ControllerBase
+    {
+        private readonly ReposicionPinService _service;
+
+        public ReposicionPinController(ReposicionPinService service)
+        {
+            _service = service;
+        }
+
+        [HttpPost]
+        [Route("reposicion-pin")]
+        public async Task<ActionResult<ReposicionPinResponseDto>> GenerarPin([FromBody] ReposicionPinRequestDto request)
+        {
+            // Validar Tarjeta
+            var validarTarjeta = await _service.ValidarTarjetaAsync(request);
+            if (validarTarjeta.CodigoInt != 0)
+                return Ok(validarTarjeta);
+
+            // Obtener tarjeta y parámetros de la BD
+            var tarjeta = await _service.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
+            if (tarjeta == null)
+                return Ok(await _service.ObtenerRespuestaAsync(5));
+
+            // Consumir AS400
+            var consumoAS400 = await _service.ConsumirAs400Async(tarjeta, request);
+
+            return Ok(consumoAS400);
+        }
+    }
+}   
+
+
+
+
+
+
+
+Este es el service ahora:
+
 using reposicion_pin.DTOs;
 using reposicion_pin.Models;
 using reposicion_pin.Repository.Interface;
@@ -58,14 +110,14 @@ namespace reposicion_pin.Service
                     return await _respuestaService.MapearErrorAs400Async(as400Response);
                 }
 
-                // 4️⃣ Notificar (SMS o Email)
+                //  Notificar (SMS o Email)
                 await _notificacionService.EnviarAsync(
                     tarjeta,
                     request,
                     as400Response.Pin
                 );
 
-                // 5️⃣ Respuesta exitosa
+                //  Respuesta exitosa
                 return await _respuestaService.ObtenerRespuestaAsync(0, as400Response.Pin);
             }
             catch (Exception ex)
@@ -80,241 +132,4 @@ namespace reposicion_pin.Service
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-using reposicion_pin.DTOs;
-using reposicion_pin.Repository.Interface;
-
-namespace reposicion_pin.Service
-{
-    public interface IReposicionPinValidator
-    {
-        Task<ReposicionPinResponseDto?> ValidarAsync(ReposicionPinRequestDto request);
-    }
-
-    public class ReposicionPinValidator : IReposicionPinValidator
-    {
-        private readonly ITarjetaRepository _tarjetaRepository;
-        private readonly IOperadorRepository _operadorRepository;
-        private readonly IReposicionPinRespuestaService _respuestaService;
-
-        public ReposicionPinValidator(
-            ITarjetaRepository tarjetaRepository,
-            IOperadorRepository operadorRepository,
-            IReposicionPinRespuestaService respuestaService)
-        {
-            _tarjetaRepository = tarjetaRepository;
-            _operadorRepository = operadorRepository;
-            _respuestaService = respuestaService;
-        }
-
-        public async Task<ReposicionPinResponseDto?> ValidarAsync(ReposicionPinRequestDto request)
-        {
-            if (string.IsNullOrWhiteSpace(request.CIF))
-                return await _respuestaService.ObtenerRespuestaDinamicaAsync(10, "CIF", "Se encuentra vacío o inválido");
-
-            if (string.IsNullOrWhiteSpace(request.UltimosDigitosTC))
-                return await _respuestaService.ObtenerRespuestaDinamicaAsync(10, "UltimosDigitosTC", "Se encuentra vacío o inválido");
-
-            if (request.MetodoEnvio != 1 && request.MetodoEnvio != 2)
-                return await _respuestaService.ObtenerRespuestaDinamicaAsync(10, "MetodoEnvio", "Debe ser 1 (SMS) o 2 (Correo)");
-
-            if (request.MetodoEnvio == 1)
-            {
-                if (string.IsNullOrWhiteSpace(request.Telefono))
-                    return await _respuestaService.ObtenerRespuestaDinamicaAsync(10, "Telefono", "Es obligatorio");
-
-                if (string.IsNullOrWhiteSpace(request.ContenidoSMS))
-                    return await _respuestaService.ObtenerRespuestaDinamicaAsync(10, "ContenidoSMS", "Es obligatorio");
-
-                var operadorValido = await _operadorRepository.ExisteOperadorAsync(request.OperadorTelefono);
-                if (!operadorValido)
-                    return await _respuestaService.ObtenerRespuestaDinamicaAsync(10, "OperadorTelefono", "No es válido");
-            }
-
-            if (request.MetodoEnvio == 2)
-            {
-                if (string.IsNullOrWhiteSpace(request.Correo) || !request.Correo.Contains("@"))
-                    return await _respuestaService.ObtenerRespuestaDinamicaAsync(10, "Correo", "Es inválido");
-
-                if (string.IsNullOrWhiteSpace(request.ContenidoCorreo))
-                    return await _respuestaService.ObtenerRespuestaDinamicaAsync(10, "ContenidoCorreo", "Es obligatorio");
-            }
-
-            var tarjeta = await _tarjetaRepository.ObtenerTarjetaAsync(request.CIF, request.UltimosDigitosTC);
-
-            if (tarjeta == null)
-                return await _respuestaService.ObtenerRespuestaAsync(5);
-
-            if (tarjeta.EstadoTarjeta != 20)
-                return await _respuestaService.ObtenerRespuestaAsync(1);
-
-            if (tarjeta.FechaFinVigencia < DateTime.Today)
-                return await _respuestaService.ObtenerRespuestaAsync(2);
-
-            if (!string.IsNullOrWhiteSpace(tarjeta.EstadoHabilitar))
-                return await _respuestaService.ObtenerRespuestaDinamicaAsync(10, "EstadoHabilitar", "Debe estar vacío");
-
-            return null; // Todo OK
-        }
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-using reposicion_pin.Models;
-using reposicion_pin.Repository.Interface;
-
-namespace reposicion_pin.Service
-{
-    public interface IReposicionPinNotificacionService
-    {
-        Task EnviarAsync(TarjetaModel tarjeta, ReposicionPinRequestDto request, string pin);
-    }
-
-    public class ReposicionPinNotificacionService : IReposicionPinNotificacionService
-    {
-        private readonly IEnvioSmsRepository _sms;
-        private readonly IEnvioEmailRepository _email;
-
-        public ReposicionPinNotificacionService(
-            IEnvioSmsRepository sms,
-            IEnvioEmailRepository email)
-        {
-            _sms = sms;
-            _email = email;
-        }
-
-        public async Task EnviarAsync(TarjetaModel tarjeta, ReposicionPinRequestDto request, string pin)
-        {
-            string referencia = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-
-            if (request.MetodoEnvio == 1)
-            {
-                await _sms.EnviarSmsDirectoAsync(
-                    request.Telefono,
-                    request.OperadorTelefono,
-                    request.ContenidoSMS,
-                    pin,
-                    referencia,
-                    CancellationToken.None
-                );
-            }
-            else
-            {
-                await _email.EnviarCorreoAsync(
-                    request.Correo,
-                    request.ContenidoCorreo,
-                    pin,
-                    referencia,
-                    CancellationToken.None
-                );
-            }
-        }
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-using reposicion_pin.DTOs;
-using reposicion_pin.Repository.Interface;
-
-namespace reposicion_pin.Service
-{
-    public interface IReposicionPinRespuestaService
-    {
-        Task<ReposicionPinResponseDto> ObtenerRespuestaAsync(int codigo, string? pin = null);
-        Task<ReposicionPinResponseDto> ObtenerRespuestaDinamicaAsync(int codigo, string campo, string detalle);
-        Task<ReposicionPinResponseDto> MapearErrorAs400Async(AS400ResponseDto as400);
-    }
-
-    public class ReposicionPinRespuestaService : IReposicionPinRespuestaService
-    {
-        private readonly ICatalogoRespuestaRepository _catalogo;
-
-        public ReposicionPinRespuestaService(ICatalogoRespuestaRepository catalogo)
-        {
-            _catalogo = catalogo;
-        }
-
-        public async Task<ReposicionPinResponseDto> ObtenerRespuestaAsync(int codigo, string? pin = null)
-        {
-            var descripcion = await _catalogo.ObtenerDescripcionAsync(codigo);
-
-            return new ReposicionPinResponseDto
-            {
-                CodigoInt = codigo,
-                Descripcion = descripcion,
-                Pin = pin
-            };
-        }
-
-        public async Task<ReposicionPinResponseDto> ObtenerRespuestaDinamicaAsync(int codigo, string campo, string detalle)
-        {
-            var descripcion = await _catalogo.ObtenerDescripcionAsync(codigo);
-
-            return new ReposicionPinResponseDto
-            {
-                CodigoInt = codigo,
-                Descripcion = $"{descripcion} {campo}: {detalle}"
-            };
-        }
-
-        public async Task<ReposicionPinResponseDto> MapearErrorAs400Async(AS400ResponseDto as400)
-        {
-            var descripcion = await _catalogo.ObtenerDescripcionAsync(9);
-
-            return new ReposicionPinResponseDto
-            {
-                CodigoInt = 9,
-                Descripcion = $"{descripcion} {as400.CodigoError} {as400.DescripcionError}".Trim()
-            };
-        }
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
