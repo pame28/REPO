@@ -1,8 +1,3 @@
-{
-  "codigo": "07",
-  "descripcion": "Codigo de Respuesta: 99 - Se produjo un error durante el intento de conexión ya que la parte conectada no respondió adecuadamente tras un periodo de tiempo, o bien se produjo un error en la conexión establecida ya que el host conectado no ha podido responder. (bimoviladmqa.bi.com.gt:443)"
-}
-
-
-
-Quedó bastante bien, solo que, mapea mal el error ya que, deberia ser 07 y sale 99 ... 07 es Error de envió por BIMOVIL, se debio usar el ObtenerRespuestaAsync(7) .. ya la excepcion me parece perfecta
+var respuesta = await ObtenerRespuestaAsync(7); // obtiene la descripción oficial del catálogo
+respuesta.Descripcion = $"{respuesta.Descripcion} {resultado.Codigo} - {resultado.Mensaje}";
+return respuesta;
