@@ -1,114 +1,45 @@
+using Microsoft.AspNetCore.Mvc;
 using reposicion_pin.DTOs;
-using reposicion_pin.Models;
-using reposicion_pin.Repository.Interface;
-using reposicion_pin.Service.Interface;
+using reposicion_pin.Service;
 
-namespace reposicion_pin.Service
+namespace reposicion_pin.Controllers
 {
-    public class ReposicionPinNotificacionService : IReposicionPinNotificacionService
+    [Route("api")]
+    [ApiController]
+    public class ReposicionPinController : ControllerBase
     {
-        private readonly IEnvioSmsRepository _sms;
-        private readonly IEnvioEmailRepository _email;
-        private readonly IBandejaEnvioSmsRepository _bandejaSms;
-        private readonly IBandejaEnvioEmailRepository _bandejaEmail;
-        private readonly IConfiguration _configuration;
-        private readonly ILogger<ReposicionPinNotificacionService> _logger;
+        private readonly ReposicionPinService _service;
+        private readonly ILogger<ReposicionPinController> _logger;
 
-        public ReposicionPinNotificacionService(
-            IEnvioSmsRepository sms,
-            IEnvioEmailRepository email,
-            IBandejaEnvioSmsRepository bandejaSms,
-            IBandejaEnvioEmailRepository bandejaEmail,
-            IConfiguration configuration,
-            ILogger<ReposicionPinNotificacionService> logger)
+        public ReposicionPinController(
+            ReposicionPinService service,
+            ILogger<ReposicionPinController> logger)
         {
-            _sms = sms;
-            _email = email;
-            _bandejaSms = bandejaSms;
-            _bandejaEmail = bandejaEmail;
-            _configuration = configuration;
+            _service = service;
             _logger = logger;
         }
 
-        public async Task<(int Codigo, string Mensaje)> EnviarAsync(
-            TarjetaModel tarjeta,
-            ReposicionPinRequestDto request,
-            string pin)
+        [HttpPost]
+        [Route("reposicion-pin")]
+        public async Task<ActionResult<ReposicionPinResponseDto>> GenerarPin([FromBody] ReposicionPinRequestDto request)
         {
-            string referencia = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-            string tipoTarjeta = _configuration["ParametrosSMS:TipoTarjeta"] ?? "TDC";
-
             try
             {
-                if (request.MetodoEnvio == 1)
-                {
-                    // Enviar SMS
-                    var resultadoSms = await _sms.EnviarSmsDirectoAsync(
-                        request.Telefono,
-                        request.OperadorTelefono,
-                        request.ContenidoSMS.Replace("@PIN", pin),
-                        pin,
-                        referencia,
-                        CancellationToken.None
-                    );
+                // Procesar todo en el service (validación, AS400, notificación)
+                var response = await _service.ProcesarAsync(request);
 
-                    // Guardar en bandeja
-                    var entidadSms = new BandejaEnvioSmsModel
-                    {
-                        NumeroTarjeta = tarjeta.NumeroTarjeta,
-                        Celular = request.Telefono,
-                        Telco = request.OperadorTelefono,
-                        Sms = request.ContenidoSMS,
-                        Referencia = referencia,
-                        FechaInicio = DateTime.Now,
-                        FechaFinal = DateTime.Now,
-                        TipoTarjeta = tipoTarjeta,
-                        Estado = resultadoSms.Codigo,
-                        DescripcionEstado = resultadoSms.Mensaje
-                    };
-
-                    await _bandejaSms.AddAsync(entidadSms);
-
-                    return (resultadoSms.Codigo, resultadoSms.Mensaje);
-                }
-                else if (request.MetodoEnvio == 2)
-                {
-                    // Enviar correo
-                    var resultadoEmail = await _email.EnviarCorreoAsync(
-                        request.Correo,
-                        request.ContenidoCorreo.Replace("@PIN", pin),
-                        pin,
-                        referencia,
-                        CancellationToken.None
-                    );
-
-                    // Guardar en bandeja
-                    var entidadEmail = new BandejaEnvioEmailModel
-                    {
-                        NumeroTarjeta = tarjeta.NumeroTarjeta,
-                        CuerpoCorreo = request.ContenidoCorreo,
-                        MailFrom = resultadoEmail.MailFrom,
-                        MailSubject = resultadoEmail.MailSubject,
-                        Correo = request.Correo,
-                        Referencia = referencia,
-                        FechaInicio = DateTime.Now,
-                        FechaFinal = DateTime.Now,
-                        TipoTarjeta = tipoTarjeta,
-                        Estado = resultadoEmail.Codigo,
-                        DescripcionEstado = resultadoEmail.Mensaje
-                    };
-
-                    await _bandejaEmail.AddAsync(entidadEmail);
-
-                    return (resultadoEmail.Codigo, resultadoEmail.Mensaje);
-                }
-
-                return (10, "Método de envío no soportado");
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error enviando notificación Ref:{Referencia}", referencia);
-                return (99, $"Error al enviar notificación: {ex.Message}");
+                _logger.LogError(ex, "Error inesperado en GenerarPin");
+
+                // Código 99 para errores no controlados
+                return Ok(new ReposicionPinResponseDto
+                {
+                    CodigoInt = 99,
+                    Descripcion = $"Error inesperado: {ex.Message}"
+                });
             }
         }
     }
