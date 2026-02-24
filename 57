@@ -1,3 +1,2 @@
-Toma este ejemplo y hazlo segun a Reposicion de PIn
-Este microservicio expone un endpoint HTTP de tipo POST que permite consultar las transacciones flotantes asociadas a una tarjeta específica.
-El endpoint recibe la información mínima necesaria para identificar la tarjeta y el canal de origen, y se encarga de completar internamente los datos requeridos para realizar la consulta al proveedor externo.
+Este microservicio expone un endpoint HTTP de tipo POST que permite procesar la reposicion de PIN asociada a una tarjeta de credito especifica.
+El endpoint recibe la informacion minima necesaria para identificar la tarjeta, el cliente y el canal de notificacion solicitado, y se encarga de validar y completar internamente los parametros requeridos para ejecutar el programa correspondiente en AS400. Una vez procesada la solicitud, el sistema gestiona la respuesta y realiza el envio del PIN a traves del canal indicado (SMS o correo electronico).
