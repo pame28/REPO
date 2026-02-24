@@ -1,17 +1,3 @@
-# Visual Studio
-.vs/
-*.user
-*.suo
+El microservicio Reposición de PIN de Tarjeta de Crédito es responsable de procesar solicitudes de reposición de PIN a ***. 
 
-# Build folders
-bin/
-obj/
-
-# Logs
-*.log
-
-# Rider/IDE
-.idea/
-
-# Otros temporales
-*.cache
+Ayudame a redactar y perfeccionar, alargar mejor este parrafo
