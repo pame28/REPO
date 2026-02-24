@@ -1,4 +1,7 @@
-Mira, tengo un problema para insertar en BandejaEnvioEmail, no se me está insertando, supongo que es porque no le he asigando valores a algunos de los campos: 
+SqlException: String or binary data would be truncated in table 'ReposicionPinTC.dbo.BandejaEnvioEmail', column 'Referencia'. Truncated value: '177194491197'.
+
+
+
 
 using Microsoft.EntityFrameworkCore;
 using reposicion_pin.DTOs;
@@ -194,7 +197,9 @@ namespace reposicion_pin.Service
                         request,
                         referencia,
                         resultado.Codigo,
-                        resultado.Mensaje
+                        resultado.Mensaje,
+                        resultado.MailFrom,
+                        resultado.MailSubject
                     );
 
                     if (resultado.Codigo != 0)
@@ -252,7 +257,7 @@ namespace reposicion_pin.Service
             ReposicionPinRequestDto request,
             string referencia,
             int codigo,
-            string mensaje)
+            string mensaje, string mailFrom, string mailSubject)
         {
             try
             {
@@ -262,8 +267,8 @@ namespace reposicion_pin.Service
                 {
                     NumeroTarjeta = tarjeta.NumeroTarjeta,
                     CuerpoCorreo = request.ContenidoCorreo,
-                    MailFrom = null, // puedes traerlo si deseas
-                    MailSubject = null,
+                    MailFrom = mailFrom,
+                    MailSubject = mailSubject,
                     Correo = request.Correo,
                     Referencia = referencia,
                     FechaInicio = DateTime.Now,
@@ -346,136 +351,59 @@ namespace reposicion_pin.Service
 }
 
 
+USE [ReposicionPinTC]
+GO
+
+/****** Object:  Table [dbo].[BandejaEnvioSMS]    Script Date: 24/2/2026 08:57:39 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[BandejaEnvioSMS](
+	[IdRow] [int] IDENTITY(1,1) NOT NULL,
+	[NumeroTarjeta] [varchar](16) NULL,
+	[SMS] [nvarchar](160) NULL,
+	[Celular] [varchar](8) NULL,
+	[Telco] [varchar](1) NULL,
+	[Referencia] [varchar](12) NULL,
+	[FechaInicio] [datetime2](7) NULL,
+	[FechaFinal] [datetime2](7) NULL,
+	[TipoTarjeta] [varchar](3) NULL,
+	[Estado] [int] NULL,
+	[DescripcionEstado] [varchar](max) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
 
 
 
-----------------------
 
 
-Lo que me hace falta es quien envia el correo y el asunto.... pero no se como tomarlo ...
-En este codigo lo tomo de la tabla de configuraciones ...
-using reposicion_pin.Infrastructure.Data;
-using reposicion_pin.Models;
-using reposicion_pin.Repository.Interface;
-using System.Net.Mail;
-using System.Net.Mime;
+USE [ReposicionPinTC]
+GO
 
-namespace reposicion_pin.Repository
-{
-    public class EnvioEmailRepository : IEnvioEmailRepository
-    {
-        private readonly AppDbContext _dbContext;
-        private readonly ILogger<EnvioEmailRepository> _logger;
-        private readonly ParamAmbienteModel _paramAmbiente;
+/****** Object:  Table [dbo].[BandejaEnvioEmail]    Script Date: 24/2/2026 08:57:23 ******/
+SET ANSI_NULLS ON
+GO
 
-        private readonly string _serverEmail;
-        private readonly string _mailFrom;
-        private readonly string _mailSubject;
+SET QUOTED_IDENTIFIER ON
+GO
 
-        public EnvioEmailRepository(
-            AppDbContext dbContext,
-            ILogger<EnvioEmailRepository> logger)
-        {
-            _dbContext = dbContext;
-            _logger = logger;
+CREATE TABLE [dbo].[BandejaEnvioEmail](
+	[IdRow] [int] IDENTITY(1,1) NOT NULL,
+	[NumeroTarjeta] [varchar](16) NULL,
+	[CuerpoCorreo] [nvarchar](max) NULL,
+	[MailFrom] [nvarchar](100) NULL,
+	[MailSubject] [nvarchar](100) NULL,
+	[Correo] [nvarchar](255) NULL,
+	[Referencia] [varchar](12) NULL,
+	[FechaInicio] [datetime2](7) NULL,
+	[FechaFinal] [datetime2](7) NULL,
+	[TipoTarjeta] [varchar](3) NULL,
+	[Estado] [int] NULL,
+	[DescripcionEstado] [varchar](max) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
 
-            var configEmail = _dbContext
-                .usp_ObtenerConfigEmail
-                .AsEnumerable()
-                .FirstOrDefault();
-
-            if (configEmail == null)
-                throw new Exception("No se encontró configuración de ConfigEmail.");
-
-            _serverEmail = configEmail.ServerEmail;
-            _mailFrom = configEmail.MailFrom;
-            _mailSubject = configEmail.MailSubject;
-
-            _paramAmbiente = _dbContext.ParamAmbiente
-                .Where(p => p.Estado == 1)
-                .OrderBy(p => p.IdRow)
-                .FirstOrDefault();
-        }
-
-        public async Task<(int Codigo, string Mensaje)> EnviarCorreoAsync(
-            string correoDestino,
-            string cuerpoBase,
-            string pin,
-            string referencia,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                string correoFinal = _paramAmbiente?.Correo ?? correoDestino;
-                //   string cuerpoFinal = cuerpoBase.Replace("{PIN}", pin);
-
-                // Ruta correcta a Templates/Correo.html
-                var ruta = Path.Combine(
-                    Directory.GetCurrentDirectory(),
-                    "Templates",
-                    "Correo.html");
-
-                if (!File.Exists(ruta))
-                    throw new Exception($"No se encontró la plantilla en: {ruta}");
-
-                //  Leer plantilla
-                var plantillaHtml = await File.ReadAllTextAsync(ruta, cancellationToken);
-
-
-
-                //  Reemplazar variables dinámicas
-                var cuerpoFinal = plantillaHtml
-                    .Replace("{PIN}", pin);
-                    
-
-                using var smtp = new SmtpClient(_serverEmail)
-                {
-                    DeliveryMethod = SmtpDeliveryMethod.Network,
-                    UseDefaultCredentials = true
-                };
-
-                using var mail = new MailMessage
-                {
-                    From = new MailAddress(_mailFrom),
-                    Subject = _mailSubject,
-                    Body = cuerpoFinal,
-                    IsBodyHtml = true
-                };
-
-                mail.To.Add(correoFinal);
-
-                // Crear vista HTML con logo inline
-                var htmlView = AlternateView.CreateAlternateViewFromString(cuerpoFinal, null, MediaTypeNames.Text.Html);
-                var logoInline = new LinkedResource(Path.Combine(Directory.GetCurrentDirectory(), "Templates", "logo.png"))
-                {
-                    ContentId = "logoBI",
-                    TransferEncoding = TransferEncoding.Base64
-                };
-                htmlView.LinkedResources.Add(logoInline);
-                mail.AlternateViews.Add(htmlView);
-
-
-                await smtp.SendMailAsync(mail, cancellationToken);
-
-                _logger.LogInformation(
-                    "Correo enviado Ref:{Referencia} Destino:{Destino}",
-                    referencia, correoFinal);
-
-                return (0, "Correo enviado correctamente.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Error enviando correo Ref:{Referencia} Destino:{Destino}",
-                    referencia, correoDestino);
-
-                return (8, ex.Message);
-            }
-        }
-    }
-}
-
-
-
-Pero no se como tomarlo en ReposicionPinService para que realmente tome el que envié.. no se si me explico ... porque facil puedo tomar el de la tabla.. pero no se qu etan correcto sea, que piensas?
 
