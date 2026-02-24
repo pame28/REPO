@@ -1,14 +1,3 @@
-Recepción de la solicitud
-El microservicio recibe la solicitud de reposición de PIN con los datos de la tarjeta y la información básica de la transacción.
-Validación de datos
-Se valida que la información esté completa, cumpla con el formato requerido y satisfaga las reglas de negocio definidas.
-Consulta de parámetros en base de datos
-Se consultan en la base de datos SQL los parámetros necesarios para la ejecución del proceso.
-Ejecución del programa en AS400
-Se invoca el programa correspondiente en AS400, enviando los parámetros requeridos para procesar la solicitud.
-Recepción y validación de la respuesta
-Se procesa la respuesta del AS400, verificando el resultado de la transacción y el PIN generado.
-Envío de notificación
-El PIN es enviado al cliente según el canal indicado en la solicitud:
-1: SMS
-2: Correo electrónico
+Toma este ejemplo y hazlo segun a Reposicion de PIn
+Este microservicio expone un endpoint HTTP de tipo POST que permite consultar las transacciones flotantes asociadas a una tarjeta específica.
+El endpoint recibe la información mínima necesaria para identificar la tarjeta y el canal de origen, y se encarga de completar internamente los datos requeridos para realizar la consulta al proveedor externo.
