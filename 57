@@ -1,1 +1,10 @@
-El microservicio Reposición de PIN de Tarjeta de Crédito es responsable de gestionar de manera integral las solicitudes de reposición de PIN asociadas a tarjetas de crédito emitidas por la institución. Su función principal es recibir, validar y procesar cada solicitud enviada desde los canales habilitados (como aplicaciones internas, plataformas digitales o sistemas externos), garantizando el cumplimiento de las políticas de seguridad y los controles establecidos.
+Flujo Funcional del Microservicio
+1.	El microservicio recibe una solicitud con la tarjeta y datos básicos de la transacción.
+2.	Se validan los datos recibidos
+3.	Se buscan los datos en la BD de sql para tomar los parámetros necesarios
+4.	Se hace la ejecución de un Programa de AS400 con los parámetros
+5.	El programa retorna el PIN el cual es enviado por correo o SMS según la solicitud recibida(Si es 1 por SMS, si es 2 por Correo)
+
+
+
+Ayudame a redactar bien profesional esto y que tenga mayor coherencia, por favor. Puedes tomarte la libertad de quitar o añadir mas pasos para el flujo, con tal no sea en exceso
