@@ -1,3 +1,5 @@
-var respuesta = await ObtenerRespuestaAsync(7); // obtiene la descripción oficial del catálogo
-respuesta.Descripcion = $"{respuesta.Descripcion} {resultado.Codigo} - {resultado.Mensaje}";
-return respuesta;
+Una instrucción incrustada no puede ser una declaración o una instrucción con etiqueta
+El nombre 'ObtenerRespuestaAsync' no existe en el contexto actual
+El nombre 'respuesta' no existe en el contexto actual
+El nombre 'respuesta' no existe en el contexto actual
+El nombre 'respuesta' no existe en el contexto actual
