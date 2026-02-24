@@ -1,22 +1,54 @@
-public async Task<(int Codigo, string Mensaje)> EnviarAsync(TarjetaModel tarjeta, ReposicionPinRequestDto request, string pin)
+using reposicion_pin.DTOs;
+using reposicion_pin.Models;
+using reposicion_pin.Repository.Interface;
+using reposicion_pin.Service.Interface;
+
+namespace reposicion_pin.Service
 {
-    try
+    public class ReposicionPinNotificacionService : IReposicionPinNotificacionService
     {
-        if (request.MetodoEnvio == 1)
+        private readonly IEnvioSmsRepository _sms;
+        private readonly IEnvioEmailRepository _email;
+
+        public ReposicionPinNotificacionService(
+            IEnvioSmsRepository sms,
+            IEnvioEmailRepository email)
         {
-            // Enviar SMS y guardar en BD
-            await _bandejaSmsRepository.AddAsync(...);
-        }
-        else
-        {
-            // Enviar correo y guardar en BD
-            await _bandejaEmailRepository.AddAsync(...);
+            _sms = sms;
+            _email = email;
         }
 
-        return (0, "Envío exitoso");
-    }
-    catch (Exception ex)
-    {
-        return (8, ex.Message);
+        public async Task<(int Codigo, string Mensaje)> EnviarAsync(TarjetaModel tarjeta, ReposicionPinRequestDto request, string pin)
+        {
+            string referencia = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+
+            if (request.MetodoEnvio == 1)
+            {
+                await _sms.EnviarSmsDirectoAsync(
+                    request.Telefono,
+                    request.OperadorTelefono,
+                    request.ContenidoSMS,
+                    pin,
+                    referencia,
+                    CancellationToken.None
+                );
+            }
+            else
+            {
+                await _email.EnviarCorreoAsync(
+                    request.Correo,
+                    request.ContenidoCorreo,
+                    pin,
+                    referencia,
+                    CancellationToken.None
+                );
+            }
+        }
     }
 }
+
+
+
+
+
+Hace la modificacion vos
