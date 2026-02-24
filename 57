@@ -1,8 +1,17 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
 
-80730@80730-BP1 MINGW64 ~/Desktop/Projects/BH-24138 Procesador Regional/Microservicios/Reposicion PIN/reposicion_pin (recuperar-branch)
-$ git push origin master
-git: 'credential-manager-core' is not a git command. See 'git --help'.
-Everything up-to-date
+# Build folders
+bin/
+obj/
 
-80730@80730-BP1 MINGW64 ~/Desktop/Projects/BH-24138 Procesador Regional/Microservicios/Reposicion PIN/reposicion_pin (recuperar-branch)
-$
+# Logs
+*.log
+
+# Rider/IDE
+.idea/
+
+# Otros temporales
+*.cache
