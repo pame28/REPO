@@ -1,21 +1,22 @@
-// Interfaz
-public interface IReposicionPinNotificacionService
+public async Task<(int Codigo, string Mensaje)> EnviarAsync(TarjetaModel tarjeta, ReposicionPinRequestDto request, string pin)
 {
-    Task<(int Codigo, string Mensaje)> EnviarAsync(TarjetaModel tarjeta, ReposicionPinRequestDto request, string pin);
-}
+    try
+    {
+        if (request.MetodoEnvio == 1)
+        {
+            // Enviar SMS y guardar en BD
+            await _bandejaSmsRepository.AddAsync(...);
+        }
+        else
+        {
+            // Enviar correo y guardar en BD
+            await _bandejaEmailRepository.AddAsync(...);
+        }
 
-
-
-
-
-// Notificar
-var resultadoNotificacion = await _notificacionService.EnviarAsync(tarjeta, request, as400Response.Pin);
-
-if (resultadoNotificacion.Codigo != 0)
-{
-    return await _respuestaService.ObtenerRespuestaDinamicaAsync(
-        resultadoNotificacion.Codigo,
-        "Notificación",
-        resultadoNotificacion.Mensaje
-    );
+        return (0, "Envío exitoso");
+    }
+    catch (Exception ex)
+    {
+        return (8, ex.Message);
+    }
 }
