@@ -1,8 +1,8 @@
 Por medio del presente se realiza la entrega del microservicio de Reposición de PIN. Este servicio expone un endpoint HTTP tipo POST que permite la generación y reposición de PIN asociado a una tarjeta.
-Para consumir el endpoint es necesario autenticarse; las credenciales de acceso serán enviadas por correo al desarrollador correspondiente.
+Para consumir el endpoint es necesario autenticarse, ya que el sistema genera un token de acceso que debe incluirse en cada petición para validar la autorización y garantizar la seguridad del servicio. Las credenciales de acceso serán enviadas por correo al desarrollador correspondiente.
 Se adjunta la documentación técnica que incluye:
 Estructura de request y response.
 Flujo funcional del proceso de reposición.
 Códigos de respuesta y consideraciones para la integración.
-URL del servicio donde pueden realizar las pruebas y consumo del endpoint.
+URL del servicio donde se puede realizar el consumo del endpoint.
 El servicio queda disponible para pruebas e integración en el ambiente correspondiente. Estoy a disposición para resolver cualquier duda o consulta que pueda surgir durante el proceso de integración.
