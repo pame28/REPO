@@ -1,8 +1,17 @@
-Por medio del presente se realiza la entrega del microservicio de Reposición de PIN. Este servicio expone un endpoint HTTP tipo POST que permite la generación y reposición de PIN asociado a una tarjeta.
+Buena Tarde, 
+
+Por medio del presente se realiza la entrega de la API de Reposición de PIN de Tarjeta de Crédito. Este servicio expone un endpoint de tipo POST que permite la generación de PIN asociado a una tarjeta de crédito. 
 Para consumir el endpoint es necesario autenticarse, ya que el sistema genera un token de acceso que debe incluirse en cada petición para validar la autorización y garantizar la seguridad del servicio. Las credenciales de acceso serán enviadas por correo al desarrollador correspondiente.
+
+Es importante mencionar que, actualmente, se está utilizando una simulación de un programa del core financiero, ya que está pendiente la asignación del ambiente AZ7. Por este motivo, durante esta fase el servicio responderá con el mismo PIN en cada petición.
+
 Se adjunta la documentación técnica que incluye:
 Estructura de request y response.
 Flujo funcional del proceso de reposición.
 Códigos de respuesta y consideraciones para la integración.
 URL del servicio donde se puede realizar el consumo del endpoint.
-El servicio queda disponible para pruebas e integración en el ambiente correspondiente. Estoy a disposición para resolver cualquier duda o consulta que pueda surgir durante el proceso de integración.
+
+El servicio queda disponible para pruebas e integración. 
+Estoy a disposición para resolver cualquier duda o consulta que pueda surgir durante el proceso de integración.
+
+Bendiciones, saludos.
