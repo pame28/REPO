@@ -1,12 +1,5 @@
-    dnsPolicy: ClusterFirst
-      securityContext: {}
-      schedulerName: default-scheduler
-      hostAliases:
-        - ip: 10.100.**.**
-          hostnames:
-            - pci-*****
-      dnsConfig: {}
-
-
-
-Como agrego otra ip con el dns del servidro del correo
+public static DateTime ObtenerHoraHonduras()
+{
+    var tz = TimeZoneInfo.FindSystemTimeZoneById("America/Tegucigalpa");
+    return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+}
