@@ -2,9 +2,9 @@
       securityContext: {}
       schedulerName: default-scheduler
       hostAliases:
-        - ip: 10.100.88.17
+        - ip: 10.100.**.**
           hostnames:
-            - pci-thbe01de
+            - pci-*****
       dnsConfig: {}
 
 
