@@ -1,28 +1,9 @@
-// Validaciones básicas
-if (string.IsNullOrWhiteSpace(mensajeBase))
-{
-    _logger.LogError("Mensaje base vacío. Ref:{Referencia}", referencia);
-    return (99, "Mensaje base inválido");
-}
+string mensajeLog = mensajeFinal.Replace(pin, "****");
 
-if (string.IsNullOrWhiteSpace(pin))
-{
-    _logger.LogError("PIN vacío. Ref:{Referencia}", referencia);
-    return (99, "PIN inválido");
-}
-
-// Construcción del mensaje
-string mensajeFinal = mensajeBase + pin;
-
-// Buscar PIN dentro del mensaje
-int posicionPin = mensajeFinal.IndexOf(pin, StringComparison.Ordinal);
-
-if (posicionPin < 0)
-{
-    _logger.LogError("PIN no encontrado dentro del mensaje. Ref:{Referencia}", referencia);
-    return (99, "Error interno al procesar PIN");
-}
-
-// SOAP trabaja con posiciones 1-based
-int enmascararDesde = posicionPin + 1;
-int enmascararHasta = posicionPin + pin.Length;
+_logger.LogDebug(
+    "BiMovil Request -> Telefono:{Telefono} Operador:{Operador} Mensaje:{Mensaje} Referencia:{Referencia}",
+    telefonoFinal,
+    operadorFinal,
+    mensajeLog,
+    referencia
+);
