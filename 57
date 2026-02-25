@@ -1,116 +1,28 @@
-Tengo un problema con mi código y que.. asume que el @PIN viene en el final, pero puede que no sea asi 
-
-Dime puntualmente donde debo modificar
-
-
-
-Linea :      int enmascararDesde = mensajeBase.Length + 1;
-
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using reposicion_pin.Infrastructure.Data;
-using reposicion_pin.Models;
-using reposicion_pin.Repository.Interface;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Xml;
-using wsBIMovil;
-
-namespace reposicion_pin.Repository
+// Validaciones básicas
+if (string.IsNullOrWhiteSpace(mensajeBase))
 {
-    public class EnvioSmsRepository : IEnvioSmsRepository
-    {
-        private readonly AppDbContext _dbContext;
-        private readonly ILogger<EnvioSmsRepository> _logger;
-        private readonly MensajesSoapClient _mensajesSoapClient;
-        private readonly string _UsrBiMovil;
-        private readonly string _PassBiMovil;
-        private readonly ParamAmbienteModel _paramAmbiente;
-
-        public EnvioSmsRepository(AppDbContext dbContext, IConfiguration configuration, ILogger<EnvioSmsRepository> logger)
-        {
-            _dbContext = dbContext;
-            _logger = logger;
-
-            // Obtener configuración de BiMovil desde SP
-            var configBiMovil = _dbContext
-                .usp_ObtenerConfigBiMovil
-                .AsEnumerable()
-                .FirstOrDefault();
-            if (configBiMovil == null)
-                throw new Exception("No se encontró configuración de BiMovil.");
-
-            _UsrBiMovil = configBiMovil.UserBiMovil;
-            _PassBiMovil = configBiMovil.PassBiMovil;
-
-            _paramAmbiente = _dbContext.ParamAmbiente
-                .Where(p => p.Estado ==1)
-                .OrderBy(p => p.IdRow)
-                .FirstOrDefault();
-
-            _mensajesSoapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
-        }
-
-        public async Task<(int Codigo, string Mensaje)>
-       EnviarSmsDirectoAsync(
-           string telefono,
-           string operador,
-           string mensajeBase,
-           string pin,
-           string referencia,
-           CancellationToken cancellationToken)
-        {
-            try
-            {
-                string telefonoFinal = _paramAmbiente?.Telefono ?? telefono;
-                string operadorFinal = _paramAmbiente?.IdOperador ?? operador;
-
-                string mensajeFinal = mensajeBase + pin;
-
-                int enmascararDesde = mensajeBase.Length + 1;
-                int enmascararHasta = mensajeFinal.Length;
-
-
-                var response = await _mensajesSoapClient.Envia_MensajeAsync(
-                    _UsrBiMovil,
-                    _PassBiMovil,
-                    telefonoFinal,
-                    operadorFinal,
-                    mensajeFinal,
-                    referencia,
-                    enmascararDesde.ToString(),
-                    enmascararHasta.ToString()
-                  
-                );
-
-                XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
-
-                XmlNode nodoCod = xmlDoc.GetElementsByTagName("cod_ret")[0];
-                XmlNode nodoMensaje = xmlDoc.GetElementsByTagName("mensaje")[0];
-
-               
-                int codigo = nodoCod != null ? int.Parse(nodoCod.InnerText) : 99;
-                string mensajeRespuesta = nodoMensaje?.InnerText ?? "Respuesta inválida";
-
-                _logger.LogInformation(
-                    "BiMovil Ref:{Referencia} Codigo:{Codigo} Mensaje:{Mensaje}",
-                    referencia, codigo, mensajeRespuesta);
-
-                return (codigo, mensajeRespuesta);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error enviando SMS Ref:{Referencia}", referencia);
-                return (99, ex.Message);
-            }
-        }
-      
-
-        
-    }
+    _logger.LogError("Mensaje base vacío. Ref:{Referencia}", referencia);
+    return (99, "Mensaje base inválido");
 }
+
+if (string.IsNullOrWhiteSpace(pin))
+{
+    _logger.LogError("PIN vacío. Ref:{Referencia}", referencia);
+    return (99, "PIN inválido");
+}
+
+// Construcción del mensaje
+string mensajeFinal = mensajeBase + pin;
+
+// Buscar PIN dentro del mensaje
+int posicionPin = mensajeFinal.IndexOf(pin, StringComparison.Ordinal);
+
+if (posicionPin < 0)
+{
+    _logger.LogError("PIN no encontrado dentro del mensaje. Ref:{Referencia}", referencia);
+    return (99, "Error interno al procesar PIN");
+}
+
+// SOAP trabaja con posiciones 1-based
+int enmascararDesde = posicionPin + 1;
+int enmascararHasta = posicionPin + pin.Length;
