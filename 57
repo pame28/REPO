@@ -1,29 +1,88 @@
--- Para SMS
-ALTER TABLE BANDEJA_ENVIO_SMS
-ALTER COLUMN FechaInicio DATETIME NOT NULL;
-ALTER TABLE BANDEJA_ENVIO_SMS
-ALTER COLUMN FechaFinal DATETIME NOT NULL;
-
-ALTER TABLE BANDEJA_ENVIO_SMS
-ADD CONSTRAINT DF_BANDEJA_SMS_FechaInicio DEFAULT SYSDATETIME() FOR FechaInicio;
-ALTER TABLE BANDEJA_ENVIO_SMS
-ADD CONSTRAINT DF_BANDEJA_SMS_FechaFinal DEFAULT SYSDATETIME() FOR FechaFinal;
-
--- Para Email
-ALTER TABLE BANDEJA_ENVIO_EMAIL
-ALTER COLUMN FechaInicio DATETIME NOT NULL;
-ALTER TABLE BANDEJA_ENVIO_EMAIL
-ALTER COLUMN FechaFinal DATETIME NOT NULL;
-
-ALTER TABLE BANDEJA_ENVIO_EMAIL
-ADD CONSTRAINT DF_BANDEJA_EMAIL_FechaInicio DEFAULT SYSDATETIME() FOR FechaInicio;
-ALTER TABLE BANDEJA_ENVIO_EMAIL
-ADD CONSTRAINT DF_BANDEJA_EMAIL_FechaFinal DEFAULT SYSDATETIME() FOR FechaFinal;
-
-
-
-
-
-
-ALTER TABLE BANDEJA_ENVIO_SMS DROP CONSTRAINT DF_BANDEJA_SMS_FechaInicio;
-ALTER TABLE BANDEJA_ENVIO_SMS DROP CONSTRAINT DF_BANDEJA_SMS_FechaFinal;
+25-02-2026 19:49:28.082 [1] [Information] Microsoft.Hosting.Lifetime - Now listening on: http://[::]:8080
+25-02-2026 19:49:28.113 [1] [Information] Microsoft.Hosting.Lifetime - Application started. Press Ctrl+C to shut down.
+25-02-2026 19:49:28.114 [1] [Information] Microsoft.Hosting.Lifetime - Hosting environment: Production
+25-02-2026 19:49:28.114 [1] [Information] Microsoft.Hosting.Lifetime - Content root path: /app
+25-02-2026 19:50:29.439 [10] [Information] Microsoft.AspNetCore.Hosting.Diagnostics - Request starting HTTP/1.1 POST http://api-reposicion-pin-tc:8080/api/reposicion-pin - application/json 1139
+25-02-2026 19:50:29.467 [10] [Warning] Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware - Failed to determine the https port for redirect.
+25-02-2026 19:50:29.473 [10] [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware - Executing endpoint 'reposicion_pin.Controllers.ReposicionPinController.GenerarPin (reposicion_pin)'
+25-02-2026 19:50:29.528 [10] [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker - Route matched with {action = "GenerarPin", controller = "ReposicionPin"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[reposicion_pin.DTOs.ReposicionPinResponseDto]] GenerarPin(reposicion_pin.DTOs.ReposicionPinRequestDto) on controller reposicion_pin.Controllers.ReposicionPinController (reposicion_pin).
+25-02-2026 19:50:29.700 [10] [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker - Executed action reposicion_pin.Controllers.ReposicionPinController.GenerarPin (reposicion_pin) in 167.3881ms
+25-02-2026 19:50:29.702 [10] [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware - Executed endpoint 'reposicion_pin.Controllers.ReposicionPinController.GenerarPin (reposicion_pin)'
+25-02-2026 19:50:29.706 [10] [Error] Microsoft.AspNetCore.Server.Kestrel - Connection id "0HNJKKSGER9QT", Request id "0HNJKKSGER9QT:00000001": An unhandled exception was thrown by the application.
+System.InvalidOperationException: Failed to convert configuration value '' at 'ApiSettings:EnmascararPinEnLogs' to type 'System.Boolean'.
+ ---> System.FormatException:  is not a valid value for Boolean.
+ ---> System.FormatException: String '' was not recognized as a valid Boolean.
+   at System.Boolean.Parse(String value)
+   at System.ComponentModel.BooleanConverter.ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
+   --- End of inner exception stack trace ---
+   at System.ComponentModel.BooleanConverter.ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
+   at Microsoft.Extensions.Configuration.ConfigurationBinder.TryConvertValue(Type type, String value, String path, Object& result, Exception& error)
+   --- End of inner exception stack trace ---
+   at Microsoft.Extensions.Configuration.ConfigurationBinder.ConvertValue(Type type, String value, String path)
+   at Microsoft.Extensions.Configuration.ConfigurationBinder.GetValue[T](IConfiguration configuration, String key, T defaultValue)
+   at Microsoft.Extensions.Configuration.ConfigurationBinder.GetValue[T](IConfiguration configuration, String key)
+   at reposicion_pin.Repository.AS400Repository..ctor(IConfiguration configuration, ILogger`1 logger, IConfiguracionAs400Repository configAs400Repository) in /src/Repository/AS400Repository.cs:line 26
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Constructor(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+   at System.Reflection.RuntimeConstructorInfo.Invoke(BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitConstructor(ConstructorCallSite constructorCallSite, RuntimeResolverContext context)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitConstructor(ConstructorCallSite constructorCallSite, RuntimeResolverContext context)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.DynamicServiceProviderEngine.<>c__DisplayClass2_0.<RealizeService>b__0(ServiceProviderEngineScope scope)
+   at lambda_method8(Closure, IServiceProvider, Object[])
+   at Microsoft.AspNetCore.Mvc.Controllers.ControllerFactoryProvider.<>c__DisplayClass6_0.<CreateControllerFactory>g__CreateController|0(ControllerContext controllerContext)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Logged|17_1(ResourceInvoker invoker)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Logged|17_1(ResourceInvoker invoker)
+   at Microsoft.AspNetCore.Routing.EndpointMiddleware.<Invoke>g__AwaitRequestTask|7_0(Endpoint endpoint, Task requestTask, ILogger logger)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http.HttpProtocol.ProcessRequests[TContext](IHttpApplication`1 application)
+25-02-2026 19:50:29.765 [10] [Information] Microsoft.AspNetCore.Hosting.Diagnostics - Request finished HTTP/1.1 POST http://api-reposicion-pin-tc:8080/api/reposicion-pin - 500 0 null 327.548ms
+25-02-2026 19:53:26.651 [10] [Information] Microsoft.AspNetCore.Hosting.Diagnostics - Request starting HTTP/1.1 POST http://api-reposicion-pin-tc:8080/api/reposicion-pin - application/json 1139
+25-02-2026 19:53:26.690 [10] [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware - Executing endpoint 'reposicion_pin.Controllers.ReposicionPinController.GenerarPin (reposicion_pin)'
+25-02-2026 19:53:26.690 [10] [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker - Route matched with {action = "GenerarPin", controller = "ReposicionPin"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[reposicion_pin.DTOs.ReposicionPinResponseDto]] GenerarPin(reposicion_pin.DTOs.ReposicionPinRequestDto) on controller reposicion_pin.Controllers.ReposicionPinController (reposicion_pin).
+25-02-2026 19:53:26.713 [10] [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker - Executed action reposicion_pin.Controllers.ReposicionPinController.GenerarPin (reposicion_pin) in 22.0689ms
+25-02-2026 19:53:26.713 [10] [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware - Executed endpoint 'reposicion_pin.Controllers.ReposicionPinController.GenerarPin (reposicion_pin)'
+25-02-2026 19:53:26.713 [10] [Error] Microsoft.AspNetCore.Server.Kestrel - Connection id "0HNJKKSGER9QU", Request id "0HNJKKSGER9QU:00000001": An unhandled exception was thrown by the application.
+System.InvalidOperationException: Failed to convert configuration value '' at 'ApiSettings:EnmascararPinEnLogs' to type 'System.Boolean'.
+ ---> System.FormatException:  is not a valid value for Boolean.
+ ---> System.FormatException: String '' was not recognized as a valid Boolean.
+   at System.Boolean.Parse(String value)
+   at System.ComponentModel.BooleanConverter.ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
+   --- End of inner exception stack trace ---
+   at System.ComponentModel.BooleanConverter.ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
+   at Microsoft.Extensions.Configuration.ConfigurationBinder.TryConvertValue(Type type, String value, String path, Object& result, Exception& error)
+   --- End of inner exception stack trace ---
+   at Microsoft.Extensions.Configuration.ConfigurationBinder.ConvertValue(Type type, String value, String path)
+   at Microsoft.Extensions.Configuration.ConfigurationBinder.GetValue[T](IConfiguration configuration, String key, T defaultValue)
+   at Microsoft.Extensions.Configuration.ConfigurationBinder.GetValue[T](IConfiguration configuration, String key)
+   at reposicion_pin.Repository.AS400Repository..ctor(IConfiguration configuration, ILogger`1 logger, IConfiguracionAs400Repository configAs400Repository) in /src/Repository/AS400Repository.cs:line 26
+   at InvokeStub_AS400Repository..ctor(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+   at System.Reflection.RuntimeConstructorInfo.Invoke(BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitConstructor(ConstructorCallSite constructorCallSite, RuntimeResolverContext context)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitConstructor(ConstructorCallSite constructorCallSite, RuntimeResolverContext context)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.DynamicServiceProviderEngine.<>c__DisplayClass2_0.<RealizeService>b__0(ServiceProviderEngineScope scope)
+   at lambda_method8(Closure, IServiceProvider, Object[])
+   at Microsoft.AspNetCore.Mvc.Controllers.ControllerFactoryProvider.<>c__DisplayClass6_0.<CreateControllerFactory>g__CreateController|0(ControllerContext controllerContext)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Logged|17_1(ResourceInvoker invoker)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Logged|17_1(ResourceInvoker invoker)
+   at Microsoft.AspNetCore.Routing.EndpointMiddleware.<Invoke>g__AwaitRequestTask|7_0(Endpoint endpoint, Task requestTask, ILogger logger)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http.HttpProtocol.ProcessRequests[TContext](IHttpApplication`1 application)
+25-02-2026 19:53:26.716 [10] [Information] Microsoft.AspNetCore.Hosting.Diagnostics - Request finished HTTP/1.1 POST http://api-reposicion-pin-tc:8080/api/reposicion-pin - 500 0 null 69.4045ms
