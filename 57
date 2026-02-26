@@ -1,17 +1,111 @@
-Buena Tarde, 
+Mira, necesito agregar una plantilla de HTML, ya está "cargada" esta la guardo en una tabla de SQLSERVER si te fijas en el codigo ya está .. es esta:            _plantillaHTML = configEmail.PlantillaHTML;
 
-Por medio del presente se realiza la entrega de la API de Reposición de PIN de Tarjeta de Crédito. Este servicio expone un endpoint de tipo POST que permite la generación de PIN asociado a una tarjeta de crédito. 
-Para consumir el endpoint es necesario autenticarse, ya que el sistema genera un token de acceso que debe incluirse en cada petición para validar la autorización y garantizar la seguridad del servicio. Las credenciales de acceso serán enviadas por correo al desarrollador correspondiente.
 
-Es importante mencionar que, actualmente, se está utilizando una simulación de un programa del core financiero, ya que está pendiente la asignación del ambiente AZ7. Por este motivo, durante esta fase el servicio responderá con el mismo PIN en cada petición.
+Ahora... en esa plantilla dentro de un parrafo hay una etiqueta @ContenidoEmail de esta forma:
 
-Se adjunta la documentación técnica que incluye:
-Estructura de request y response.
-Flujo funcional del proceso de reposición.
-Códigos de respuesta y consideraciones para la integración.
-URL del servicio donde se puede realizar el consumo del endpoint.
+   <p>
+	@ContenidoEmail
+   </p>
 
-El servicio queda disponible para pruebas e integración. 
-Estoy a disposición para resolver cualquier duda o consulta que pueda surgir durante el proceso de integración.
 
-Bendiciones, saludos.
+Necesito que esa etiqueta sea reemplazada por cuerpo Final ...
+
+y que sea esta plantilla sea la que se envia el en body del correo
+
+Dime que modificaciones debo hacer en mi codigo
+
+
+using reposicion_pin.Infrastructure.Data;
+using reposicion_pin.Models;
+using reposicion_pin.Repository.Interface;
+using System.Net.Mail;
+using System.Net.Mime;
+
+namespace reposicion_pin.Repository
+{
+    public class EnvioEmailRepository : IEnvioEmailRepository
+    {
+        private readonly AppDbContext _dbContext;
+        private readonly ILogger<EnvioEmailRepository> _logger;
+        private readonly ParamAmbienteModel _paramAmbiente;
+
+        private readonly string _serverEmail;
+        private readonly string _mailFrom;
+        private readonly string _mailSubject;
+        private readonly string _plantillaHTML;
+
+        public EnvioEmailRepository(
+            AppDbContext dbContext,
+            ILogger<EnvioEmailRepository> logger)
+        {
+            _dbContext = dbContext;
+            _logger = logger;
+
+            var configEmail = _dbContext
+                .usp_ObtenerConfigEmail
+                .AsEnumerable()
+                .FirstOrDefault();
+
+            if (configEmail == null)
+                throw new Exception("No se encontró configuración de ConfigEmail.");
+
+            _serverEmail = configEmail.ServerEmail;
+            _mailFrom = configEmail.MailFrom;
+            _mailSubject = configEmail.MailSubject;
+            _plantillaHTML = configEmail.PlantillaHTML;
+
+            _paramAmbiente = _dbContext.ParamAmbiente
+                .Where(p => p.Estado == 1)
+                .OrderBy(p => p.IdRow)
+                .FirstOrDefault();
+        }
+
+        public async Task<(int Codigo, string Mensaje, string MailFrom, string MailSubject)> EnviarCorreoAsync(
+            string correoDestino,
+            string cuerpoBase,
+            string pin,
+            string referencia,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                string correoFinal = _paramAmbiente?.Correo ?? correoDestino;
+
+                string cuerpoFinal = cuerpoBase.Replace("@PIN", pin);
+
+                using var smtp = new SmtpClient(_serverEmail)
+                {
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = true
+                };
+
+                using var mail = new MailMessage
+                {
+                    From = new MailAddress(_mailFrom),
+                    Subject = _mailSubject,
+                    Body = cuerpoFinal,
+                    IsBodyHtml = true
+                };
+
+                mail.To.Add(correoFinal);
+
+
+                await smtp.SendMailAsync(mail, cancellationToken);
+
+                _logger.LogInformation(
+                    "Correo enviado Ref:{Referencia} Destino:{Destino}",
+                    referencia, correoFinal);
+
+                return (0, "Correo enviado correctamente.", _mailFrom, _mailSubject);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error enviando correo Ref:{Referencia} Destino:{Destino}",
+                    referencia, correoDestino);
+
+                return (8, ex.Message, _mailFrom, _mailSubject);
+            }
+        }
+    }
+}
