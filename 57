@@ -1,15 +1,3 @@
-Mira este codesmell:
-This method signature overlaps the one defined on line 33, the default parameter value can only be used with named arguments
-
-
-Esta es la linea de codigo:
-
-        public async Task<GeneralResponse> Response(int status, string code, object? data = null)
-
-
-
-Y este es el codigo completo:
-
 using transacciones_flotantes.DTOs.Response;
 using transacciones_flotantes.Service.Interface;
 
@@ -24,7 +12,8 @@ namespace transacciones_flotantes.Utils
             _validationService = validationService;
         }
 
-        public async Task<GeneralResponse> Response(int status, string code, object? data = null)
+        // Para respuestas exitosas
+        public async Task<GeneralResponse> ResponseSuccess(int status, string code, object? data)
         {
             return new GeneralResponse
             {
@@ -42,7 +31,8 @@ namespace transacciones_flotantes.Utils
             };
         }
 
-        public static GeneralResponse Response(int status, string description)
+        // Para respuestas de error
+        public static GeneralResponse ResponseError(int status, string description)
         {
             return new GeneralResponse
             {
@@ -58,9 +48,6 @@ namespace transacciones_flotantes.Utils
                     }
                 }
             };
-
-
-Ayudame a corregirlo
         }
     }
 }
