@@ -1,67 +1,31 @@
-Mira este msj de bug:
-
-Refactor the containing loop to do more than one iteration.
-
-Esta es la linea de codigo:
-      while (await reader.ReadAsync())
-                {
-                    return new Parametros
-                    {
-                        clave = reader.GetString(0),
-                        valor = reader.GetString(1)
-                    }; 
-
-
-Mira este codesmell:
-'System.Exception' should not be thrown by user code.
-
-
-    throw new Exception($"{ex.Message}");
-
-
-
-Y este es el codigo completo:
-
-using transacciones_flotantes.Infrastructure.Data;
-using transacciones_flotantes.Models.Validations;
-using transacciones_flotantes.Repository.Interface;
-
-namespace transacciones_flotantes.Repository
+public async Task<Parametros> GetByCode(string clave)
 {
-    public class ParametrosRepositoryImp : IParametrosRepository
+    try
     {
-        private readonly DBHelper _dbHelper;
-        public ParametrosRepositoryImp(DBHelper dbHelper)
+        using var reader = await _dbHelper.ExecuteReaderAsync(
+            "getParametroByClave",
+            new Dictionary<string, object>
+            {
+                { "@Clave", clave }
+            });
+
+        if (await reader.ReadAsync())
         {
-            _dbHelper = dbHelper;
+            return new Parametros
+            {
+                clave = reader.GetString(0),
+                valor = reader.GetString(1)
+            };
         }
 
-        public async Task<Parametros> GetByCode(string clave)
-        {
-            try
-            {
-                using var reader = await _dbHelper.ExecuteReaderAsync("getParametroByClave",
-                    new Dictionary<string, object> { { "@Clave", clave } });
+        return new Parametros();
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex,
+            "Error consultando parámetro con clave {Clave}",
+            clave);
 
-                while (await reader.ReadAsync())
-                {
-                    return new Parametros
-                    {
-                        clave = reader.GetString(0),
-                        valor = reader.GetString(1)
-                    };  
-                }
-                return new Parametros();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"{ex.Message}");
-            }
-        }
+        throw;
     }
 }
-
-
-
-
-Ayudame a corregirlo
