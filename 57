@@ -1,66 +1,22 @@
-Fijate que tengo un serio problema con el microservicio de reposicion de PIn de TC, ya que, al enviar el PIN por SMS .. recuerdas que este se enmascara,no? Lo cual está muy bien, y en efecto .. este toma el PIN y lo enmascara ... pero cuando yo voy 
-a revisar ... los *** me aparecen al final .. y no en la posicion donde realmente deberia, y si enmascara bien el PIN te mostraré un ejemplo consumiendo en SOAP y otro con mi microservicio.
+Está bien raro el error .. parece que omite el @PIN 
 
-SOAP
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:bim="http://10.2.0.189/bimovil_mensajesX">
-<soapenv:Header/>
-<soapenv:Body>
-<bim:Envia_Mensaje>
-<!--Optional:-->
-<bim:User>pruebas</bim:User>
-<!--Optional:-->
-<bim:Pass>exhaustivas</bim:Pass>
-<!--Optional:-->
-<bim:Telefono_SMS>96423295</bim:Telefono_SMS>
-<!--Optional:-->
-<bim:Operador>E</bim:Operador>
-<!--Optional:-->
-<bim:Mensaje_TXT>Este es el pin temporal: 1234 . Prueba</bim:Mensaje_TXT>
-<!--Optional:-->
-<bim:Numero_Transaccion>254</bim:Numero_Transaccion>
-<!--Optional:-->
-<bim:enmascarar_desde>25</bim:enmascarar_desde>
-<!--Optional:-->
-<bim:enmascarar_hasta>29</bim:enmascarar_hasta>
-</bim:Envia_Mensaje>
-</soapenv:Body>
-</soapenv:Envelope>
+02-03-2026 15:23:45.089 [23] [Information] Microsoft.EntityFrameworkCore.Database.Command - Executed DbCommand (13ms) [Parameters=[@cif='?' (Size = 4000), @ultimosDigitos_endswith='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+SELECT TOP(1) [t].[Id], [t].[CIF], [t].[EquivalenteTC], [t].[EstadoHabilitar], [t].[EstadoTarjeta], [t].[FechaFinVigencia], [t].[NumeroTarjeta]
+FROM [Tarjetas] AS [t]
+WHERE [t].[CIF] = @cif AND [t].[EquivalenteTC] LIKE @ultimosDigitos_endswith ESCAPE N'\'
+02-03-2026 15:23:45.429 [25] [Information] reposicion_pin.Repository.AS400Repository - Trama enviada AS400: 100000000170446820271130
+02-03-2026 15:23:45.484 [25] [Information] reposicion_pin.Repository.AS400Repository - Trama respuesta AS400: 1000000001704468202711301721
+02-03-2026 15:23:45.494 [23] [Information] Microsoft.EntityFrameworkCore.Database.Command - Executed DbCommand (3ms) [Parameters=[@codigo='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+SELECT TOP(1) [c].[Descripcion]
+FROM [CatalogoRespuestas] AS [c]
+WHERE [c].[Codigo] = @codigo
+02-03-2026 15:23:58.797 [23] [Information] reposicion_pin.Repository.EnvioSmsRepository - MensajeFinal: Este es el pin temporal:  . Prueba
+02-03-2026 15:24:01.943 [23] [Information] reposicion_pin.Repository.EnvioSmsRepository - MensajeBase: Este es el pin temporal:  . Prueba
+02-03-2026 15:24:08.099 [23] [Error] reposicion_pin.Repository.EnvioSmsRepository - PIN no encontrado dentro del mensaje. Ref:1772486625506
 
 
 
 
-Y enmascarado se ve asi: 	Este es el pin temporal:*** . Prueba
-Lo cual está correcto .
-
-
-
-AHORA USANDO MI MICROSERVICIO:
-
-
-{
-  "cif": "606549",
-  "dni": "1621196000122",
-  "cliente": "GUSTA GOMEZ MURILLO",
-  "metodoEnvio": 1,
-  "telefono": "96423295",
-  "operadorTelefono": "D",
-  "correo": "suazonicole28@gmail.com",
-  "ultimosDigitosTC": "2000",
-  "contenidoSMS": "Este es el pin temporal: @PIN . Prueba",
-  "contenidoCorreo": ""
-}
-
-
-
-Y enmascarado se ve asi: Este es el pin temporal: . Prueba***
-
-
-
-Si te fijas si lo enmascara bien, pero no se porque mi lo pasa para el final... en lugar de dejarlo en la posición que es ..
-
-
-
-Te comparto mi codigo completo:
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -142,12 +98,16 @@ namespace reposicion_pin.Repository
                     _logger.LogError("PIN vacío. Ref:{Referencia}", referencia);
                     return (99, "PIN inválido");
                 }
-
                 // Construcción del mensaje
-                string mensajeFinal = mensajeBase + pin;
+                string mensajeFinal = mensajeBase.Replace("@PIN", pin);
+
+                _logger.LogInformation("MensajeFinal: {MensajeFinal}", mensajeFinal);
+
+                _logger.LogInformation("MensajeBase: {MensajeBase}", mensajeBase);
+            //    _logger.LogInformation("PIN: [{pin}] Longitud: ");
 
                 // Buscar PIN dentro del mensaje
-                int posicionPin = mensajeFinal.IndexOf(pin, StringComparison.Ordinal);
+                int posicionPin = mensajeBase.IndexOf(pin, StringComparison.Ordinal);
 
                 if (posicionPin < 0)
                 {
@@ -159,6 +119,7 @@ namespace reposicion_pin.Repository
                 int enmascararDesde = posicionPin + 1;
                 int enmascararHasta = posicionPin + pin.Length;
 
+              
                 string mensajeLog = mensajeFinal.Replace(pin, "****");
 
                 _logger.LogDebug(
@@ -209,4 +170,31 @@ namespace reposicion_pin.Repository
 
         
     }
+}
+
+
+Este es el request que yo hago:
+
+
+{
+  "cif": "606549",
+  "dni": "1621196000122",
+  "cliente": "GUSTA GOMEZ MURILLO",
+  "metodoEnvio": 1,
+  "telefono": "96423295",
+  "operadorTelefono": "D",
+  "correo": "suazonicole28@gmail.com",
+  "ultimosDigitosTC": "2000",
+  "contenidoSMS": "Este es el pin temporal: @PIN . Prueba",
+  "contenidoCorreo": ""
+}
+
+
+
+	
+Response body
+Download
+{
+  "codigo": "07",
+  "descripcion": "Error de envió por BIMOVIL: Error interno al procesar PIN"
 }
