@@ -1,10 +1,26 @@
-if (_logger.IsEnabled(LogLevel.Information))
-{
-    var ultimos4 = request.CounterpartCard?.Length >= 4
-        ? request.CounterpartCard[^4..]
-        : request.CounterpartCard;
+Mira estos son los siguientes msj:
 
-    _logger.LogInformation(
-        "Request recibido. CounterpartCard: {Ultimos4}",
-        ultimos4);
+El elemento propiedad "NumeroDocumento" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+
+El elemento propiedad "TipoDocumento" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+
+El elemento propiedad "Sexo" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el propiedad como un valor que acepta valores NULL.
+
+
+este es el código: 
+
+
+
+namespace transacciones_flotantes.DTOs.TransaccionesFlotantes
+{
+    public class ProveedorClienteDto
+    {
+        public string NumeroDocumento { get; set; }
+        public string TipoDocumento { get; set; }
+        public string Sexo { get; set; }
+    }
 }
+
+
+
+Ayudame a resolver de manera que no afecte mi código
