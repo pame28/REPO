@@ -1,53 +1,22 @@
-using transacciones_flotantes.DTOs.Response;
-using transacciones_flotantes.Service.Interface;
+Mira este codesmell:
+#1
+Posible argumento de referencia nulo para el parámetro "uriString" en "Uri.Uri(string uriString)"
+Esta es la linea de código:  client.BaseAddress = new Uri(baseAddressToken);
 
-namespace transacciones_flotantes.Utils
-{
-    public class GeneralResponseFn
-    {
-        private readonly IValidationService _validationService;
 
-        public GeneralResponseFn(IValidationService validationService)
-        {
-            _validationService = validationService;
-        }
+#2
 
-        // Para respuestas exitosas
-        public async Task<GeneralResponse> ResponseSuccess(int status, string code, object? data)
-        {
-            return new GeneralResponse
-            {
-                Status = status,
-                HasError = false,
-                Data = data,
-                Messages = new List<Messages>
-                {
-                    new Messages
-                    {
-                        Code = code,
-                        Description = await _validationService.getMensajeValidacion(code)
-                    }
-                }
-            };
-        }
+Posible argumento de referencia nulo para el parámetro "value" en "bool bool.Parse(string value)"
+var allowInvalidCerts = bool.Parse(builder.Configuration["ApiSettings:AllowInvalidCerts"]);
 
-        // Para respuestas de error
-        public static GeneralResponse ResponseError(int status, string description)
-        {
-            return new GeneralResponse
-            {
-                Status = status,
-                HasError = true,
-                Data = null,
-                Messages = new List<Messages>
-                {
-                    new Messages
-                    {
-                        Code = Constantes.CODE_SYSTEM_ERROR,
-                        Description = description
-                    }
-                }
-            };
-        }
-    }
-}
+
+
+#3
+Posible argumento de referencia nulo para el parámetro "uriString" en "Uri.Uri(string uriString)"
+client.BaseAddress = new Uri(baseAddressTransacciones);
+
+
+#4
+
+Posible argumento de referencia nulo para el parámetro "value" en "bool bool.Parse(string value)".
+var allowInvalidCerts = bool.Parse(builder.Configuration["ApiSettings:AllowInvalidCerts"]);
