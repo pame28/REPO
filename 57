@@ -1,55 +1,6 @@
-Mira estos codesmells:
-
-#1
-
-El elemento campo "granType" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el campo como un valor que acepta valores NULL.
-
-Linea de codigo:
-
- public ProveedorTokenService(
-
-
-
-#2
-
-Posible asignación de referencia nula
-   granType = configuration["FormUrlEncodedContent:grant_type"];
-
-#3
-Posible asignación de referencia nula.
-
- clientId = configuration["FormUrlEncodedContent:client_id"];
-
-
-#4
-Posible asignación de referencia nula
-clientSecret = configuration["FormUrlEncodedContent:client_secret"];
-
-
-
-#5
-Posible asignación de referencia nula
-endpoint = configuration["ApiSettings:EndpointAccessToken"];
-
-
-#6
-La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
-_logger.LogError("Error en llamada a {Endpoint}. StatusCode: {StatusCode}, Body: {Body}", endpoint, response.StatusCode, errorContent);
-
-
-
-#7
-Posible tipo de valor devuelto de referencia nulo
- return default;
-
-
-Este es el codigo completo:
-
-
-
 using System.Text.Json;
-using transacciones_flotantes.Service.Interface;
 using System.Net.Http;
+using transacciones_flotantes.Service.Interface;
 using transacciones_flotantes.Models.AccessToken;
 
 namespace transacciones_flotantes.Service
@@ -57,17 +8,17 @@ namespace transacciones_flotantes.Service
     public class ProveedorTokenService : IProveedorTokenService
     {
         private readonly HttpClient _httpClient;
+        private readonly ILogger<ProveedorTokenService> _logger;
+
         private AccessTokenResponse? _cachedToken;
         private DateTime _expiresAt;
         private readonly SemaphoreSlim _lock = new(1, 1);
-        private readonly ILogger<ProveedorTokenService> _logger;
 
-        //Para auth
-        private readonly string granType;
-        private readonly string clientId;
-        private readonly string clientSecret;
-        private readonly string endpoint;
-
+        // Configuración obligatoria
+        private readonly string _grantType;
+        private readonly string _clientId;
+        private readonly string _clientSecret;
+        private readonly string _endpoint;
 
         public ProveedorTokenService(
             HttpClient httpClient,
@@ -75,12 +26,19 @@ namespace transacciones_flotantes.Service
             ILogger<ProveedorTokenService> logger)
         {
             _httpClient = httpClient;
-            granType = configuration["FormUrlEncodedContent:grant_type"];
-            clientId = configuration["FormUrlEncodedContent:client_id"];
-            clientSecret = configuration["FormUrlEncodedContent:client_secret"];
-            endpoint = configuration["ApiSettings:EndpointAccessToken"];
             _logger = logger;
 
+            _grantType = configuration["FormUrlEncodedContent:grant_type"]
+                ?? throw new InvalidOperationException("No configurado: FormUrlEncodedContent:grant_type");
+
+            _clientId = configuration["FormUrlEncodedContent:client_id"]
+                ?? throw new InvalidOperationException("No configurado: FormUrlEncodedContent:client_id");
+
+            _clientSecret = configuration["FormUrlEncodedContent:client_secret"]
+                ?? throw new InvalidOperationException("No configurado: FormUrlEncodedContent:client_secret");
+
+            _endpoint = configuration["ApiSettings:EndpointAccessToken"]
+                ?? throw new InvalidOperationException("No configurado: ApiSettings:EndpointAccessToken");
         }
 
         public async Task<string> ObtenerAccessTokenAsync()
@@ -89,32 +47,49 @@ namespace transacciones_flotantes.Service
                 return _cachedToken.access_token;
 
             await _lock.WaitAsync();
+
             try
             {
-                if (_cachedToken != null && DateTime.Now < _expiresAt)
+                if (_cachedToken != null && DateTime.UtcNow < _expiresAt)
                     return _cachedToken.access_token;
 
                 var form = new FormUrlEncodedContent(new[]
                 {
-                    new KeyValuePair<string, string>("grant_type", granType),
-                    new KeyValuePair<string, string>("client_id", clientId),
-                    new KeyValuePair<string, string>("client_secret", clientSecret)
+                    new KeyValuePair<string, string>("grant_type", _grantType),
+                    new KeyValuePair<string, string>("client_id", _clientId),
+                    new KeyValuePair<string, string>("client_secret", _clientSecret)
                 });
 
-                var response = await _httpClient.PostAsync(endpoint, form);
+                var response = await _httpClient.PostAsync(_endpoint, form);
 
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Error en llamada a {Endpoint}. StatusCode: {StatusCode}, Body: {Body}", endpoint, response.StatusCode, errorContent);
-                    return default;
+
+                    if (_logger.IsEnabled(LogLevel.Error))
+                    {
+                        _logger.LogError(
+                            "Error en llamada a {Endpoint}. StatusCode: {StatusCode}",
+                            _endpoint,
+                            response.StatusCode);
+                    }
+
+                    throw new HttpRequestException(
+                        $"Error obteniendo token. StatusCode: {response.StatusCode}");
                 }
 
-                _cachedToken = await response.Content.ReadFromJsonAsync<AccessTokenResponse>();
+                var tokenResponse =
+                    await response.Content.ReadFromJsonAsync<AccessTokenResponse>();
 
-                //Calcular expiración con margen de seguridad
-                var expiresInMs = Math.Max(_cachedToken!.expires_in - 60_000, 10_000);
-                _expiresAt = DateTime.UtcNow.AddMicroseconds(expiresInMs);
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.access_token))
+                    throw new InvalidOperationException("El proveedor devolvió un token inválido.");
+
+                _cachedToken = tokenResponse;
+
+                // margen de seguridad de 60 segundos
+                var expiresInMs = Math.Max(tokenResponse.expires_in - 60_000, 10_000);
+                _expiresAt = DateTime.UtcNow.AddMilliseconds(expiresInMs);
+
                 return _cachedToken.access_token;
             }
             finally
@@ -123,9 +98,4 @@ namespace transacciones_flotantes.Service
             }
         }
     }
-
 }
-
-
-Ayudame a corregirlo
-
