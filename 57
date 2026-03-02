@@ -1,86 +1,131 @@
-using System.Net.Http.Headers;
-using System.Text;
+Mira estos codesmells:
+
+#1
+
+El elemento campo "granType" que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de agregar el modificador "required'"o declarar el campo como un valor que acepta valores NULL.
+
+Linea de codigo:
+
+ public ProveedorTokenService(
+
+
+
+#2
+
+Posible asignación de referencia nula
+   granType = configuration["FormUrlEncodedContent:grant_type"];
+
+#3
+Posible asignación de referencia nula.
+
+ clientId = configuration["FormUrlEncodedContent:client_id"];
+
+
+#4
+Posible asignación de referencia nula
+clientSecret = configuration["FormUrlEncodedContent:client_secret"];
+
+
+
+#5
+Posible asignación de referencia nula
+endpoint = configuration["ApiSettings:EndpointAccessToken"];
+
+
+#6
+La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
+_logger.LogError("Error en llamada a {Endpoint}. StatusCode: {StatusCode}, Body: {Body}", endpoint, response.StatusCode, errorContent);
+
+
+
+#7
+Posible tipo de valor devuelto de referencia nulo
+ return default;
+
+
+Este es el codigo completo:
+
+
+
 using System.Text.Json;
-using transacciones_flotantes.DTOs.TransaccionesFlotantes;
 using transacciones_flotantes.Service.Interface;
+using System.Net.Http;
+using transacciones_flotantes.Models.AccessToken;
 
 namespace transacciones_flotantes.Service
 {
-    public class ProveedorApiClient : IProveedorApiClient
+    public class ProveedorTokenService : IProveedorTokenService
     {
         private readonly HttpClient _httpClient;
-        private readonly IConfiguration _configuration;
-        private readonly ILogger<ProveedorApiClient> _logger;
+        private AccessTokenResponse? _cachedToken;
+        private DateTime _expiresAt;
+        private readonly SemaphoreSlim _lock = new(1, 1);
+        private readonly ILogger<ProveedorTokenService> _logger;
 
-        public ProveedorApiClient(
+        //Para auth
+        private readonly string granType;
+        private readonly string clientId;
+        private readonly string clientSecret;
+        private readonly string endpoint;
+
+
+        public ProveedorTokenService(
             HttpClient httpClient,
             IConfiguration configuration,
-            ILogger<ProveedorApiClient> logger)
+            ILogger<ProveedorTokenService> logger)
         {
             _httpClient = httpClient;
-            _configuration = configuration;
+            granType = configuration["FormUrlEncodedContent:grant_type"];
+            clientId = configuration["FormUrlEncodedContent:client_id"];
+            clientSecret = configuration["FormUrlEncodedContent:client_secret"];
+            endpoint = configuration["ApiSettings:EndpointAccessToken"];
             _logger = logger;
+
         }
 
-        public async Task<string> EnviarTransaccionAsync(
-            ProveedorTransaccionFlotanteRequestDto request)
+        public async Task<string> ObtenerAccessTokenAsync()
         {
+            if (_cachedToken != null && DateTime.UtcNow < _expiresAt)
+                return _cachedToken.access_token;
+
+            await _lock.WaitAsync();
             try
             {
-                var baseAddress = _configuration["ApiSettings:BaseAddressTransaccionesFlotantes"];
-                var endpoint = _configuration["ApiSettings:EndpointTransacciones"];
+                if (_cachedToken != null && DateTime.Now < _expiresAt)
+                    return _cachedToken.access_token;
 
-                if (string.IsNullOrWhiteSpace(baseAddress))
-                    throw new InvalidOperationException(
-                        "No está configurado ApiSettings:BaseAddressTransaccionesFlotantes");
-
-                if (string.IsNullOrWhiteSpace(endpoint))
-                    throw new InvalidOperationException(
-                        "No está configurado ApiSettings:EndpointTransacciones");
-
-                var url = new Uri(new Uri(baseAddress), endpoint);
-
-                var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+                var form = new FormUrlEncodedContent(new[]
                 {
-                    Content = new StringContent(
-                        JsonSerializer.Serialize(request),
-                        Encoding.UTF8,
-                        "application/json")
-                };
+                    new KeyValuePair<string, string>("grant_type", granType),
+                    new KeyValuePair<string, string>("client_id", clientId),
+                    new KeyValuePair<string, string>("client_secret", clientSecret)
+                });
 
-                var response = await _httpClient.SendAsync(httpRequest);
-
-                var body = await response.Content.ReadAsStringAsync();
-
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation(
-                        "Proveedor HTTP {StatusCode}",
-                        response.StatusCode);
-                }
+                var response = await _httpClient.PostAsync(endpoint, form);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    if (_logger.IsEnabled(LogLevel.Error))
-                    {
-                        _logger.LogError(
-                            "Proveedor error HTTP {StatusCode}",
-                            response.StatusCode);
-                    }
-
-                    throw new HttpRequestException(
-                        $"Proveedor respondió {response.StatusCode}");
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Error en llamada a {Endpoint}. StatusCode: {StatusCode}, Body: {Body}", endpoint, response.StatusCode, errorContent);
+                    return default;
                 }
 
-                return body;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Error enviando transacción al proveedor");
+                _cachedToken = await response.Content.ReadFromJsonAsync<AccessTokenResponse>();
 
-                throw;
+                //Calcular expiración con margen de seguridad
+                var expiresInMs = Math.Max(_cachedToken!.expires_in - 60_000, 10_000);
+                _expiresAt = DateTime.UtcNow.AddMicroseconds(expiresInMs);
+                return _cachedToken.access_token;
+            }
+            finally
+            {
+                _lock.Release();
             }
         }
     }
+
 }
+
+
+Ayudame a corregirlo
+
