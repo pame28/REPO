@@ -1,29 +1,3 @@
-Mira este codesmell:
-#1
-Posible argumento de referencia nulo para el parámetro "uriString" en "Uri.Uri(string uriString)"
-Esta es la linea de código:  client.BaseAddress = new Uri(baseAddressToken);
-
-
-#2
-
-Posible argumento de referencia nulo para el parámetro "value" en "bool bool.Parse(string value)"
-var allowInvalidCerts = bool.Parse(builder.Configuration["ApiSettings:AllowInvalidCerts"]);
-
-
-
-#3
-Posible argumento de referencia nulo para el parámetro "uriString" en "Uri.Uri(string uriString)"
-client.BaseAddress = new Uri(baseAddressTransacciones);
-
-
-#4
-
-Posible argumento de referencia nulo para el parámetro "value" en "bool bool.Parse(string value)".
-var allowInvalidCerts = bool.Parse(builder.Configuration["ApiSettings:AllowInvalidCerts"]);
-
-
-Este es el codigo completo:
-
 using Serilog;
 using System.Net.Http.Headers;
 using transacciones_flotantes.Infrastructure.Data;
@@ -35,9 +9,21 @@ using transacciones_flotantes.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//Registro api
-var baseAddressToken = builder.Configuration["ApiSettings:BaseAddressAccessToken"];
+// -----------------------
+// Validaciones de configuración
+// -----------------------
+var baseAddressToken = builder.Configuration["ApiSettings:BaseAddressAccessToken"]
+    ?? throw new InvalidOperationException("No se configuró ApiSettings:BaseAddressAccessToken");
 
+var baseAddressTransacciones = builder.Configuration["ApiSettings:BaseAddressTransaccionesFlotantes"]
+    ?? throw new InvalidOperationException("No se configuró ApiSettings:BaseAddressTransaccionesFlotantes");
+
+var allowInvalidCertsStr = builder.Configuration["ApiSettings:AllowInvalidCerts"];
+var allowInvalidCerts = bool.TryParse(allowInvalidCertsStr, out var result) && result;
+
+// -----------------------
+// Registro HttpClient: Token
+// -----------------------
 builder.Services.AddHttpClient<IProveedorTokenService, ProveedorTokenService>(client =>
 {
     client.BaseAddress = new Uri(baseAddressToken);
@@ -45,18 +31,17 @@ builder.Services.AddHttpClient<IProveedorTokenService, ProveedorTokenService>(cl
         new MediaTypeWithQualityHeaderValue("application/json"));
 }).ConfigurePrimaryHttpMessageHandler(() =>
 {
-    var allowInvalidCerts = bool.Parse(builder.Configuration["ApiSettings:AllowInvalidCerts"]);
-
     return new HttpClientHandler
     {
         ServerCertificateCustomValidationCallback = allowInvalidCerts
-        ? (message, cert, chain, errors) => true
-        : null
+            ? (message, cert, chain, errors) => true
+            : null
     };
 });
 
-//Registro de api Transacciones con AuthHandler para envio de token
-var baseAddressTransacciones = builder.Configuration["ApiSettings:BaseAddressTransaccionesFlotantes"];
+// -----------------------
+// Registro HttpClient: Transacciones con AuthHandler
+// -----------------------
 builder.Services.AddTransient<AuthHandler>();
 builder.Services.AddHttpClient<IProveedorApiClient, ProveedorApiClient>(client =>
 {
@@ -65,44 +50,38 @@ builder.Services.AddHttpClient<IProveedorApiClient, ProveedorApiClient>(client =
         new MediaTypeWithQualityHeaderValue("application/json"));
 }).ConfigurePrimaryHttpMessageHandler(() =>
 {
-    var allowInvalidCerts = bool.Parse(builder.Configuration["ApiSettings:AllowInvalidCerts"]);
-
     return new HttpClientHandler
     {
         ServerCertificateCustomValidationCallback = allowInvalidCerts
-        ? (message, cert, chain, errors) => true
-        : null
+            ? (message, cert, chain, errors) => true
+            : null
     };
 }).AddHttpMessageHandler<AuthHandler>();
 
-//Caché
+// -----------------------
+// Caché
+// -----------------------
 builder.Services.AddMemoryCache();
 
+// -----------------------
 // Dependency Injection
-
+// -----------------------
 builder.Services.AddScoped<ICatalogoErroresRepository, CatalogoErroresRepository>();
 builder.Services.AddScoped<IParametrosRepository, ParametrosRepositoryImp>();
 builder.Services.AddScoped<IValidationService, ValidationServiceImp>();
 builder.Services.AddScoped<ICurrencyRepository, CurrencyRepository>();
 builder.Services.AddScoped<DBHelper>();
-
-builder.Services.AddScoped<ITransaccionFlotanteRepository,
-    TransaccionFlotanteRepository>();
-
-builder.Services.AddScoped<ITransaccionesFlotantesService,
-    TransaccionesFlotantesService>();
-
-
-
+builder.Services.AddScoped<ITransaccionFlotanteRepository, TransaccionFlotanteRepository>();
+builder.Services.AddScoped<ITransaccionesFlotantesService, TransaccionesFlotantesService>();
 builder.Services.AddScoped<ICurrencyService, CurrencyService>();
-
 builder.Services.AddHttpClient();
 
-
-// Configuración de Serilog
+// -----------------------
+// Configuración Serilog
+// -----------------------
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
-    .Enrich.WithThreadId() // agrega hilo de ejecución
+    .Enrich.WithThreadId()
     .WriteTo.Console(
         outputTemplate: "{Timestamp:dd-MM-yyyy HH:mm:ss.fff} [{ThreadId}] [{Level,-5}] {SourceContext} - {Message:lj}{NewLine}{Exception}"
     )
@@ -113,19 +92,17 @@ Log.Logger = new LoggerConfiguration()
     )
     .CreateLogger();
 
-
 builder.Host.UseSerilog();
 
-
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// -----------------------
+// Middleware
+// -----------------------
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -133,13 +110,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
-
-
-
-Ayudame a corregirlo
