@@ -1,31 +1,3 @@
-Mira este codesmell:
-
-#1
-Posible argumento de referencia nulo para el parámetro "uriString" en "Uri.Uri(string uriString)".
-
-Esta es la linea de código:
- var url = new Uri(new Uri(baseAddress), endpoint);
-
-
-#2
-
-La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
-
-  _logger.LogInformation("Proveedor HTTP {StatusCode}", response.StatusCode);
-
-
-#3
-La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
-         if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogError(
-                        "Proveedor error HTTP {StatusCode} - Body: {Body}",
-                        response.StatusCode,
-                        body);
-
-
-Y este es eñ códig completo:
-
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -58,11 +30,17 @@ namespace transacciones_flotantes.Service
                 var baseAddress = _configuration["ApiSettings:BaseAddressTransaccionesFlotantes"];
                 var endpoint = _configuration["ApiSettings:EndpointTransacciones"];
 
+                if (string.IsNullOrWhiteSpace(baseAddress))
+                    throw new InvalidOperationException(
+                        "No está configurado ApiSettings:BaseAddressTransaccionesFlotantes");
+
+                if (string.IsNullOrWhiteSpace(endpoint))
+                    throw new InvalidOperationException(
+                        "No está configurado ApiSettings:EndpointTransacciones");
+
                 var url = new Uri(new Uri(baseAddress), endpoint);
 
-                var httpRequest = new HttpRequestMessage(
-                    HttpMethod.Post,
-                    url)
+                var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
                 {
                     Content = new StringContent(
                         JsonSerializer.Serialize(request),
@@ -74,30 +52,35 @@ namespace transacciones_flotantes.Service
 
                 var body = await response.Content.ReadAsStringAsync();
 
-                _logger.LogInformation("Proveedor HTTP {StatusCode}", response.StatusCode);
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation(
+                        "Proveedor HTTP {StatusCode}",
+                        response.StatusCode);
+                }
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogError(
-                        "Proveedor error HTTP {StatusCode} - Body: {Body}",
-                        response.StatusCode,
-                        body);
+                    if (_logger.IsEnabled(LogLevel.Error))
+                    {
+                        _logger.LogError(
+                            "Proveedor error HTTP {StatusCode}",
+                            response.StatusCode);
+                    }
 
-                    throw new HttpRequestException($"Proveedor respondió {response.StatusCode}");
+                    throw new HttpRequestException(
+                        $"Proveedor respondió {response.StatusCode}");
                 }
 
                 return body;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error enviando transacción al proveedor");
+                _logger.LogError(ex,
+                    "Error enviando transacción al proveedor");
+
                 throw;
             }
         }
     }
 }
-
-
-
-
-Ayudame a corregirlo
