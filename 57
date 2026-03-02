@@ -1,58 +1,3 @@
-Mira estos son los siguientes msj:
-
-#1
-'System.Exception' should not be thrown by user code.
-
-
-Linea de código:
-
-     throw new Exception($"Error en DBHelper: {ex.Message}", ex);
-
-
-
-#2
-
-La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
-
- _logger.LogInformation("***** ExecuteNonQueryAsync() - StoredProcedure={storedProcedure} *****", storedProcedure);
-
-
-
-#3
-
-La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
- _logger.LogInformation("StoredProcedure {storedProcedure} ejecutado exitosamente", storedProcedure);
-
-
-#4
-
-La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
-  _logger.LogError(ex, "Error en SqlException(). Descripcion: {Message}", ex.Message);
-
-
-#5
-
-'System.Exception' should not be thrown by user code.
-
-   throw new Exception($"Error en DBHelper: {ex.Message}", ex);
-
-
-
-#6
-'System.Exception' should not be thrown by user code.
-     throw new Exception($"Error en DBHelper: {ex.Message}", ex);
-
-
-#7
-'System.Exception' should not be thrown by user code.
-throw new Exception($"Error en DBHelper: {ex.Message}", ex);
-
-
-
-
-
-Este es el código completo:
-
 using Microsoft.Data.SqlClient;
 using System.Data;
 
@@ -65,45 +10,56 @@ namespace transacciones_flotantes.Infrastructure.Data
 
         public DBHelper(IConfiguration configuration, ILogger<DBHelper> logger)
         {
-            _connectionString = configuration.GetConnectionString("TransaccionesFlotantesConnection")!;
+            _connectionString = configuration
+                .GetConnectionString("TransaccionesFlotantesConnection")!;
+
             _logger = logger;
         }
 
+        #region Métodos Públicos
+
         // Ejecutar un stored procedure que devuelve un SqlDataReader
-        public async Task<SqlDataReader> ExecuteReaderAsync(string storedProcedure, Dictionary<string, object>? parameters = null)
+        public async Task<SqlDataReader> ExecuteReaderAsync(
+            string storedProcedure,
+            Dictionary<string, object>? parameters = null)
         {
             try
             {
-                SqlConnection conn = new SqlConnection(_connectionString);
+                var conn = new SqlConnection(_connectionString);
                 await conn.OpenAsync();
 
-                await using SqlCommand cmd = new SqlCommand(storedProcedure, conn)
+                var cmd = new SqlCommand(storedProcedure, conn)
                 {
                     CommandType = CommandType.StoredProcedure
                 };
 
-                if (parameters != null)
-                {
-                    foreach (var param in parameters)
-                    {
-                        cmd.Parameters.AddWithValue(param.Key, param.Value ?? DBNull.Value);
-                    }
-                }
+                AddParameters(cmd, parameters);
+
                 return await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection);
             }
             catch (SqlException ex)
             {
-                // Error técnico de SQL
-                throw new Exception($"Error en DBHelper: {ex.Message}", ex);
-            }            
+                _logger.LogError(ex,
+                    "Error ejecutando ExecuteReaderAsync para StoredProcedure {StoredProcedure}",
+                    storedProcedure);
+
+                throw; // Mantiene el tipo original y el stack trace
+            }
         }
 
-        // Ejecutar un stored procedure que no devuelve datos (INSERT, UPDATE, DELETE)
-        public async Task<int> ExecuteNonQueryAsync(string storedProcedure, Dictionary<string, object>? parameters = null)
+        // Ejecutar INSERT, UPDATE, DELETE
+        public async Task<int> ExecuteNonQueryAsync(
+            string storedProcedure,
+            Dictionary<string, object>? parameters = null)
         {
             try
             {
-                _logger.LogInformation("***** ExecuteNonQueryAsync() - StoredProcedure={storedProcedure} *****", storedProcedure);
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation(
+                        "Iniciando ExecuteNonQueryAsync - StoredProcedure {StoredProcedure}",
+                        storedProcedure);
+                }
 
                 await using var conn = new SqlConnection(_connectionString);
                 await conn.OpenAsync();
@@ -113,26 +69,33 @@ namespace transacciones_flotantes.Infrastructure.Data
                     CommandType = CommandType.StoredProcedure
                 };
 
-                if (parameters != null)
+                AddParameters(cmd, parameters);
+
+                var result = await cmd.ExecuteNonQueryAsync();
+
+                if (_logger.IsEnabled(LogLevel.Information))
                 {
-                    foreach (var param in parameters)
-                    {
-                        cmd.Parameters.AddWithValue(param.Key, param.Value ?? DBNull.Value);
-                    }
+                    _logger.LogInformation(
+                        "StoredProcedure {StoredProcedure} ejecutado exitosamente",
+                        storedProcedure);
                 }
-                _logger.LogInformation("StoredProcedure {storedProcedure} ejecutado exitosamente", storedProcedure);
-                return await cmd.ExecuteNonQueryAsync();
+
+                return result;
             }
             catch (SqlException ex)
             {
-                // Error técnico de SQL
-                _logger.LogError(ex, "Error en SqlException(). Descripcion: {Message}", ex.Message);
-                throw new Exception($"Error en DBHelper: {ex.Message}", ex);
+                _logger.LogError(ex,
+                    "Error ejecutando ExecuteNonQueryAsync para StoredProcedure {StoredProcedure}",
+                    storedProcedure);
+
+                throw;
             }
         }
 
-        // Ejecutar un query escalar (ej. COUNT(*))
-        public async Task<int> ExecuteScalarAsync(string storedProcedure, Dictionary<string, object>? parameters = null)
+        // Ejecutar un stored procedure escalar (ej: COUNT(*))
+        public async Task<int> ExecuteScalarAsync(
+            string storedProcedure,
+            Dictionary<string, object>? parameters = null)
         {
             try
             {
@@ -144,23 +107,23 @@ namespace transacciones_flotantes.Infrastructure.Data
                     CommandType = CommandType.StoredProcedure
                 };
 
-                if (parameters != null)
-                {
-                    foreach (var param in parameters)
-                    {
-                        cmd.Parameters.AddWithValue(param.Key, param.Value ?? DBNull.Value);
-                    }
-                }
+                AddParameters(cmd, parameters);
 
                 var result = await cmd.ExecuteScalarAsync();
+
                 return Convert.ToInt32(result ?? 0);
             }
             catch (SqlException ex)
             {
-                throw new Exception($"Error en DBHelper: {ex.Message}", ex);
+                _logger.LogError(ex,
+                    "Error ejecutando ExecuteScalarAsync para StoredProcedure {StoredProcedure}",
+                    storedProcedure);
+
+                throw;
             }
         }
 
+        // Ejecutar query SQL directo (texto)
         public async Task<object?> ExecuteScalarSqlAsync(string sql)
         {
             try
@@ -177,16 +140,32 @@ namespace transacciones_flotantes.Infrastructure.Data
             }
             catch (SqlException ex)
             {
-                throw new Exception($"Error en DBHelper: {ex.Message}", ex);
+                _logger.LogError(ex,
+                    "Error ejecutando ExecuteScalarSqlAsync");
+
+                throw;
             }
         }
 
+        #endregion
+
+        #region Métodos Privados
+
+        private static void AddParameters(
+            SqlCommand cmd,
+            Dictionary<string, object>? parameters)
+        {
+            if (parameters == null)
+                return;
+
+            foreach (var param in parameters)
+            {
+                cmd.Parameters.AddWithValue(
+                    param.Key,
+                    param.Value ?? DBNull.Value);
+            }
+        }
+
+        #endregion
     }
 }
-
-
-
-Ayudame a corregirlo
-
-
-
