@@ -1,22 +1,8 @@
-Mira este codesmell:
-
-La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
-
-Esta es la lina de código:
-
-     _logger.LogInformation(
-                "Buscando datos del proveedor para tarjeta terminada en {Ultimos4}",
-                counterpartCard[^4..]);
-
-
-y este es el código completo:
-
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Dapper;
 using transacciones_flotantes.Models.TransaccionesFlotantes;
 using transacciones_flotantes.Repository.Interface;
-
 
 namespace transacciones_flotantes.Repository
 {
@@ -36,12 +22,20 @@ namespace transacciones_flotantes.Repository
         public async Task<TransaccionFlotanteProveedorDataModel?>
             ObtenerDatosProveedorAsync(string counterpartCard)
         {
-            _logger.LogInformation(
-                "Buscando datos del proveedor para tarjeta terminada en {Ultimos4}",
-                counterpartCard[^4..]);
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                var ultimos4 = !string.IsNullOrEmpty(counterpartCard) && counterpartCard.Length >= 4
+                    ? counterpartCard[^4..]
+                    : counterpartCard;
+
+                _logger.LogInformation(
+                    "Buscando datos del proveedor para tarjeta terminada en {Ultimos4}",
+                    ultimos4);
+            }
 
             using var connection =
-                new SqlConnection(_configuration.GetConnectionString("TransaccionesFlotantesConnection"));
+                new SqlConnection(
+                    _configuration.GetConnectionString("TransaccionesFlotantesConnection"));
 
             var result = await connection.QueryFirstOrDefaultAsync<
                 TransaccionFlotanteProveedorDataModel>(
@@ -51,15 +45,15 @@ namespace transacciones_flotantes.Repository
             );
 
             if (result == null)
-                _logger.LogWarning(
-                    "No se encontraron datos del proveedor para la tarjeta solicitada");
+            {
+                if (_logger.IsEnabled(LogLevel.Warning))
+                {
+                    _logger.LogWarning(
+                        "No se encontraron datos del proveedor para la tarjeta solicitada");
+                }
+            }
 
             return result;
         }
     }
 }
-
-
-
-
-Ayudame a corregirlo
