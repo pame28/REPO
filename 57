@@ -1,70 +1,10 @@
-Estoy corrigiendo mi códigp por unos codesmells, me puedes ayudar a solucionarlo:
-
-Este es el msj: 
-La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
-
-
-Este es el fragmento de código que me aparece:
-
-_logger.LogInformation(
-                "Request recibido. CounterpartCard: {Ultimos4}",
-                request.CounterpartdCard[^4..]);
-
-
-
-
-Y este es el archivo completo:
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using transacciones_flotantes.DTOs.TransaccionesFlotantes;
-using transacciones_flotantes.Service.Interface;
-
-namespace transacciones_flotantes.Controllers.TransaccionesFlotantes
+if (_logger.IsEnabled(LogLevel.Information))
 {
-    // [Route("api/[controller]")]
+    var ultimos4 = request.CounterpartCard?.Length >= 4
+        ? request.CounterpartCard[^4..]
+        : request.CounterpartCard;
 
-    [ApiController]
-    [Route("api/transacciones-flotantes")]
-    public class TransaccionesFlotantesController : ControllerBase
-    {
-        private readonly ITransaccionesFlotantesService _service;
-        private readonly ILogger<TransaccionesFlotantesController> _logger;
-
-        public TransaccionesFlotantesController(
-            ITransaccionesFlotantesService service,
-            ILogger<TransaccionesFlotantesController> logger)
-        {
-            _service = service;
-            _logger = logger;
-        }
-
-
-        [HttpPost]
-        public async Task<IActionResult> Procesar(
-            [FromBody] TransaccionesFlotantesRequestDto request)
-        {
-            _logger.LogInformation(
-                "Request recibido. CounterpartCard: {Ultimos4}",
-                request.CounterpartCard[^4..]);
-
-            try
-            {
-                var response = await _service.ProcesarAsync(request);
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogCritical(ex, "Error 500 no controlado");
-                return StatusCode(500, new
-                {
-                    codigo = 500,
-                    mensaje = "Error interno del sistema"
-                });
-            }
-        }
-    }
+    _logger.LogInformation(
+        "Request recibido. CounterpartCard: {Ultimos4}",
+        ultimos4);
 }
-
-
-
-DIme cómo puedo mejorarlo sin poner el riesgo la funcionalidad de mi código
