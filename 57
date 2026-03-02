@@ -1,111 +1,70 @@
-Mira, necesito agregar una plantilla de HTML, ya está "cargada" esta la guardo en una tabla de SQLSERVER si te fijas en el codigo ya está .. es esta:            _plantillaHTML = configEmail.PlantillaHTML;
+Estoy corrigiendo mi códigp por unos codesmells, me puedes ayudar a solucionarlo:
+
+Este es el msj: 
+La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
 
 
-Ahora... en esa plantilla dentro de un parrafo hay una etiqueta @ContenidoEmail de esta forma:
+Este es el fragmento de código que me aparece:
 
-   <p>
-	@ContenidoEmail
-   </p>
-
-
-Necesito que esa etiqueta sea reemplazada por cuerpo Final ...
-
-y que sea esta plantilla sea la que se envia el en body del correo
-
-Dime que modificaciones debo hacer en mi codigo
+_logger.LogInformation(
+                "Request recibido. CounterpartCard: {Ultimos4}",
+                request.CounterpartdCard[^4..]);
 
 
-using reposicion_pin.Infrastructure.Data;
-using reposicion_pin.Models;
-using reposicion_pin.Repository.Interface;
-using System.Net.Mail;
-using System.Net.Mime;
 
-namespace reposicion_pin.Repository
+
+Y este es el archivo completo:
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using transacciones_flotantes.DTOs.TransaccionesFlotantes;
+using transacciones_flotantes.Service.Interface;
+
+namespace transacciones_flotantes.Controllers.TransaccionesFlotantes
 {
-    public class EnvioEmailRepository : IEnvioEmailRepository
+    // [Route("api/[controller]")]
+
+    [ApiController]
+    [Route("api/transacciones-flotantes")]
+    public class TransaccionesFlotantesController : ControllerBase
     {
-        private readonly AppDbContext _dbContext;
-        private readonly ILogger<EnvioEmailRepository> _logger;
-        private readonly ParamAmbienteModel _paramAmbiente;
+        private readonly ITransaccionesFlotantesService _service;
+        private readonly ILogger<TransaccionesFlotantesController> _logger;
 
-        private readonly string _serverEmail;
-        private readonly string _mailFrom;
-        private readonly string _mailSubject;
-        private readonly string _plantillaHTML;
-
-        public EnvioEmailRepository(
-            AppDbContext dbContext,
-            ILogger<EnvioEmailRepository> logger)
+        public TransaccionesFlotantesController(
+            ITransaccionesFlotantesService service,
+            ILogger<TransaccionesFlotantesController> logger)
         {
-            _dbContext = dbContext;
+            _service = service;
             _logger = logger;
-
-            var configEmail = _dbContext
-                .usp_ObtenerConfigEmail
-                .AsEnumerable()
-                .FirstOrDefault();
-
-            if (configEmail == null)
-                throw new Exception("No se encontró configuración de ConfigEmail.");
-
-            _serverEmail = configEmail.ServerEmail;
-            _mailFrom = configEmail.MailFrom;
-            _mailSubject = configEmail.MailSubject;
-            _plantillaHTML = configEmail.PlantillaHTML;
-
-            _paramAmbiente = _dbContext.ParamAmbiente
-                .Where(p => p.Estado == 1)
-                .OrderBy(p => p.IdRow)
-                .FirstOrDefault();
         }
 
-        public async Task<(int Codigo, string Mensaje, string MailFrom, string MailSubject)> EnviarCorreoAsync(
-            string correoDestino,
-            string cuerpoBase,
-            string pin,
-            string referencia,
-            CancellationToken cancellationToken)
+
+        [HttpPost]
+        public async Task<IActionResult> Procesar(
+            [FromBody] TransaccionesFlotantesRequestDto request)
         {
+            _logger.LogInformation(
+                "Request recibido. CounterpartCard: {Ultimos4}",
+                request.CounterpartCard[^4..]);
+
             try
             {
-                string correoFinal = _paramAmbiente?.Correo ?? correoDestino;
-
-                string cuerpoFinal = cuerpoBase.Replace("@PIN", pin);
-
-                using var smtp = new SmtpClient(_serverEmail)
-                {
-                    DeliveryMethod = SmtpDeliveryMethod.Network,
-                    UseDefaultCredentials = true
-                };
-
-                using var mail = new MailMessage
-                {
-                    From = new MailAddress(_mailFrom),
-                    Subject = _mailSubject,
-                    Body = cuerpoFinal,
-                    IsBodyHtml = true
-                };
-
-                mail.To.Add(correoFinal);
-
-
-                await smtp.SendMailAsync(mail, cancellationToken);
-
-                _logger.LogInformation(
-                    "Correo enviado Ref:{Referencia} Destino:{Destino}",
-                    referencia, correoFinal);
-
-                return (0, "Correo enviado correctamente.", _mailFrom, _mailSubject);
+                var response = await _service.ProcesarAsync(request);
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Error enviando correo Ref:{Referencia} Destino:{Destino}",
-                    referencia, correoDestino);
-
-                return (8, ex.Message, _mailFrom, _mailSubject);
+                _logger.LogCritical(ex, "Error 500 no controlado");
+                return StatusCode(500, new
+                {
+                    codigo = 500,
+                    mensaje = "Error interno del sistema"
+                });
             }
         }
     }
 }
+
+
+
+DIme cómo puedo mejorarlo sin poner el riesgo la funcionalidad de mi código
