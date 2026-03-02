@@ -1,171 +1,107 @@
+Mira este es el siguiente msj:
+
+La evaluación de este argumento puede ser costosa e innecesaria si el registro está deshabilitado
+
+
+Y estos son las lineas de codigo:
+
+_logger.LogInformation("Consultando catálogo de errores. Código: {Codigo}", codigo);
+
+    _logger.LogWarning(
+                        "Código de error {Codigo} no existe en catálogo", codigo);
+
+
+
+    _logger.LogInformation(
+                    "Catálogo encontrado. Código:{Codigo} - {Descripcion}",
+                    result.Codigo,
+                    result.Descripcion);
+
+
+  _logger.LogError(ex,
+                    "Error accediendo al catálogo de errores. Código solicitado: {Codigo}", codigo);
+
+
+
+Y este es el codigo completo:
+
+
+using Dapper;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using transacciones_flotantes.Models.CatalogoErrores;
+using transacciones_flotantes.Repository.Interface;
 
-namespace transacciones_flotantes.Infrastructure.Data
+namespace transacciones_flotantes.Repository
 {
-    public class DBHelper
+    public class CatalogoErroresRepository : ICatalogoErroresRepository
     {
-        private readonly string _connectionString;
-        private readonly ILogger<DBHelper> _logger;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<CatalogoErroresRepository> _logger;
 
-        public DBHelper(IConfiguration configuration, ILogger<DBHelper> logger)
+        public CatalogoErroresRepository(
+            IConfiguration configuration,
+            ILogger<CatalogoErroresRepository> logger)
         {
-            _connectionString = configuration
-                .GetConnectionString("TransaccionesFlotantesConnection")!;
-
+            _configuration = configuration;
             _logger = logger;
         }
 
-        #region Métodos Públicos
-
-        // Ejecutar un stored procedure que devuelve un SqlDataReader
-        public async Task<SqlDataReader> ExecuteReaderAsync(
-            string storedProcedure,
-            Dictionary<string, object>? parameters = null)
+        public async Task<CatalogoResponse> GetCatalogoResponseAsync(int codigo)
         {
+            _logger.LogInformation("Consultando catálogo de errores. Código: {Codigo}", codigo);
+
             try
             {
-                var conn = new SqlConnection(_connectionString);
-                await conn.OpenAsync();
+                using var connection =
+                    new SqlConnection(_configuration.GetConnectionString("TransaccionesFlotantesConnection"));
 
-                var cmd = new SqlCommand(storedProcedure, conn)
+                var result = await connection.QueryFirstOrDefaultAsync<CatalogoResponse>(
+                    "SP_GetCatalogoResponse",
+                    new { error_code = codigo },
+                    commandType: CommandType.StoredProcedure);
+
+                if (result == null)
                 {
-                    CommandType = CommandType.StoredProcedure
-                };
+                    _logger.LogWarning(
+                        "Código de error {Codigo} no existe en catálogo", codigo);
 
-                AddParameters(cmd, parameters);
-
-                return await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection);
-            }
-            catch (SqlException ex)
-            {
-                _logger.LogError(ex,
-                    "Error ejecutando ExecuteReaderAsync para StoredProcedure {StoredProcedure}",
-                    storedProcedure);
-
-                throw; // Mantiene el tipo original y el stack trace
-            }
-        }
-
-        // Ejecutar INSERT, UPDATE, DELETE
-        public async Task<int> ExecuteNonQueryAsync(
-            string storedProcedure,
-            Dictionary<string, object>? parameters = null)
-        {
-            try
-            {
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation(
-                        "Iniciando ExecuteNonQueryAsync - StoredProcedure {StoredProcedure}",
-                        storedProcedure);
+                    return new CatalogoResponse
+                    {
+                        Codigo = 99,
+                        Descripcion = "Error interno del sistema"
+                    };
                 }
 
-                await using var conn = new SqlConnection(_connectionString);
-                await conn.OpenAsync();
-
-                await using var cmd = new SqlCommand(storedProcedure, conn)
-                {
-                    CommandType = CommandType.StoredProcedure
-                };
-
-                AddParameters(cmd, parameters);
-
-                var result = await cmd.ExecuteNonQueryAsync();
-
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation(
-                        "StoredProcedure {StoredProcedure} ejecutado exitosamente",
-                        storedProcedure);
-                }
+                _logger.LogInformation(
+                    "Catálogo encontrado. Código:{Codigo} - {Descripcion}",
+                    result.Codigo,
+                    result.Descripcion);
 
                 return result;
             }
-            catch (SqlException ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Error ejecutando ExecuteNonQueryAsync para StoredProcedure {StoredProcedure}",
-                    storedProcedure);
+                    "Error accediendo al catálogo de errores. Código solicitado: {Codigo}", codigo);
 
-                throw;
-            }
-        }
-
-        // Ejecutar un stored procedure escalar (ej: COUNT(*))
-        public async Task<int> ExecuteScalarAsync(
-            string storedProcedure,
-            Dictionary<string, object>? parameters = null)
-        {
-            try
-            {
-                await using var conn = new SqlConnection(_connectionString);
-                await conn.OpenAsync();
-
-                await using var cmd = new SqlCommand(storedProcedure, conn)
+                return new CatalogoResponse
                 {
-                    CommandType = CommandType.StoredProcedure
+                    Codigo = 99,
+                    Descripcion = "Error interno del sistema"
                 };
-
-                AddParameters(cmd, parameters);
-
-                var result = await cmd.ExecuteScalarAsync();
-
-                return Convert.ToInt32(result ?? 0);
-            }
-            catch (SqlException ex)
-            {
-                _logger.LogError(ex,
-                    "Error ejecutando ExecuteScalarAsync para StoredProcedure {StoredProcedure}",
-                    storedProcedure);
-
-                throw;
             }
         }
 
-        // Ejecutar query SQL directo (texto)
-        public async Task<object?> ExecuteScalarSqlAsync(string sql)
+        public Task<string> ObtenerDescripcionAsync(string codigoError)
         {
-            try
-            {
-                await using var conn = new SqlConnection(_connectionString);
-                await conn.OpenAsync();
-
-                await using var cmd = new SqlCommand(sql, conn)
-                {
-                    CommandType = CommandType.Text
-                };
-
-                return await cmd.ExecuteScalarAsync();
-            }
-            catch (SqlException ex)
-            {
-                _logger.LogError(ex,
-                    "Error ejecutando ExecuteScalarSqlAsync");
-
-                throw;
-            }
+            throw new NotImplementedException();
         }
-
-        #endregion
-
-        #region Métodos Privados
-
-        private static void AddParameters(
-            SqlCommand cmd,
-            Dictionary<string, object>? parameters)
-        {
-            if (parameters == null)
-                return;
-
-            foreach (var param in parameters)
-            {
-                cmd.Parameters.AddWithValue(
-                    param.Key,
-                    param.Value ?? DBNull.Value);
-            }
-        }
-
-        #endregion
     }
+
 }
+
+
+
+
+Ayudame a corregirlo, por favor
