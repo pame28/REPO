@@ -1,87 +1,67 @@
-using Dapper;
-using Microsoft.Data.SqlClient;
-using System.Data;
-using transacciones_flotantes.Models.CatalogoErrores;
+Mira este msj de bug:
+
+Refactor the containing loop to do more than one iteration.
+
+Esta es la linea de codigo:
+      while (await reader.ReadAsync())
+                {
+                    return new Parametros
+                    {
+                        clave = reader.GetString(0),
+                        valor = reader.GetString(1)
+                    }; 
+
+
+Mira este codesmell:
+'System.Exception' should not be thrown by user code.
+
+
+    throw new Exception($"{ex.Message}");
+
+
+
+Y este es el codigo completo:
+
+using transacciones_flotantes.Infrastructure.Data;
+using transacciones_flotantes.Models.Validations;
 using transacciones_flotantes.Repository.Interface;
 
 namespace transacciones_flotantes.Repository
 {
-    public class CatalogoErroresRepository : ICatalogoErroresRepository
+    public class ParametrosRepositoryImp : IParametrosRepository
     {
-        private readonly IConfiguration _configuration;
-        private readonly ILogger<CatalogoErroresRepository> _logger;
-
-        public CatalogoErroresRepository(
-            IConfiguration configuration,
-            ILogger<CatalogoErroresRepository> logger)
+        private readonly DBHelper _dbHelper;
+        public ParametrosRepositoryImp(DBHelper dbHelper)
         {
-            _configuration = configuration;
-            _logger = logger;
+            _dbHelper = dbHelper;
         }
 
-        public async Task<CatalogoResponse> GetCatalogoResponseAsync(int codigo)
+        public async Task<Parametros> GetByCode(string clave)
         {
-            if (_logger.IsEnabled(LogLevel.Information))
-            {
-                _logger.LogInformation(
-                    "Consultando catálogo de errores. Código: {Codigo}",
-                    codigo);
-            }
-
             try
             {
-                using var connection =
-                    new SqlConnection(
-                        _configuration.GetConnectionString("TransaccionesFlotantesConnection"));
+                using var reader = await _dbHelper.ExecuteReaderAsync("getParametroByClave",
+                    new Dictionary<string, object> { { "@Clave", clave } });
 
-                var result = await connection.QueryFirstOrDefaultAsync<CatalogoResponse>(
-                    "SP_GetCatalogoResponse",
-                    new { error_code = codigo },
-                    commandType: CommandType.StoredProcedure);
-
-                if (result == null)
+                while (await reader.ReadAsync())
                 {
-                    if (_logger.IsEnabled(LogLevel.Warning))
+                    return new Parametros
                     {
-                        _logger.LogWarning(
-                            "Código de error {Codigo} no existe en catálogo",
-                            codigo);
-                    }
-
-                    return new CatalogoResponse
-                    {
-                        Codigo = 99,
-                        Descripcion = "Error interno del sistema"
-                    };
+                        clave = reader.GetString(0),
+                        valor = reader.GetString(1)
+                    };  
                 }
-
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation(
-                        "Catálogo encontrado. Código:{Codigo} - {Descripcion}",
-                        result.Codigo,
-                        result.Descripcion);
-                }
-
-                return result;
+                return new Parametros();
             }
-            catch (SqlException ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Error accediendo al catálogo de errores. Código solicitado: {Codigo}",
-                    codigo);
-
-                return new CatalogoResponse
-                {
-                    Codigo = 99,
-                    Descripcion = "Error interno del sistema"
-                };
+                throw new Exception($"{ex.Message}");
             }
-        }
-
-        public Task<string> ObtenerDescripcionAsync(string codigoError)
-        {
-            throw new NotImplementedException();
         }
     }
 }
+
+
+
+
+Ayudame a corregirlo
