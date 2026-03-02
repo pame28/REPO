@@ -1,101 +1,66 @@
-using System.Text.Json;
-using System.Net.Http;
+Mira este codesmell:
+This method signature overlaps the one defined on line 33, the default parameter value can only be used with named arguments
+
+
+Esta es la linea de codigo:
+
+        public async Task<GeneralResponse> Response(int status, string code, object? data = null)
+
+
+
+Y este es el codigo completo:
+
+using transacciones_flotantes.DTOs.Response;
 using transacciones_flotantes.Service.Interface;
-using transacciones_flotantes.Models.AccessToken;
 
-namespace transacciones_flotantes.Service
+namespace transacciones_flotantes.Utils
 {
-    public class ProveedorTokenService : IProveedorTokenService
+    public class GeneralResponseFn
     {
-        private readonly HttpClient _httpClient;
-        private readonly ILogger<ProveedorTokenService> _logger;
+        private readonly IValidationService _validationService;
 
-        private AccessTokenResponse? _cachedToken;
-        private DateTime _expiresAt;
-        private readonly SemaphoreSlim _lock = new(1, 1);
-
-        // Configuración obligatoria
-        private readonly string _grantType;
-        private readonly string _clientId;
-        private readonly string _clientSecret;
-        private readonly string _endpoint;
-
-        public ProveedorTokenService(
-            HttpClient httpClient,
-            IConfiguration configuration,
-            ILogger<ProveedorTokenService> logger)
+        public GeneralResponseFn(IValidationService validationService)
         {
-            _httpClient = httpClient;
-            _logger = logger;
-
-            _grantType = configuration["FormUrlEncodedContent:grant_type"]
-                ?? throw new InvalidOperationException("No configurado: FormUrlEncodedContent:grant_type");
-
-            _clientId = configuration["FormUrlEncodedContent:client_id"]
-                ?? throw new InvalidOperationException("No configurado: FormUrlEncodedContent:client_id");
-
-            _clientSecret = configuration["FormUrlEncodedContent:client_secret"]
-                ?? throw new InvalidOperationException("No configurado: FormUrlEncodedContent:client_secret");
-
-            _endpoint = configuration["ApiSettings:EndpointAccessToken"]
-                ?? throw new InvalidOperationException("No configurado: ApiSettings:EndpointAccessToken");
+            _validationService = validationService;
         }
 
-        public async Task<string> ObtenerAccessTokenAsync()
+        public async Task<GeneralResponse> Response(int status, string code, object? data = null)
         {
-            if (_cachedToken != null && DateTime.UtcNow < _expiresAt)
-                return _cachedToken.access_token;
-
-            await _lock.WaitAsync();
-
-            try
+            return new GeneralResponse
             {
-                if (_cachedToken != null && DateTime.UtcNow < _expiresAt)
-                    return _cachedToken.access_token;
-
-                var form = new FormUrlEncodedContent(new[]
+                Status = status,
+                HasError = false,
+                Data = data,
+                Messages = new List<Messages>
                 {
-                    new KeyValuePair<string, string>("grant_type", _grantType),
-                    new KeyValuePair<string, string>("client_id", _clientId),
-                    new KeyValuePair<string, string>("client_secret", _clientSecret)
-                });
-
-                var response = await _httpClient.PostAsync(_endpoint, form);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-
-                    if (_logger.IsEnabled(LogLevel.Error))
+                    new Messages
                     {
-                        _logger.LogError(
-                            "Error en llamada a {Endpoint}. StatusCode: {StatusCode}",
-                            _endpoint,
-                            response.StatusCode);
+                        Code = code,
+                        Description = await _validationService.getMensajeValidacion(code)
                     }
-
-                    throw new HttpRequestException(
-                        $"Error obteniendo token. StatusCode: {response.StatusCode}");
                 }
+            };
+        }
 
-                var tokenResponse =
-                    await response.Content.ReadFromJsonAsync<AccessTokenResponse>();
-
-                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.access_token))
-                    throw new InvalidOperationException("El proveedor devolvió un token inválido.");
-
-                _cachedToken = tokenResponse;
-
-                // margen de seguridad de 60 segundos
-                var expiresInMs = Math.Max(tokenResponse.expires_in - 60_000, 10_000);
-                _expiresAt = DateTime.UtcNow.AddMilliseconds(expiresInMs);
-
-                return _cachedToken.access_token;
-            }
-            finally
+        public static GeneralResponse Response(int status, string description)
+        {
+            return new GeneralResponse
             {
-                _lock.Release();
-            }
+                Status = status,
+                HasError = true,
+                Data = null,
+                Messages = new List<Messages>
+                {
+                    new Messages
+                    {
+                        Code = Constantes.CODE_SYSTEM_ERROR,
+                        Description = description
+                    }
+                }
+            };
+
+
+Ayudame a corregirlo
         }
     }
 }
