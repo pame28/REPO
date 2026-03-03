@@ -1,191 +1,76 @@
-
-Mira que tengo este problema, y es que ... no me cargan las imagenes del correo .. me cae el correo a la perfección, pero las imagenes no me cargan.
-
-Esto es lo que tengo guardado en mi base de datos:
-
-<html lang="es">
- <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>
-   Notificación de Transacción Exitosa
-  </title>
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
-  <style>
-   body {
-   font-family: 'Open Sans', sans-serif;
-   color: #013f7c;
-   margin: 0;
-   padding: 0;
-   background-color: #ffffff;
-   }
-   
-   .container {
-   width: 550px;
-   margin: 40px auto;
-   padding: 20px;
-   }
-   
-   .icon-text {
-   }
-   
-   .icon-text img {
-   margin-right: 15px;
-   }
-   
-   .info-table {
-   width: 100%;
-   border-collapse: collapse;
-   margin-top: 10px;
-   }
-   
-   .info-table td {
-   padding: 0px 0;
-   vertical-align: top;
-   }
-   
-   .label {
-   font-weight: bold;
-   width: 180px;
-   text-align: right;
-   padding-right: 10px;
-   }
-   
-   .footer {
-   font-size: 14px;
-   margin-top: 30px;
-   color: #013f7c;
-   text-align: justify;
-   }
-  </style>
- </head>
- <body>
-  <div class="container">
-   <div style="width: 100%; text-align: right; margin-bottom: 10px;">
-    <img width="120" height="auto" src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/logoni.png" alt="Logo Banpaís" />
-   </div>
-   <p>
-	@ContenidoEmail
-   </p>
-
-
-   <div class="footer">
-    <p>
-     Recuerda que Banpaís nunca solicitará tus datos personales ni contraseñas por mensajes de texto, WhatsApp o llamadas.
-    </p>
-    <p>
-     Si no reconoces esta actividad, comunícate con nuestros agentes de Contact Center vía llamada o WhatsApp al 2545-1212 o gratis *1212, también puedes escribir al correo: servicio@banpais.hn
-    </p>
-   </div>
-   <!-- Pie de página con imagen -->
-   <div class="foter-container" style="width: 100%; margin-top: 30px;">
-    <img src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/footerni.png" alt="Footer gráfico Banpaís" style="width: 100%;" />
-   </div>
-  </div>
- </body>
-</html>
-
-
-
-Y aqui lo llamo en mi codigo
-
-
-using reposicion_pin.Infrastructure.Data;
-using reposicion_pin.Models;
-using reposicion_pin.Repository.Interface;
 using System.Net.Mail;
 using System.Net.Mime;
 
-namespace reposicion_pin.Repository
+public async Task<(int Codigo, string Mensaje, string MailFrom, string MailSubject)> EnviarCorreoAsync(
+    string correoDestino,
+    string cuerpoBase,
+    string pin,
+    string referencia,
+    CancellationToken cancellationToken)
 {
-    public class EnvioEmailRepository : IEnvioEmailRepository
+    try
     {
-        private readonly AppDbContext _dbContext;
-        private readonly ILogger<EnvioEmailRepository> _logger;
-        private readonly ParamAmbienteModel? _paramAmbiente;
+        string correoFinal = _paramAmbiente?.Correo ?? correoDestino;
 
-        private readonly string _serverEmail;
-        private readonly string _mailFrom;
-        private readonly string _mailSubject;
-        private readonly string _plantillaHTML;
+        string cuerpoFinal = cuerpoBase.Replace("@PIN", pin);
+        string htmlFinal = _plantillaHTML.Replace("@ContenidoEmail", cuerpoFinal);
 
-        public EnvioEmailRepository(
-            AppDbContext dbContext,
-            ILogger<EnvioEmailRepository> logger)
+        using var smtp = new SmtpClient(_serverEmail)
         {
-            _dbContext = dbContext;
-            _logger = logger;
+            DeliveryMethod = SmtpDeliveryMethod.Network,
+            UseDefaultCredentials = true
+        };
 
-            var configEmail = _dbContext
-                .usp_ObtenerConfigEmail
-                .AsEnumerable()
-                .FirstOrDefault();
-
-            if (configEmail == null)
-                throw new Exception("No se encontró configuración de ConfigEmail.");
-
-            _serverEmail = configEmail.ServerEmail;
-            _mailFrom = configEmail.MailFrom;
-            _mailSubject = configEmail.MailSubject;
-            _plantillaHTML = configEmail.PlantillaHTML;
-
-            _paramAmbiente = _dbContext.ParamAmbiente
-                .Where(p => p.Estado == 1)
-                .OrderBy(p => p.IdRow)
-                .FirstOrDefault();
-        }
-
-        public async Task<(int Codigo, string Mensaje, string MailFrom, string MailSubject)> EnviarCorreoAsync(
-            string correoDestino,
-            string cuerpoBase,
-            string pin,
-            string referencia,
-            CancellationToken cancellationToken)
+        using var mail = new MailMessage
         {
-            try
-            {
-                string correoFinal = _paramAmbiente?.Correo ?? correoDestino;
+            From = new MailAddress(_mailFrom),
+            Subject = _mailSubject,
+            IsBodyHtml = true
+        };
 
-                string cuerpoFinal = cuerpoBase.Replace("@PIN", pin);
-                string htmlFinal = _plantillaHTML.Replace("@ContenidoEmail", cuerpoFinal);
+        mail.To.Add(correoFinal);
 
-                using var smtp = new SmtpClient(_serverEmail)
-                {
-                    DeliveryMethod = SmtpDeliveryMethod.Network,
-                    UseDefaultCredentials = true
-                };
+        // Crear vista HTML
+        var htmlView = AlternateView.CreateAlternateViewFromString(
+            htmlFinal,
+            null,
+            MediaTypeNames.Text.Html);
 
-                using var mail = new MailMessage
-                {
-                    From = new MailAddress(_mailFrom),
-                    Subject = _mailSubject,
-                    Body = htmlFinal,
-                    IsBodyHtml = true
-                };
+        // Logo
+        var logoPath = Path.Combine(AppContext.BaseDirectory, "Assets", "logo.png");
+        var logo = new LinkedResource(logoPath, MediaTypeNames.Image.Jpeg)
+        {
+            ContentId = "logoBanpais",
+            TransferEncoding = TransferEncoding.Base64
+        };
 
-                mail.To.Add(correoFinal);
+        // Footer
+        var footerPath = Path.Combine(AppContext.BaseDirectory, "Assets", "footer.png");
+        var footer = new LinkedResource(footerPath, MediaTypeNames.Image.Jpeg)
+        {
+            ContentId = "footerBanpais",
+            TransferEncoding = TransferEncoding.Base64
+        };
 
+        htmlView.LinkedResources.Add(logo);
+        htmlView.LinkedResources.Add(footer);
 
-                await smtp.SendMailAsync(mail, cancellationToken);
+        mail.AlternateViews.Add(htmlView);
 
-                _logger.LogInformation(
-                    "Correo enviado Ref:{Referencia} Destino:{Destino}",
-                    referencia, correoFinal);
+        await smtp.SendMailAsync(mail, cancellationToken);
 
-                return (0, "Correo enviado correctamente.", _mailFrom, _mailSubject);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Error enviando correo Ref:{Referencia} Destino:{Destino}",
-                    referencia, correoDestino);
+        _logger.LogInformation(
+            "Correo enviado Ref:{Referencia} Destino:{Destino}",
+            referencia, correoFinal);
 
-                return (8, ex.Message, _mailFrom, _mailSubject);
-            }
-        }
+        return (0, "Correo enviado correctamente.", _mailFrom, _mailSubject);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex,
+            "Error enviando correo Ref:{Referencia} Destino:{Destino}",
+            referencia, correoDestino);
+
+        return (8, ex.Message, _mailFrom, _mailSubject);
     }
 }
-
-
-
- 
