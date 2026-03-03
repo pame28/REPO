@@ -1,200 +1,191 @@
-Está bien raro el error .. parece que omite el @PIN 
 
-02-03-2026 15:23:45.089 [23] [Information] Microsoft.EntityFrameworkCore.Database.Command - Executed DbCommand (13ms) [Parameters=[@cif='?' (Size = 4000), @ultimosDigitos_endswith='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
-SELECT TOP(1) [t].[Id], [t].[CIF], [t].[EquivalenteTC], [t].[EstadoHabilitar], [t].[EstadoTarjeta], [t].[FechaFinVigencia], [t].[NumeroTarjeta]
-FROM [Tarjetas] AS [t]
-WHERE [t].[CIF] = @cif AND [t].[EquivalenteTC] LIKE @ultimosDigitos_endswith ESCAPE N'\'
-02-03-2026 15:23:45.429 [25] [Information] reposicion_pin.Repository.AS400Repository - Trama enviada AS400: 100000000170446820271130
-02-03-2026 15:23:45.484 [25] [Information] reposicion_pin.Repository.AS400Repository - Trama respuesta AS400: 1000000001704468202711301721
-02-03-2026 15:23:45.494 [23] [Information] Microsoft.EntityFrameworkCore.Database.Command - Executed DbCommand (3ms) [Parameters=[@codigo='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
-SELECT TOP(1) [c].[Descripcion]
-FROM [CatalogoRespuestas] AS [c]
-WHERE [c].[Codigo] = @codigo
-02-03-2026 15:23:58.797 [23] [Information] reposicion_pin.Repository.EnvioSmsRepository - MensajeFinal: Este es el pin temporal:  . Prueba
-02-03-2026 15:24:01.943 [23] [Information] reposicion_pin.Repository.EnvioSmsRepository - MensajeBase: Este es el pin temporal:  . Prueba
-02-03-2026 15:24:08.099 [23] [Error] reposicion_pin.Repository.EnvioSmsRepository - PIN no encontrado dentro del mensaje. Ref:1772486625506
+Mira que tengo este problema, y es que ... no me cargan las imagenes del correo .. me cae el correo a la perfección, pero las imagenes no me cargan.
+
+Esto es lo que tengo guardado en mi base de datos:
+
+<html lang="es">
+ <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>
+   Notificación de Transacción Exitosa
+  </title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
+  <style>
+   body {
+   font-family: 'Open Sans', sans-serif;
+   color: #013f7c;
+   margin: 0;
+   padding: 0;
+   background-color: #ffffff;
+   }
+   
+   .container {
+   width: 550px;
+   margin: 40px auto;
+   padding: 20px;
+   }
+   
+   .icon-text {
+   }
+   
+   .icon-text img {
+   margin-right: 15px;
+   }
+   
+   .info-table {
+   width: 100%;
+   border-collapse: collapse;
+   margin-top: 10px;
+   }
+   
+   .info-table td {
+   padding: 0px 0;
+   vertical-align: top;
+   }
+   
+   .label {
+   font-weight: bold;
+   width: 180px;
+   text-align: right;
+   padding-right: 10px;
+   }
+   
+   .footer {
+   font-size: 14px;
+   margin-top: 30px;
+   color: #013f7c;
+   text-align: justify;
+   }
+  </style>
+ </head>
+ <body>
+  <div class="container">
+   <div style="width: 100%; text-align: right; margin-bottom: 10px;">
+    <img width="120" height="auto" src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/logoni.png" alt="Logo Banpaís" />
+   </div>
+   <p>
+	@ContenidoEmail
+   </p>
+
+
+   <div class="footer">
+    <p>
+     Recuerda que Banpaís nunca solicitará tus datos personales ni contraseñas por mensajes de texto, WhatsApp o llamadas.
+    </p>
+    <p>
+     Si no reconoces esta actividad, comunícate con nuestros agentes de Contact Center vía llamada o WhatsApp al 2545-1212 o gratis *1212, también puedes escribir al correo: servicio@banpais.hn
+    </p>
+   </div>
+   <!-- Pie de página con imagen -->
+   <div class="foter-container" style="width: 100%; margin-top: 30px;">
+    <img src="https://www.banpais.hn/boletines/autobole/uploadedimages/bubblemenu/footerni.png" alt="Footer gráfico Banpaís" style="width: 100%;" />
+   </div>
+  </div>
+ </body>
+</html>
 
 
 
+Y aqui lo llamo en mi codigo
 
 
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using reposicion_pin.Infrastructure.Data;
 using reposicion_pin.Models;
 using reposicion_pin.Repository.Interface;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Xml;
-using wsBIMovil;
+using System.Net.Mail;
+using System.Net.Mime;
 
 namespace reposicion_pin.Repository
 {
-    public class EnvioSmsRepository : IEnvioSmsRepository
+    public class EnvioEmailRepository : IEnvioEmailRepository
     {
         private readonly AppDbContext _dbContext;
-        private readonly ILogger<EnvioSmsRepository> _logger;
-        private readonly MensajesSoapClient _mensajesSoapClient;
-        private readonly string _UsrBiMovil;
-        private readonly string _PassBiMovil;
-        private readonly ParamAmbienteModel _paramAmbiente;
+        private readonly ILogger<EnvioEmailRepository> _logger;
+        private readonly ParamAmbienteModel? _paramAmbiente;
 
-        public EnvioSmsRepository(AppDbContext dbContext, IConfiguration configuration, ILogger<EnvioSmsRepository> logger)
+        private readonly string _serverEmail;
+        private readonly string _mailFrom;
+        private readonly string _mailSubject;
+        private readonly string _plantillaHTML;
+
+        public EnvioEmailRepository(
+            AppDbContext dbContext,
+            ILogger<EnvioEmailRepository> logger)
         {
             _dbContext = dbContext;
             _logger = logger;
 
-            // Obtener configuración de BiMovil desde SP
-            var configBiMovil = _dbContext
-                .usp_ObtenerConfigBiMovil
+            var configEmail = _dbContext
+                .usp_ObtenerConfigEmail
                 .AsEnumerable()
                 .FirstOrDefault();
-            if (configBiMovil == null)
-                throw new Exception("No se encontró configuración de BiMovil.");
 
-            _UsrBiMovil = configBiMovil.UserBiMovil;
-            _PassBiMovil = configBiMovil.PassBiMovil;
+            if (configEmail == null)
+                throw new Exception("No se encontró configuración de ConfigEmail.");
+
+            _serverEmail = configEmail.ServerEmail;
+            _mailFrom = configEmail.MailFrom;
+            _mailSubject = configEmail.MailSubject;
+            _plantillaHTML = configEmail.PlantillaHTML;
 
             _paramAmbiente = _dbContext.ParamAmbiente
-                .Where(p => p.Estado ==1)
+                .Where(p => p.Estado == 1)
                 .OrderBy(p => p.IdRow)
                 .FirstOrDefault();
-
-            _mensajesSoapClient = new MensajesSoapClient(MensajesSoapClient.EndpointConfiguration.MensajesSoap);
         }
 
-        public async Task<(int Codigo, string Mensaje)>
-       EnviarSmsDirectoAsync(
-           string telefono,
-           string operador,
-           string mensajeBase,
-           string pin,
-           string referencia,
-           CancellationToken cancellationToken)
+        public async Task<(int Codigo, string Mensaje, string MailFrom, string MailSubject)> EnviarCorreoAsync(
+            string correoDestino,
+            string cuerpoBase,
+            string pin,
+            string referencia,
+            CancellationToken cancellationToken)
         {
             try
             {
-                string telefonoFinal = _paramAmbiente?.Telefono ?? telefono;
-                string operadorFinal = _paramAmbiente?.IdOperador ?? operador;
+                string correoFinal = _paramAmbiente?.Correo ?? correoDestino;
 
-                //string mensajeFinal = mensajeBase + pin;
+                string cuerpoFinal = cuerpoBase.Replace("@PIN", pin);
+                string htmlFinal = _plantillaHTML.Replace("@ContenidoEmail", cuerpoFinal);
 
-                //int enmascararDesde = mensajeBase.Length + 1;
-                //int enmascararHasta = mensajeFinal.Length;
-
-                // Validaciones básicas
-                if (string.IsNullOrWhiteSpace(mensajeBase))
+                using var smtp = new SmtpClient(_serverEmail)
                 {
-                    _logger.LogError("Mensaje base vacío. Ref:{Referencia}", referencia);
-                    return (99, "Mensaje base inválido");
-                }
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = true
+                };
 
-                if (string.IsNullOrWhiteSpace(pin))
+                using var mail = new MailMessage
                 {
-                    _logger.LogError("PIN vacío. Ref:{Referencia}", referencia);
-                    return (99, "PIN inválido");
-                }
-                // Construcción del mensaje
-                string mensajeFinal = mensajeBase.Replace("@PIN", pin);
+                    From = new MailAddress(_mailFrom),
+                    Subject = _mailSubject,
+                    Body = htmlFinal,
+                    IsBodyHtml = true
+                };
 
-                _logger.LogInformation("MensajeFinal: {MensajeFinal}", mensajeFinal);
+                mail.To.Add(correoFinal);
 
-                _logger.LogInformation("MensajeBase: {MensajeBase}", mensajeBase);
-            //    _logger.LogInformation("PIN: [{pin}] Longitud: ");
 
-                // Buscar PIN dentro del mensaje
-                int posicionPin = mensajeBase.IndexOf(pin, StringComparison.Ordinal);
-
-                if (posicionPin < 0)
-                {
-                    _logger.LogError("PIN no encontrado dentro del mensaje. Ref:{Referencia}", referencia);
-                    return (99, "Error interno al procesar PIN");
-                }
-
-                // SOAP trabaja con posiciones 1-based
-                int enmascararDesde = posicionPin + 1;
-                int enmascararHasta = posicionPin + pin.Length;
-
-              
-                string mensajeLog = mensajeFinal.Replace(pin, "****");
-
-                _logger.LogDebug(
-                    "BiMovil Request -> Telefono:{Telefono}, Operador:{Operador}, Mensaje:{Mensaje}, Referencia:{Referencia}, EnmascararDesde: {EnmascararDesde}, EnmascararHasta: {EnmascararHasta}",
-                    telefonoFinal,
-                    operadorFinal,
-                    mensajeLog,
-                    referencia,
-                    enmascararDesde,
-                    enmascararHasta
-                );
-
-                var response = await _mensajesSoapClient.Envia_MensajeAsync(
-                    _UsrBiMovil,
-                    _PassBiMovil,
-                    telefonoFinal,
-                    operadorFinal,
-                    mensajeFinal,
-                    referencia,
-                    enmascararDesde.ToString(),
-                    enmascararHasta.ToString()
-                  
-                );
-
-                XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml(response.Envia_MensajeResult.Any1.InnerXml);
-
-                XmlNode nodoCod = xmlDoc.GetElementsByTagName("cod_ret")[0];
-                XmlNode nodoMensaje = xmlDoc.GetElementsByTagName("mensaje")[0];
-
-               
-                int codigo = nodoCod != null ? int.Parse(nodoCod.InnerText) : 99;
-                string mensajeRespuesta = nodoMensaje?.InnerText ?? "Respuesta inválida";
+                await smtp.SendMailAsync(mail, cancellationToken);
 
                 _logger.LogInformation(
-                    "BiMovil Ref:{Referencia} Codigo:{Codigo} Mensaje:{Mensaje}",
-                    referencia, codigo, mensajeRespuesta);
+                    "Correo enviado Ref:{Referencia} Destino:{Destino}",
+                    referencia, correoFinal);
 
-                return (codigo, mensajeRespuesta);
+                return (0, "Correo enviado correctamente.", _mailFrom, _mailSubject);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error enviando SMS Ref:{Referencia}", referencia);
-                return (99, ex.Message);
+                _logger.LogError(ex,
+                    "Error enviando correo Ref:{Referencia} Destino:{Destino}",
+                    referencia, correoDestino);
+
+                return (8, ex.Message, _mailFrom, _mailSubject);
             }
         }
-      
-
-        
     }
 }
 
 
-Este es el request que yo hago:
 
-
-{
-  "cif": "606549",
-  "dni": "1621196000122",
-  "cliente": "GUSTA GOMEZ MURILLO",
-  "metodoEnvio": 1,
-  "telefono": "96423295",
-  "operadorTelefono": "D",
-  "correo": "suazonicole28@gmail.com",
-  "ultimosDigitosTC": "2000",
-  "contenidoSMS": "Este es el pin temporal: @PIN . Prueba",
-  "contenidoCorreo": ""
-}
-
-
-
-	
-Response body
-Download
-{
-  "codigo": "07",
-  "descripcion": "Error de envió por BIMOVIL: Error interno al procesar PIN"
-}
+ 
