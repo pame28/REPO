@@ -1,58 +1,112 @@
-apiVersion: observability.openshift.io/v1
-kind: ClusterLogForwarder
-metadata:
-  name: forward-des-procesadortc-bp
-  namespace: des-procesadortc-bp
-spec:
-  serviceAccount:
-    name: logcollector
-
-  filters:
-    - name: detect-java-multiline
-      type: detectMultilineException
-
-  inputs:
-    - name: application-logs
-      type: application
-      application:
-        includes:
-          - namespace: des-procesadortc-bp
-
-  outputs:
-    - name: syslog-api-procesador
-      type: syslog
-      syslog:
-        url: udp://10.100.***.**:514
-        rfc: RFC5424
-        facility: local3
-        severity: informational
-        enrichment: KubernetesMinimal
-        appName: "api-procesador"   # valor fijo, no usa expression
-
-    # Si tienes otra app:
-    - name: syslog-worker-procesador
-      type: syslog
-      syslog:
-        url: udp://10.100.***.**:514
-        rfc: RFC5424
-        facility: local3
-        severity: informational
-        enrichment: KubernetesMinimal
-        appName: "worker-procesador"
-
-  pipelines:
-    - name: pipeline-api-procesador
-      inputRefs:
-        - application-logs
-      filterRefs:
-        - detect-java-multiline
-      outputRefs:
-        - syslog-api-procesador
-
-    - name: pipeline-worker-procesador
-      inputRefs:
-        - application-logs
-      filterRefs:
-        - detect-java-multiline
-      outputRefs:
-        - syslog-worker-procesador
+forward-des-procesadortc-bp   4h21m
+[adm_80730@PU-OCPBAST1 ~]$ oc describe clusterlogforwarder forward-des-procesadortc-bp
+Name:         forward-des-procesadortc-bp
+Namespace:    des-procesadortc-bp
+Labels:       <none>
+Annotations:  <none>
+API Version:  observability.openshift.io/v1
+Kind:         ClusterLogForwarder
+Metadata:
+  Creation Timestamp:  2026-03-05T15:39:47Z
+  Generation:          1
+  Resource Version:    514964687
+  UID:                 99c06e67-796e-4b27-82d5-e5c0df5e35ab
+Spec:
+  Filters:
+    Name:  detect-java-multiline
+    Type:  detectMultilineException
+  Inputs:
+    Application:
+      Includes:
+        Namespace:   des-procesadortc-bp
+    Name:            application-logs
+    Type:            application
+  Management State:  Managed
+  Outputs:
+    Name:  syslog-api-procesador
+    Syslog:
+      App Name:    api-procesador
+      Enrichment:  KubernetesMinimal
+      Facility:    local3
+      Rfc:         RFC5424
+      Severity:    informational
+      URL:         udp://10.100.206.87:514
+    Type:          syslog
+    Name:          syslog-worker-procesador
+    Syslog:
+      App Name:    worker-procesador
+      Enrichment:  KubernetesMinimal
+      Facility:    local3
+      Rfc:         RFC5424
+      Severity:    informational
+      URL:         udp://10.100.206.87:514
+    Type:          syslog
+  Pipelines:
+    Filter Refs:
+      detect-java-multiline
+    Input Refs:
+      application-logs
+    Name:  pipeline-api-procesador
+    Output Refs:
+      syslog-api-procesador
+    Filter Refs:
+      detect-java-multiline
+    Input Refs:
+      application-logs
+    Name:  pipeline-worker-procesador
+    Output Refs:
+      syslog-worker-procesador
+  Service Account:
+    Name:  logcollector
+Status:
+  Conditions:
+    Last Transition Time:  2026-03-05T15:39:47Z
+    Message:               ServiceAccount "logcollector" not found
+    Reason:                ServiceAccountDoesNotExist
+    Status:                False
+    Type:                  observability.openshift.io/Authorized
+    Last Transition Time:  2026-03-05T15:39:47Z
+    Message:               one or more conditions [inputs, outputs, pipelines, filters] have failed validation
+    Reason:                ValidationFailure
+    Status:                False
+    Type:                  observability.openshift.io/Valid
+    Last Transition Time:  2026-03-05T15:39:47Z
+    Message:               collector not ready
+    Reason:                ValidationFailure
+    Status:                False
+    Type:                  Ready
+  Filter Conditions:
+    Last Transition Time:  2026-03-05T15:39:47Z
+    Message:               filter "detect-java-multiline" is valid
+    Reason:                ValidationSuccess
+    Status:                True
+    Type:                  observability.openshift.io/ValidFilter-detect-java-multiline
+  Input Conditions:
+    Last Transition Time:  2026-03-05T15:39:47Z
+    Message:               input "application-logs" is valid
+    Reason:                ValidationSuccess
+    Status:                True
+    Type:                  observability.openshift.io/ValidInput-application-logs
+  Output Conditions:
+    Last Transition Time:  2026-03-05T15:39:47Z
+    Message:               output "syslog-api-procesador" is valid
+    Reason:                ValidationSuccess
+    Status:                True
+    Type:                  observability.openshift.io/ValidOutput-syslog-api-procesador
+    Last Transition Time:  2026-03-05T15:39:47Z
+    Message:               output "syslog-worker-procesador" is valid
+    Reason:                ValidationSuccess
+    Status:                True
+    Type:                  observability.openshift.io/ValidOutput-syslog-worker-procesador
+  Pipeline Conditions:
+    Last Transition Time:  2026-03-05T15:39:47Z
+    Message:               pipeline "pipeline-api-procesador" is valid
+    Reason:                ValidationSuccess
+    Status:                True
+    Type:                  observability.openshift.io/ValidPipeline-pipeline-api-procesador
+    Last Transition Time:  2026-03-05T15:39:47Z
+    Message:               pipeline "pipeline-worker-procesador" is valid
+    Reason:                ValidationSuccess
+    Status:                True
+    Type:                  observability.openshift.io/ValidPipeline-pipeline-worker-procesador
+Events:                    <none>
