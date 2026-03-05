@@ -1,53 +1,5 @@
 
-Status:
-  Conditions:
-    Last Transition Time:  2026-03-05T20:12:56Z
-    Message:               insufficient permissions on service account, not authorized to collect ["application"] logs
-    Reason:                ClusterRoleMissing
-    Status:                False
-    Type:                  observability.openshift.io/Authorized
-    Last Transition Time:  2026-03-05T20:12:56Z
-    Message:               one or more conditions [inputs, outputs, pipelines, filters] have failed validation
-    Reason:                ValidationFailure
-    Status:                False
-    Type:                  observability.openshift.io/Valid
-    Last Transition Time:  2026-03-05T20:12:56Z
-    Message:               collector not ready
-    Reason:                ValidationFailure
-    Status:                False
-    Type:                  Ready
-  Filter Conditions:
-    Last Transition Time:  2026-03-05T20:12:56Z
-    Message:               filter "detect-java-multiline" is valid
-    Reason:                ValidationSuccess
-    Status:                True
-    Type:                  observability.openshift.io/ValidFilter-detect-java-multiline
-  Input Conditions:
-    Last Transition Time:  2026-03-05T20:12:56Z
-    Message:               input "application-logs" is valid
-    Reason:                ValidationSuccess
-    Status:                True
-    Type:                  observability.openshift.io/ValidInput-application-logs
-  Output Conditions:
-    Last Transition Time:  2026-03-05T20:12:56Z
-    Message:               output "syslog-api-procesador" is valid
-    Reason:                ValidationSuccess
-    Status:                True
-    Type:                  observability.openshift.io/ValidOutput-syslog-api-procesador
-    Last Transition Time:  2026-03-05T20:12:56Z
-    Message:               output "syslog-worker-procesador" is valid
-    Reason:                ValidationSuccess
-    Status:                True
-    Type:                  observability.openshift.io/ValidOutput-syslog-worker-procesador
-  Pipeline Conditions:
-    Last Transition Time:  2026-03-05T20:12:56Z
-    Message:               pipeline "pipeline-api-procesador" is valid
-    Reason:                ValidationSuccess
-    Status:                True
-    Type:                  observability.openshift.io/ValidPipeline-pipeline-api-procesador
-    Last Transition Time:  2026-03-05T20:12:56Z
-    Message:               pipeline "pipeline-worker-procesador" is valid
-    Reason:                ValidationSuccess
-    Status:                True
-    Type:                  observability.openshift.io/ValidPipeline-pipeline-worker-procesador
-Events:                    <none>
+[adm_80730@PU-OCPBAST1 LogForwarder]$ ^C
+[adm_80730@PU-OCPBAST1 LogForwarder]$ oc adm policy add-cluster-role-to-user cluster-logging-collector -z logcollector -n des-procesadortc-bp
+Error from server (Forbidden): clusterrolebindings.rbac.authorization.k8s.io is forbidden: User "adm_80730" cannot list resource "clusterrolebindings" in API group "rbac.authorization.k8s.io" at the cluster scope
+[adm_80730@PU-OCPBAST1 LogForwarder]$
