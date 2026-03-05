@@ -1,50 +1,131 @@
-<ItemGroup>
-  <EmbeddedResource Include="Assets\logoBanpais.png" />
-  <EmbeddedResource Include="Assets\footerBanpais.png" />
-</ItemGroup>
+apiVersion: v1
+items:
+- apiVersion: observability.openshift.io/v1
+  kind: ClusterLogForwarder
+  metadata:
+    creationTimestamp: "2025-11-25T16:43:39Z"
+    generation: 1
+    name: forward-pu-bpenlinea-02
+    namespace: openshift-logging
+    resourceVersion: "447863580"
+    uid: c37d24d9-2c22-44ca-8a92-929b7721cd8b
+  spec:
+    filters:
+    - name: detect-java-multiline
+      type: detectMultilineException
+    inputs:
+    - application:
+        includes:
+        - namespace: pu-bpenlinea-02
+      name: pu-bpenlinea-02-logs
+      type: application
+    managementState: Managed
+    outputs:
+    - name: rsyslog-pu-bpenlinea-02
+      syslog:
+        enrichment: KubernetesMinimal
+        facility: local3
+        payloadKey: '{.message}'
+        rfc: RFC5424
+        severity: info
+        url: udp://10.100.***.**:514
+      type: syslog
+    pipelines:
+    - filterRefs:
+      - detect-java-multiline
+      inputRefs:
+      - pu-bpenlinea-02-logs
+      name: pipeline-pu-bpenlinea-02-to-local3-full
+      outputRefs:
+      - rsyslog-pu-bpenlinea-02
+    serviceAccount:
+      name: logcollector
+  status:
+    conditions:
+    - lastTransitionTime: "2025-11-25T16:43:45Z"
+      message: 'permitted to collect log types: [application]'
+      reason: ClusterRolesExist
+      status: "True"
+      type: observability.openshift.io/Authorized
+    - lastTransitionTime: "2025-11-25T16:43:45Z"
+      message: ""
+      reason: ValidationSuccess
+      status: "True"
+      type: observability.openshift.io/Valid
+    - lastTransitionTime: "2025-11-25T17:01:27Z"
+      message: ""
+      reason: ReconciliationComplete
+      status: "True"
+      type: Ready
+    filterConditions:
+    - lastTransitionTime: "2025-11-25T16:43:45Z"
+      message: filter "detect-java-multiline" is valid
+      reason: ValidationSuccess
+      status: "True"
+      type: observability.openshift.io/ValidFilter-detect-java-multiline
+    inputConditions:
+    - lastTransitionTime: "2025-11-25T16:43:45Z"
+      message: input "pu-bpenlinea-02-logs" is valid
+      reason: ValidationSuccess
+      status: "True"
+      type: observability.openshift.io/ValidInput-pu-bpenlinea-02-logs
+    outputConditions:
+    - lastTransitionTime: "2025-11-25T16:43:45Z"
+      message: output "rsyslog-pu-bpenlinea-02" is valid
+      reason: ValidationSuccess
+      status: "True"
+      type: observability.openshift.io/ValidOutput-rsyslog-pu-bpenlinea-02
+    pipelineConditions:
+    - lastTransitionTime: "2025-11-25T16:43:45Z"
+      message: pipeline "pipeline-pu-bpenlinea-02-to-local3-full" is valid
+      reason: ValidationSuccess
+      status: "True"
+      type: observability.openshift.io/ValidPipeline-pipeline-pu-bpenlinea-02-to-local3-full
+kind: List
+metadata:
+  resourceVersion: ""
+
+
+
+
+Mira, este es el ejemplo que me brindaron, pero como te dije .. se envian los logs al syslog, pero todo muy desordenado.
+
+
+
+
+Y mira, esto es lo que me tira ... el Openshift web si quiero crear un clusterLogForwarder
+
+apiVersion: observability.openshift.io/v1
+kind: ClusterLogForwarder
+metadata:
+  name: logging
+  namespace: des-procesadortc-bp
+spec:
+  outputs:
+    - lokiStack:
+        authentication:
+          token:
+            from: serviceAccount
+        target:
+          name: logging-loki
+      tls:
+        ca:
+          configMapName: openshift-service-ca.crt
+          key: service-ca.crt
+      name: logging-loki
+      type: lokiStack
+  pipelines:
+    - inputRefs:
+        - application
+        - infrastructure
+      outputRefs:
+        - logging-loki
+      name: logs-to-loki
+  serviceAccount:
+    name: log-collector
 
 
 
 
 
-
-
-
-reposicion_pin.Assets.logoBanpais.png
-
-var recursos = Assembly.GetExecutingAssembly().GetManifestResourceNames();
-foreach (var r in recursos)
-{
-    Console.WriteLine(r);
-}
-
-
-
-
-using System.Reflection;
-
-var assembly = Assembly.GetExecutingAssembly();
-
-var logoStream = assembly.GetManifestResourceStream("reposicion_pin.Assets.logoBanpais.png");
-var logo = new LinkedResource(logoStream!, MediaTypeNames.Image.Png)
-{
-    ContentId = "logoBanpais",
-    TransferEncoding = TransferEncoding.Base64
-};
-
-
-
-
-
-
-
-
-
-
-
-var footerStream = assembly.GetManifestResourceStream("reposicion_pin.Assets.footerBanpais.png");
-var footer = new LinkedResource(footerStream!, MediaTypeNames.Image.Png)
-{
-    ContentId = "footerBanpais",
-    TransferEncoding = TransferEncoding.Base64
-};
+Como deberua quedar mi YAML realmente? 
