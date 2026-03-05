@@ -1,44 +1,8 @@
-apiVersion: observability.openshift.io/v1
-kind: ClusterLogForwarder
-metadata:
-  name: forward-des-procesadortc-bp-namespace
-  namespace: des-procesadortc-bp
-spec:
-  serviceAccount:
-    name: logcollector
+[adm_80730@PU-OCPBAST1 LogForwarder]$ oc apply -f forward-des-procesadortc-bp.yaml
+The ClusterLogForwarder "forward-des-procesadortc-bp" is invalid:
+* spec.outputs[0].syslog.appName: Invalid value: "{.kubernetes.labels.app}": spec.outputs[0].syslog.appName in body should match '^(([a-zA-Z0-9-_.\/])*(\{(\.[a-zA-Z0-9_]+|\."[^"]+")+((\|\|)(\.[a-zA-Z0-9_]+|\.?"[^"]+")+)*\|\|"[^"]*"\})*)*$'
+* spec.outputs[0].syslog.enrichment: Unsupported value: "KubernetesFull": supported values: "None", "KubernetesMinimal"
+* <nil>: Invalid value: "null": some validation rules were not checked because the object was invalid; correct the existing errors to complete validation
+[adm_80730@PU-OCPBAST1 LogForwarder]$
 
-  # Filtro: detecta excepciones multilínea Java
-  filters:
-    - name: detect-java-multiline
-      type: detectMultilineException
 
-  # Inputs: solo logs de este namespace
-  inputs:
-    - name: application-logs
-      type: application
-      application:
-        includes:
-          - namespace: des-procesadortc-bp
-
-  # Output: servidor syslog
-  outputs:
-    - name: syslog-des-procesadortc-bp
-      type: syslog
-      syslog:
-        url: udp://10.100.***.**:514
-        rfc: RFC5424
-        facility: local3
-        severity: informational
-        enrichment: KubernetesFull
-        appName: '{.kubernetes.labels.app}'  
-        msgID: '{.kubernetes.pod_name}'
-
-  # Pipeline: conecta input + filtro + output
-  pipelines:
-    - name: pipeline-application-logs
-      inputRefs:
-        - application-logs
-      filterRefs:
-        - detect-java-multiline
-      outputRefs:
-        - syslog-des-procesadortc-bp
