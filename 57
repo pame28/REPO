@@ -1,51 +1,6 @@
-apiVersion: observability.openshift.io/v1
-kind: ClusterLogForwarder
-metadata:
-  name: forward-des-procesadortc-bp-professional
-  namespace: openshift-logging
-spec:
-  serviceAccount:
-    name: logcollector
 
-  # Filtros: detecta excepciones multilínea Java
-  filters:
-    - name: detect-java-multiline
-      type: detectMultilineException
-
-  # Inputs: logs de aplicación, infraestructura y audit opcional
-  inputs:
-    - name: application-logs
-      type: application
-      application:
-        includes:
-          - namespace: des-procesadortc-bp
-    # Puedes agregar infra/audit en el futuro:
-    # - name: infrastructure-logs
-    #   type: infrastructure
-    # - name: audit-logs
-    #   type: audit
-
-  # Outputs: servidor syslog
-  outputs:
-    - name: syslog-des-procesadortc-bp
-      type: syslog
-      syslog:
-        url: udp://10.100.***.**:514
-        rfc: RFC5424
-        facility: local3
-        severity: informational
-        enrichment: KubernetesFull # Incluye namespace, pod, container, labels
-        # Aquí indicamos que cada aplicación se guarde en su propio archivo
-        appName: '{.kubernetes.labels.app}'  
-        msgID: '{.kubernetes.pod_name}'     # opcional, distingue pods
-
-  # Pipelines: conecta inputs + filtros + outputs
-  pipelines:
-    - name: pipeline-application-logs
-      inputRefs:
-        - application-logs
-      filterRefs:
-        - detect-java-multiline
-      outputRefs:
-        - syslog-des-procesadortc-bp
-    # Puedes agregar infra/audit pipelines más adelante sin tocar pipelines existentes
+Using project "des-procesadortc-bp".
+[adm_80730@PU-OCPBAST1 LogForwarder]$ oc apply -f forward-des-procesadortc-bp.yaml                                      Error from server (Forbidden): error when retrieving current configuration of:
+Resource: "observability.openshift.io/v1, Resource=clusterlogforwarders", GroupVersionKind: "observability.openshift.io/v1, Kind=ClusterLogForwarder"
+Name: "forward-des-procesadortc-bp-professional", Namespace: "openshift-logging"
+from server for: "forward-des-procesadortc-bp.yaml": clusterlogforwarders.observability.openshift.io "forward-des-procesadortc-bp-professional" is forbidden: User "adm_80730" cannot get resource "clusterlogforwarders" in API group "observability.openshift.io" in the namespace "openshift-logging"
