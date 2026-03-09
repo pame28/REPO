@@ -1,36 +1,60 @@
-No entiendo lo que me dices, segun yo ... no necesito nada dee eso, porque esta es la documentación que me dieron: 
+Mira, no se si esto nos ayude a tener claridad
 
-El primer paso yo lo omito porque en AS400 yo solo tengo que basicamente tomar el valor porque ya esta encripctado.. basicmente tengo que hacer el clienteId:secretId y lo paso a base 64... pero dime que estoy omitiendo
 
-Por ser un método GET este no recibe un cuerpo en la solicitud, por lo que para realizar la 
-autenticación del cliente se realiza usando autenticación básica (clientId, secretId), por lo que el 
-método espera un encabezado con la clave “Authorization” y el valor de la misma la estructura 
-“Basic 
-LZLh1OyW77eOL7b+FGBOWDV4JFi27YVXhPgVtu1oIX98eJxUVslw+JtaaLmTuVMmXkgm7g==”
-En dónde “Basic” es una palabra clave por el tipo de autenticación por lo que siempre debe viajar, 
-el resto es un string en Base64 y encriptado usando algoritmo AES256 de las credenciales del 
-cliente.
-Por lo que el proceso de encripción sería el siguiente:
-suponiendo las siguientes credenciales en claro:
-clientId = clientId
-secretId = secretId
-● En primer paso será encriptar el secretId, ya que este así será almacenado en la base de 
-datos AS400, por lo que este de por sí ya deberá ser entregado al cliente en forma 
-encriptado. (SecretIdEncripted: 
-UHdHhp+IXBy+18j+rGjjRZDwnLjGVRHdyd6mm/3FZPVQOamk)
-● Con el valor anterior se forma la pareja de autenticación básica estándar 
-“clientId:UHdHhp+IXBy+18j+rGjjRZDwnLjGVRHdyd6mm/3FZPVQOamk”
-6
-● Este estructura de clave:valor, del cliente y su secret, deberá ser primero pasada a 
-base64: 
-“Y2xpZW50SWQ6VUhkSGhwK0lYQnkrMThqK3JHampSWkR3bkxqR1ZSSGR5ZDZtbS8z
-RlpQVlFPYW1r”
-● El string final es el que debe encriptar con el algoritmo AS256 y es el que viajará en el 
-encabezado de la solicitud: 
-“r1EOlmnFc6ZK5egwWfVcuu01Y1r+GfIeONF7BBil5WD8JMdHUmoIO9CR0PILBYYoVgSt
-SS/cGftx7ChpLOdO0Dya7arpvGtdPK5TX4ggnK8SDMy5HsW6/yocmQpvAO1cslZtyK/++Z
-A=”
-● Por lo que el header final quedará de la siguiente forma:
-key: Authorization value: “Basic 
-r1EOlmnFc6ZK5egwWfVcuu01Y1r+GfIeONF7BBil5WD8JMdHUmoIO9CR0PILBYYoVgStSS/cGftx
-7ChpLOdO0Dya7arpvGtdPK5TX4ggnK8SDMy5HsW6/yocmQpvAO1cslZtyK/++ZA=”
+Anexo:
+Clase usada para encriptado de información, los métodos son estáticos para poder llamarlos 
+desde cualquier punto, únicamente enviando el texto más el secretKey definido y compartido.
+public class AES256Utils {
+private static final String ALGORITHM = "AES/GCM/NoPadding";
+ private static final int TAG_LENGTH_BIT = 128;
+ private static final int IV_SIZE_BYTE = 12;
+ private static final String KEY_ALGORITHM = "AES";
+ private AES256Utils() {}
+ public static String encrypt(String plainText, String secretKey) {
+ try {
+ byte[] iv = generateIV();
+ SecretKeySpec keySpec = buildKey(secretKey);
+ Cipher cipher = Cipher.getInstance(ALGORITHM);
+ GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH_BIT, iv);
+ cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
+ byte[] cipherText = 
+cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+ byte[] combined = ByteBuffer.allocate(iv.length + cipherText.length)
+ .put(iv)
+11
+ .put(cipherText)
+ .array();
+ return Base64.getEncoder().encodeToString(combined);
+ } catch (Exception e) {
+ throw new RuntimeException("Error encriptando: " + e.getMessage(), e);
+ }
+ }
+ public static String decrypt(String cipherTextBase64, String secretKey) {
+ try {
+ byte[] combined = Base64.getDecoder().decode(cipherTextBase64);
+ byte[] iv = new byte[IV_SIZE_BYTE];
+ System.arraycopy(combined, 0, iv, 0, iv.length);
+ byte[] encryptedText = new byte[combined.length - IV_SIZE_BYTE];
+ System.arraycopy(combined, IV_SIZE_BYTE, encryptedText, 0, 
+encryptedText.length);
+ SecretKeySpec keySpec = buildKey(secretKey);
+ Cipher cipher = Cipher.getInstance(ALGORITHM);
+ GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH_BIT, iv);
+ cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
+ byte[] decryptedText = cipher.doFinal(encryptedText);
+ return new String(decryptedText, StandardCharsets.UTF_8);
+ } catch (Exception e) {
+ throw new RuntimeException("Error desencriptando: Datos corruptos o clave 
+inválida", e);
+ }
+ }
+ private static SecretKeySpec buildKey(String secret) throws Exception {
+ MessageDigest sha = MessageDigest.getInstance("SHA-256");
+ byte[] key = sha.digest(secret.getBytes(StandardCharsets.UTF_8));
+ return new SecretKeySpec(key, KEY_ALGORITHM);
+ }
+ private static byte[] generateIV() {
+ byte[] iv = new byte[IV_SIZE_BYTE];
+ new SecureRandom().nextBytes(iv);
+ return iv;
+ }
