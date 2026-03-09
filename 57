@@ -1,76 +1,145 @@
-Ok, mira, no pude hacer la prueba en postman, pero hay algo que si puedo ir haciendo y es que, me solicitaron un endpoint en .net 10(misma estructura en capas)
-Para que tomara los valores del AS400, de un archivo (SELECT 
-APICLIENID AS CLIENTID, APISECREID AS SECRETID
-FROM 
-TCATV3DAT.TCACCTOK
-WHERE 
-APISERVICE = 'SERVWEB';)
+using System.Data.Odbc;
+using SwapAuthApi.Data.Interfaces;
+using SwapAuthApi.Models;
 
+namespace SwapAuthApi.Data
+{
+    public class ApiTokenRepository : IApiTokenRepository
+    {
+        private readonly IConfiguration _configuration;
 
-estos ya estan escriptados, asi que solo necesitamos crear la estructura clientId:secretId
+        public ApiTokenRepository(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
 
-Y luego, pasar esa estructura clientId:secretId a base 64
+        public async Task<ApiToken> GetTokenAsync()
+        {
+            var connectionString = _configuration.GetConnectionString("AS400");
 
-Y ese resultado de base 64 lo pasemos a AES256 basandonos en el anexo que pusieron: 
+            using var connection = new OdbcConnection(connectionString);
+            await connection.OpenAsync();
 
-Anexo:
-Clase usada para encriptado de información, los métodos son estáticos para poder llamarlos 
-desde cualquier punto, únicamente enviando el texto más el secretKey definido y compartido.
-public class AES256Utils {
-private static final String ALGORITHM = "AES/GCM/NoPadding";
- private static final int TAG_LENGTH_BIT = 128;
- private static final int IV_SIZE_BYTE = 12;
- private static final String KEY_ALGORITHM = "AES";
- private AES256Utils() {}
- public static String encrypt(String plainText, String secretKey) {
- try {
- byte[] iv = generateIV();
- SecretKeySpec keySpec = buildKey(secretKey);
- Cipher cipher = Cipher.getInstance(ALGORITHM);
- GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH_BIT, iv);
- cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
- byte[] cipherText = 
-cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
- byte[] combined = ByteBuffer.allocate(iv.length + cipherText.length)
- .put(iv)
-11
- .put(cipherText)
- .array();
- return Base64.getEncoder().encodeToString(combined);
- } catch (Exception e) {
- throw new RuntimeException("Error encriptando: " + e.getMessage(), e);
- }
- }
- public static String decrypt(String cipherTextBase64, String secretKey) {
- try {
- byte[] combined = Base64.getDecoder().decode(cipherTextBase64);
- byte[] iv = new byte[IV_SIZE_BYTE];
- System.arraycopy(combined, 0, iv, 0, iv.length);
- byte[] encryptedText = new byte[combined.length - IV_SIZE_BYTE];
- System.arraycopy(combined, IV_SIZE_BYTE, encryptedText, 0, 
-encryptedText.length);
- SecretKeySpec keySpec = buildKey(secretKey);
- Cipher cipher = Cipher.getInstance(ALGORITHM);
- GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH_BIT, iv);
- cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
- byte[] decryptedText = cipher.doFinal(encryptedText);
- return new String(decryptedText, StandardCharsets.UTF_8);
- } catch (Exception e) {
- throw new RuntimeException("Error desencriptando: Datos corruptos o clave 
-inválida", e);
- }
- }
- private static SecretKeySpec buildKey(String secret) throws Exception {
- MessageDigest sha = MessageDigest.getInstance("SHA-256");
- byte[] key = sha.digest(secret.getBytes(StandardCharsets.UTF_8));
- return new SecretKeySpec(key, KEY_ALGORITHM);
- }
- private static byte[] generateIV() {
- byte[] iv = new byte[IV_SIZE_BYTE];
- new SecureRandom().nextBytes(iv);
- return iv;
- }
+            string query = @"
+                SELECT 
+                    APICLIENID AS CLIENTID,
+                    APISECREID AS SECRETID
+                FROM TCATV3DAT.TCACCTOK
+                WHERE APISERVICE = 'SERVWEB'
+                FETCH FIRST 1 ROW ONLY";
+
+            using var command = new OdbcCommand(query, connection);
+
+            using var reader = await command.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new ApiToken
+                {
+                    ClientId = reader["CLIENTID"].ToString()!.Trim(),
+                    SecretId = reader["SECRETID"].ToString()!.Trim()
+                };
+            }
+
+            throw new Exception("Credenciales no encontradas en AS400");
+        }
+    }
+}
 
 
 
-Y que me devuelva lo resultante de la encripcion aes256 ... con la palabra basic, no siento yo que sea necesario que el usuario envie cuerpo, no se si me explico
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+using System.Text;
+using SwapAuthApi.Data.Interfaces;
+using SwapAuthApi.Services.Interfaces;
+using SwapAuthApi.Utilities;
+
+namespace SwapAuthApi.Services
+{
+    public class TokenService : ITokenService
+    {
+        private readonly IApiTokenRepository _repository;
+        private readonly IConfiguration _configuration;
+
+        public TokenService(IApiTokenRepository repository, IConfiguration configuration)
+        {
+            _repository = repository;
+            _configuration = configuration;
+        }
+
+        public async Task<string> GenerateAuthorizationAsync()
+        {
+            var token = await _repository.GetTokenAsync();
+
+            // clientId:secretId
+            string credentials = $"{token.ClientId}:{token.SecretId}";
+
+            // Base64
+            string base64Credentials = Convert.ToBase64String(
+                Encoding.UTF8.GetBytes(credentials)
+            );
+
+            // secretKey compartido
+            string secretKey = _configuration["Security:SecretKey"]!;
+
+            // AES256
+            string encrypted = AES256Utils.Encrypt(base64Credentials, secretKey);
+
+            return $"Basic {encrypted}";
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+using Microsoft.AspNetCore.Mvc;
+using SwapAuthApi.Services.Interfaces;
+
+namespace SwapAuthApi.Controllers
+{
+    [ApiController]
+    [Route("api/auth")]
+    public class AuthController : ControllerBase
+    {
+        private readonly ITokenService _tokenService;
+
+        public AuthController(ITokenService tokenService)
+        {
+            _tokenService = tokenService;
+        }
+
+        [HttpGet("token")]
+        public async Task<IActionResult> GetToken()
+        {
+            var token = await _tokenService.GenerateAuthorizationAsync();
+
+            return Ok(new
+            {
+                Authorization = token
+            });
+        }
+    }
+}
