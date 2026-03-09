@@ -1,5 +1,7 @@
+Ayudame a convertir esto a Base 64:
 
-[adm_80730@PU-OCPBAST1 LogForwarder]$ ^C
-[adm_80730@PU-OCPBAST1 LogForwarder]$ oc adm policy add-cluster-role-to-user cluster-logging-collector -z logcollector -n des-procesadortc-bp
-Error from server (Forbidden): clusterrolebindings.rbac.authorization.k8s.io is forbidden: User "adm_80730" cannot list resource "clusterrolebindings" in API group "rbac.authorization.k8s.io" at the cluster scope
-[adm_80730@PU-OCPBAST1 LogForwarder]$
+Krtfk+M5wI8QgjV5LCRh3140j5qa8QKFxmbXsnj5kPXUMrUv:oWWrALBHuxa00i8awyjSEPuiS6FCoAESiHqe7wnt5KTbpZhSz149xb9OlW9yJA==
+
+
+
+Y lo que resulte de eso ayudame a convertirlo a encriptar con el algoritmo AS256
