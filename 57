@@ -109,6 +109,50 @@ namespace SwapAuthApi.Services
 
 
 
+using System.Security.Cryptography;
+using System.Text;
+
+namespace SwapAuthApi.Utilities
+{
+    public static class AES256Utils
+    {
+        private const int IV_SIZE = 12;
+        private const int TAG_SIZE = 16;
+
+        public static string Encrypt(string plainText, string secretKey)
+        {
+            // Generar IV aleatorio
+            byte[] iv = RandomNumberGenerator.GetBytes(IV_SIZE);
+
+            // Generar clave AES usando SHA256
+            byte[] key = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey));
+
+            byte[] plaintextBytes = Encoding.UTF8.GetBytes(plainText);
+
+            byte[] cipherText = new byte[plaintextBytes.Length];
+            byte[] tag = new byte[TAG_SIZE];
+
+            using var aes = new AesGcm(key);
+
+            aes.Encrypt(iv, plaintextBytes, cipherText, tag);
+
+            // combinar IV + cipherText + tag
+            byte[] result = new byte[iv.Length + cipherText.Length + tag.Length];
+
+            Buffer.BlockCopy(iv, 0, result, 0, iv.Length);
+            Buffer.BlockCopy(cipherText, 0, result, iv.Length, cipherText.Length);
+            Buffer.BlockCopy(tag, 0, result, iv.Length + cipherText.Length, tag.Length);
+
+            return Convert.ToBase64String(result);
+        }
+    }
+}
+
+
+
+
+
+
 
 
 
