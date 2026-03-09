@@ -1,4 +1,6 @@
-No entiendo lo que me dices, segun yo ... no necesito nada dee eso
+No entiendo lo que me dices, segun yo ... no necesito nada dee eso, porque esta es la documentación que me dieron: 
+
+El primer paso yo lo omito porque en AS400 yo solo tengo que basicamente tomar el valor porque ya esta encripctado.. basicmente tengo que hacer el clienteId:secretId y lo paso a base 64... pero dime que estoy omitiendo
 
 Por ser un método GET este no recibe un cuerpo en la solicitud, por lo que para realizar la 
 autenticación del cliente se realiza usando autenticación básica (clientId, secretId), por lo que el 
