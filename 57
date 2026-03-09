@@ -1,7 +1,34 @@
-Ayudame a convertir esto a Base 64:
+No entiendo lo que me dices, segun yo ... no necesito nada dee eso
 
-Krtfk+M5wI8QgjV5LCRh3140j5qa8QKFxmbXsnj5kPXUMrUv:oWWrALBHuxa00i8awyjSEPuiS6FCoAESiHqe7wnt5KTbpZhSz149xb9OlW9yJA==
-
-
-
-Y lo que resulte de eso ayudame a convertirlo a encriptar con el algoritmo AS256
+Por ser un método GET este no recibe un cuerpo en la solicitud, por lo que para realizar la 
+autenticación del cliente se realiza usando autenticación básica (clientId, secretId), por lo que el 
+método espera un encabezado con la clave “Authorization” y el valor de la misma la estructura 
+“Basic 
+LZLh1OyW77eOL7b+FGBOWDV4JFi27YVXhPgVtu1oIX98eJxUVslw+JtaaLmTuVMmXkgm7g==”
+En dónde “Basic” es una palabra clave por el tipo de autenticación por lo que siempre debe viajar, 
+el resto es un string en Base64 y encriptado usando algoritmo AES256 de las credenciales del 
+cliente.
+Por lo que el proceso de encripción sería el siguiente:
+suponiendo las siguientes credenciales en claro:
+clientId = clientId
+secretId = secretId
+● En primer paso será encriptar el secretId, ya que este así será almacenado en la base de 
+datos AS400, por lo que este de por sí ya deberá ser entregado al cliente en forma 
+encriptado. (SecretIdEncripted: 
+UHdHhp+IXBy+18j+rGjjRZDwnLjGVRHdyd6mm/3FZPVQOamk)
+● Con el valor anterior se forma la pareja de autenticación básica estándar 
+“clientId:UHdHhp+IXBy+18j+rGjjRZDwnLjGVRHdyd6mm/3FZPVQOamk”
+6
+● Este estructura de clave:valor, del cliente y su secret, deberá ser primero pasada a 
+base64: 
+“Y2xpZW50SWQ6VUhkSGhwK0lYQnkrMThqK3JHampSWkR3bkxqR1ZSSGR5ZDZtbS8z
+RlpQVlFPYW1r”
+● El string final es el que debe encriptar con el algoritmo AS256 y es el que viajará en el 
+encabezado de la solicitud: 
+“r1EOlmnFc6ZK5egwWfVcuu01Y1r+GfIeONF7BBil5WD8JMdHUmoIO9CR0PILBYYoVgSt
+SS/cGftx7ChpLOdO0Dya7arpvGtdPK5TX4ggnK8SDMy5HsW6/yocmQpvAO1cslZtyK/++Z
+A=”
+● Por lo que el header final quedará de la siguiente forma:
+key: Authorization value: “Basic 
+r1EOlmnFc6ZK5egwWfVcuu01Y1r+GfIeONF7BBil5WD8JMdHUmoIO9CR0PILBYYoVgStSS/cGftx
+7ChpLOdO0Dya7arpvGtdPK5TX4ggnK8SDMy5HsW6/yocmQpvAO1cslZtyK/++ZA=”
