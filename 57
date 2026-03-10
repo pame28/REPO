@@ -1,9 +1,6 @@
-Sabes, todo me funciona perfecto, pero no estamos manejando errores, y necesitamos hacerlo, y tambien añadir logs, como lo hemos estado haciendo. 
-Te voy a mandar todos mis archivos donde quiero que los manejemos ... y tu me los devuelves completos ya corregidos:
-
-
 using Criptografia.Models;
 using Criptografia.Repositories.Interfaces;
+using Microsoft.Extensions.Logging;
 using System.Data.Odbc;
 
 namespace Criptografia.Repositories
@@ -11,41 +8,70 @@ namespace Criptografia.Repositories
     public class AccessTokenRepository : IAccessTokenRepository
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AccessTokenRepository> _logger;
 
-        public AccessTokenRepository(IConfiguration configuration)
+        public AccessTokenRepository(IConfiguration configuration, ILogger<AccessTokenRepository> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         public async Task<AccessTokenModel> GetTokenAsync()
         {
-            var connectionString = _configuration.GetConnectionString("AS400Connection");
-
-            using var connection = new OdbcConnection(connectionString);
-            await connection.OpenAsync();
-
-            string query = @"
-                SELECT 
-                    APICLIENID AS CLIENTID,
-                    APISECREID AS SECRETID
-                FROM TCATV3DAT.TCACCTOK
-                WHERE APISERVICE = 'SERVWEB'
-                FETCH FIRST 1 ROW ONLY";
-
-            using var command = new OdbcCommand(query, connection);
-
-            using var reader = await command.ExecuteReaderAsync();
-
-            if (await reader.ReadAsync())
+            try
             {
-                return new AccessTokenModel
-                {
-                    ClientId = reader["CLIENTID"].ToString()!.Trim(),
-                    SecretId = reader["SECRETID"].ToString()!.Trim()
-                };
-            }
+                _logger.LogInformation("Iniciando consulta de credenciales en AS400.");
 
-            throw new Exception("Credenciales no encontradas en AS400");
+                var connectionString = _configuration.GetConnectionString("AS400Connection");
+
+                if (string.IsNullOrEmpty(connectionString))
+                {
+                    _logger.LogError("La cadena de conexión AS400Connection no está configurada.");
+                    throw new Exception("Error de configuración de conexión.");
+                }
+
+                using var connection = new OdbcConnection(connectionString);
+                await connection.OpenAsync();
+
+                _logger.LogInformation("Conexión a AS400 establecida correctamente.");
+
+                string query = @"
+                    SELECT 
+                        APICLIENID AS CLIENTID,
+                        APISECREID AS SECRETID
+                    FROM TCATV3DAT.TCACCTOK
+                    WHERE APISERVICE = 'SERVWEB'
+                    FETCH FIRST 1 ROW ONLY";
+
+                using var command = new OdbcCommand(query, connection);
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                if (await reader.ReadAsync())
+                {
+                    _logger.LogInformation("Credenciales obtenidas correctamente desde AS400.");
+
+                    return new AccessTokenModel
+                    {
+                        ClientId = reader["CLIENTID"].ToString()!.Trim(),
+                        SecretId = reader["SECRETID"].ToString()!.Trim()
+                    };
+                }
+
+                _logger.LogWarning("No se encontraron credenciales para el servicio SERVWEB.");
+
+                throw new Exception("Credenciales no encontradas en AS400");
+            }
+            catch (OdbcException ex)
+            {
+                _logger.LogError(ex, "Error de ODBC al consultar AS400.");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error general al obtener credenciales desde AS400.");
+                throw;
+            }
         }
     }
 }
@@ -65,6 +91,7 @@ namespace Criptografia.Repositories
 
 using Criptografia.Repositories.Interfaces;
 using Criptografia.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -74,32 +101,55 @@ namespace Criptografia.Services
     {
         private readonly IAccessTokenRepository _repository;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AccessTokenService> _logger;
 
-        public AccessTokenService(IAccessTokenRepository repository, IConfiguration configuration)
+        public AccessTokenService(
+            IAccessTokenRepository repository,
+            IConfiguration configuration,
+            ILogger<AccessTokenService> logger)
         {
             _repository = repository;
             _configuration = configuration;
+            _logger = logger;
         }
 
         public async Task<string> GenerateAuthorizationAsync()
         {
-            var token = await _repository.GetTokenAsync();
+            try
+            {
+                _logger.LogInformation("Iniciando generación de token de autorización.");
 
-            // clientId:secretId
-            string credentials = $"{token.ClientId}:{token.SecretId}";
+                var token = await _repository.GetTokenAsync();
 
-            // Base64
-            string base64Credentials = Convert.ToBase64String(
-                Encoding.UTF8.GetBytes(credentials)
-            );
+                string credentials = $"{token.ClientId}:{token.SecretId}";
 
-            // secretKey compartido
-            string secretKey = _configuration["Security:SecretKey"]!;
+                _logger.LogInformation("Credenciales obtenidas, procediendo a convertir a Base64.");
 
-            // AES256
-            string encrypted = AES256Utils.Encrypt(base64Credentials, secretKey);
+                string base64Credentials = Convert.ToBase64String(
+                    Encoding.UTF8.GetBytes(credentials)
+                );
 
-            return $"Basic {encrypted}";
+                string secretKey = _configuration["Security:SecretKey"]!;
+
+                if (string.IsNullOrEmpty(secretKey))
+                {
+                    _logger.LogError("La clave Security:SecretKey no está configurada.");
+                    throw new Exception("Clave de seguridad no configurada.");
+                }
+
+                _logger.LogInformation("Procediendo a encriptar las credenciales con AES256.");
+
+                string encrypted = AES256Utils.Encrypt(base64Credentials, secretKey);
+
+                _logger.LogInformation("Token generado correctamente.");
+
+                return $"Basic {encrypted}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generando el token de autorización.");
+                throw;
+            }
         }
 
         public static class AES256Utils
@@ -109,10 +159,8 @@ namespace Criptografia.Services
 
             public static string Encrypt(string plainText, string secretKey)
             {
-                // Generar IV aleatorio
                 byte[] iv = RandomNumberGenerator.GetBytes(IV_SIZE);
 
-                // Generar clave AES usando SHA256
                 byte[] key = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey));
 
                 byte[] plaintextBytes = Encoding.UTF8.GetBytes(plainText);
@@ -124,7 +172,6 @@ namespace Criptografia.Services
 
                 aes.Encrypt(iv, plaintextBytes, cipherText, tag);
 
-                // combinar IV + cipherText + tag
                 byte[] result = new byte[iv.Length + cipherText.Length + tag.Length];
 
                 Buffer.BlockCopy(iv, 0, result, 0, iv.Length);
@@ -149,19 +196,8 @@ namespace Criptografia.Services
 
 
 
-
-
-
-
-
-
-
-
-
 using Criptografia.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace Criptografia.Controllers
 {
@@ -170,27 +206,41 @@ namespace Criptografia.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAccessTokenService _tokenService;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IAccessTokenService tokenService)
+        public AuthController(
+            IAccessTokenService tokenService,
+            ILogger<AuthController> logger)
         {
             _tokenService = tokenService;
+            _logger = logger;
         }
 
         [HttpGet("token")]
         public async Task<IActionResult> GetToken()
         {
-            var token = await _tokenService.GenerateAuthorizationAsync();
-
-            return Ok(new
+            try
             {
-                Authorization = token
-            });
+                _logger.LogInformation("Solicitud recibida para generación de token.");
+
+                var token = await _tokenService.GenerateAuthorizationAsync();
+
+                _logger.LogInformation("Token generado correctamente.");
+
+                return Ok(new
+                {
+                    Authorization = token
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en endpoint /api/auth/token");
+
+                return StatusCode(500, new
+                {
+                    message = "Ocurrió un error al generar el token."
+                });
+            }
         }
     }
 }
-
-
-
-
-
-
