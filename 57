@@ -1,1 +1,196 @@
-= "eLhkemFiNzdsZkR3SU5PZ1JZa05UbUcxSHh0SXpFcm8=";
+Sabes, todo me funciona perfecto, pero no estamos manejando errores, y necesitamos hacerlo, y tambien añadir logs, como lo hemos estado haciendo. 
+Te voy a mandar todos mis archivos donde quiero que los manejemos ... y tu me los devuelves completos ya corregidos:
+
+
+using Criptografia.Models;
+using Criptografia.Repositories.Interfaces;
+using System.Data.Odbc;
+
+namespace Criptografia.Repositories
+{
+    public class AccessTokenRepository : IAccessTokenRepository
+    {
+        private readonly IConfiguration _configuration;
+
+        public AccessTokenRepository(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
+        public async Task<AccessTokenModel> GetTokenAsync()
+        {
+            var connectionString = _configuration.GetConnectionString("AS400Connection");
+
+            using var connection = new OdbcConnection(connectionString);
+            await connection.OpenAsync();
+
+            string query = @"
+                SELECT 
+                    APICLIENID AS CLIENTID,
+                    APISECREID AS SECRETID
+                FROM TCATV3DAT.TCACCTOK
+                WHERE APISERVICE = 'SERVWEB'
+                FETCH FIRST 1 ROW ONLY";
+
+            using var command = new OdbcCommand(query, connection);
+
+            using var reader = await command.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new AccessTokenModel
+                {
+                    ClientId = reader["CLIENTID"].ToString()!.Trim(),
+                    SecretId = reader["SECRETID"].ToString()!.Trim()
+                };
+            }
+
+            throw new Exception("Credenciales no encontradas en AS400");
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+using Criptografia.Repositories.Interfaces;
+using Criptografia.Services.Interfaces;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace Criptografia.Services
+{
+    public class AccessTokenService : IAccessTokenService
+    {
+        private readonly IAccessTokenRepository _repository;
+        private readonly IConfiguration _configuration;
+
+        public AccessTokenService(IAccessTokenRepository repository, IConfiguration configuration)
+        {
+            _repository = repository;
+            _configuration = configuration;
+        }
+
+        public async Task<string> GenerateAuthorizationAsync()
+        {
+            var token = await _repository.GetTokenAsync();
+
+            // clientId:secretId
+            string credentials = $"{token.ClientId}:{token.SecretId}";
+
+            // Base64
+            string base64Credentials = Convert.ToBase64String(
+                Encoding.UTF8.GetBytes(credentials)
+            );
+
+            // secretKey compartido
+            string secretKey = _configuration["Security:SecretKey"]!;
+
+            // AES256
+            string encrypted = AES256Utils.Encrypt(base64Credentials, secretKey);
+
+            return $"Basic {encrypted}";
+        }
+
+        public static class AES256Utils
+        {
+            private const int IV_SIZE = 12;
+            private const int TAG_SIZE = 16;
+
+            public static string Encrypt(string plainText, string secretKey)
+            {
+                // Generar IV aleatorio
+                byte[] iv = RandomNumberGenerator.GetBytes(IV_SIZE);
+
+                // Generar clave AES usando SHA256
+                byte[] key = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey));
+
+                byte[] plaintextBytes = Encoding.UTF8.GetBytes(plainText);
+
+                byte[] cipherText = new byte[plaintextBytes.Length];
+                byte[] tag = new byte[TAG_SIZE];
+
+                using var aes = new AesGcm(key);
+
+                aes.Encrypt(iv, plaintextBytes, cipherText, tag);
+
+                // combinar IV + cipherText + tag
+                byte[] result = new byte[iv.Length + cipherText.Length + tag.Length];
+
+                Buffer.BlockCopy(iv, 0, result, 0, iv.Length);
+                Buffer.BlockCopy(cipherText, 0, result, iv.Length, cipherText.Length);
+                Buffer.BlockCopy(tag, 0, result, iv.Length + cipherText.Length, tag.Length);
+
+                return Convert.ToBase64String(result);
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+using Criptografia.Services.Interfaces;
+using Microsoft.AspNetCore.Mvc;
+
+// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+
+namespace Criptografia.Controllers
+{
+    [ApiController]
+    [Route("api/auth")]
+    public class AuthController : ControllerBase
+    {
+        private readonly IAccessTokenService _tokenService;
+
+        public AuthController(IAccessTokenService tokenService)
+        {
+            _tokenService = tokenService;
+        }
+
+        [HttpGet("token")]
+        public async Task<IActionResult> GetToken()
+        {
+            var token = await _tokenService.GenerateAuthorizationAsync();
+
+            return Ok(new
+            {
+                Authorization = token
+            });
+        }
+    }
+}
+
+
+
+
+
+
