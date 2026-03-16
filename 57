@@ -1,118 +1,95 @@
-using Serilog;
-using System.Net.Http.Headers;
-using transacciones_flotantes.Infrastructure.Data;
-using transacciones_flotantes.Repository;
-using transacciones_flotantes.Repository.Interface;
-using transacciones_flotantes.Service;
-using transacciones_flotantes.Service.Interface;
-using transacciones_flotantes.Utils;
+Ayudame a modificar este programa:
+
+
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// -----------------------
-// Validaciones de configuración
-// -----------------------
-var baseAddressToken = builder.Configuration["ApiSettings:BaseAddressAccessToken"]
-    ?? throw new InvalidOperationException("No se configuró ApiSettings:BaseAddressAccessToken");
-
-var baseAddressTransacciones = builder.Configuration["ApiSettings:BaseAddressTransaccionesFlotantes"]
-    ?? throw new InvalidOperationException("No se configuró ApiSettings:BaseAddressTransaccionesFlotantes");
-
-var allowInvalidCertsStr = builder.Configuration["ApiSettings:AllowInvalidCerts"];
-var allowInvalidCerts = bool.TryParse(allowInvalidCertsStr, out var result) && result;
-
-// -----------------------
-// Configuración Serilog
-// -----------------------
-Log.Logger = new LoggerConfiguration()
-    .Enrich.FromLogContext()
-    .Enrich.WithThreadId()
-    .WriteTo.Console(
-        outputTemplate: "{Timestamp:dd-MM-yyyy HH:mm:ss.fff} [{ThreadId}] [{Level,-5}] {SourceContext} - {Message:lj}{NewLine}{Exception}"
-    )
-    .WriteTo.File(
-        "logs/log-.txt",
-        rollingInterval: RollingInterval.Day,
-        outputTemplate: "{Timestamp:dd-MM-yyyy HH:mm:ss.fff} [{ThreadId}] [{Level,-5}] {SourceContext} - {Message:lj}{NewLine}{Exception}"
-    )
-    .CreateLogger();
-
-builder.Host.UseSerilog();
-
-// -----------------------
-// Caché en memoria
-// -----------------------
-builder.Services.AddMemoryCache();
-
-// -----------------------
-// HttpClient Factory
-// -----------------------
-builder.Services.AddHttpClient();
-
-// -----------------------
-// Token Service
-// -----------------------
-builder.Services.AddScoped<IProveedorTokenService, ProveedorTokenService>();
-
-// -----------------------
-// AuthHandler
-// -----------------------
-builder.Services.AddTransient<AuthHandler>();
-
-// -----------------------
-// HttpClient para API de Transacciones
-// -----------------------
-builder.Services.AddHttpClient<IProveedorApiClient, ProveedorApiClient>(client =>
-{
-    client.BaseAddress = new Uri(baseAddressTransacciones);
-    client.DefaultRequestHeaders.Accept.Add(
-        new MediaTypeWithQualityHeaderValue("application/json"));
-})
-.ConfigurePrimaryHttpMessageHandler(() =>
-{
-    return new HttpClientHandler
-    {
-        ServerCertificateCustomValidationCallback = allowInvalidCerts
-            ? (message, cert, chain, errors) => true
-            : null
-    };
-})
-.AddHttpMessageHandler<AuthHandler>();
-
-// -----------------------
-// Dependency Injection
-// -----------------------
-builder.Services.AddScoped<ICatalogoErroresRepository, CatalogoErroresRepository>();
-builder.Services.AddScoped<IParametrosRepository, ParametrosRepositoryImp>();
-builder.Services.AddScoped<IValidationService, ValidationServiceImp>();
-builder.Services.AddScoped<ICurrencyRepository, CurrencyRepository>();
-builder.Services.AddScoped<DBHelper>();
-builder.Services.AddScoped<ITransaccionFlotanteRepository, TransaccionFlotanteRepository>();
-builder.Services.AddScoped<ITransaccionesFlotantesService, TransaccionesFlotantesService>();
-builder.Services.AddScoped<ICurrencyService, CurrencyService>();
-
-// -----------------------
-// Controllers
-// -----------------------
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
 var app = builder.Build();
 
-// -----------------------
-// Middleware
-// -----------------------
-if (app.Environment.IsDevelopment())
+app.MapPost("/transacciones", async (HttpContext context) =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var response = new
+    {
+        totalFloating = new
+        {
+            totalHNL = 0,
+            total_USD = 0
+        },
+        authorizations = new[]
+        {
+            new {
+                transactionType = "COMPRAS",
+                date = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm"),
+                currency = "HNL",
+                amount = 300.0,
+                merchantName = "WALMART BOULEVARD DEL NOR",
+                reference = "123456",
+                movementType = "C"
+            }
+        }
+    };
+
+    context.Response.ContentType = "application/json";
+    var options = new JsonSerializerOptions
+    {
+        WriteIndented = true
+    };
+    await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
+});
+
+app.Run("https://localhost:5002/");
+
+
+
+
+
+Para que me responda esto: 
+
+
+{
+ "totalFloating": {
+ "totalHNL": 180.00,
+ "totalUSD": 430.00
+ },
+ "authorizations": [
+ {
+ "transactionType": "COMPRA",
+ "date": "2025-09-12T23:06:33+0000",
+ "currency": "USD",
+ "amount": 200.00,
+ "merchantName": "CARAMELITOS TOP GT",
+ "reference": "31341",
+7
+ "movementType": "DEBITO"
+ },
+ {
+ "transactionType": "COMPRA",
+ "date": "2025-09-12T08:39:20+0000",
+ "currency": "USD",
+ "amount": 100.00,
+ "merchantName": "ELECTRIC HOUSE S.A.",
+ "reference": "475062",
+ "movementType": "DEBITO"
+ },
+ {
+ "transactionType": "COMPRA",
+ "date": "2025-09-12T19:03:07+0000",
+ "currency": "USD",
+ "amount": 130.00,
+ "merchantName": "POOL CLUB",
+ "reference": "889852",
+ "movementType": "DEBITO"
+ },
+ {
+ "transactionType": "COMPRA",
+ "date": "2025-09-12T08:52:14+0000",
+ "currency": "HNL",
+ "amount": 180.00,
+ "merchantName": "SUBWAY",
+ "reference": "719637",
+ "movementType": "DEBITO"
+ }
+ ]
 }
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
