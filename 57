@@ -1,98 +1,123 @@
-Mira, necesito realizar una modificación en un servicio, pero necesito que tengas contexto: 
-
-Ok, mira, yo lo que necesito es, realizar una autenticacion para generar un token, si? que es lo que vamos a estar enviando en el header para realizar peticiones, si? 
-Solo que.. es un poco engorroso... Te explico en Pasos:
-
-
-01. Se debe generar un key (para este ya tengo un endpoint get que lo genera): esto me devuelve este endpoint:
-  {
-    "authorization": "Basic I6ZGut8ShLggCpGEC96wG9E+VscfDRROTz4Z/ljkpAdE6NaG8QrfmTzVa35t+ifOmFwT+C/ME4hVuz87r9jkZEWGoQO2UN2XzTbASsKM3AYQ9UQjDxmN5DuKjHWDZs+aC8LTvPrsXUPLM6+We935lxVA5k7PmiccaPtESr17qlm4zlTWbkIIvdVwaibVq0jCORSwmj/sNKxBsYENfBO6tmSUjppyUQezO18oX7Hgi1ogrL2m"
-}
-
-02. Debemos autenticarnos para geenrar el accessToken, este es un endpoint de tipo GET, sin cuerpo; El key que generé en el paso 01 se debe enviar en el Header como Authorization para Autenticarse y generar el accessToken
-Esto me devuelve ese endpint 
-{
-    "accessToken": "eyJraWQiOiI3ZThlYTg2MC1iNDliLTRiYTctYTJiOS0xNjY2NzI4Y2I1MzIiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwOi8vdGMtYXV0aC1zZXJ2ZXItc3J2OjgwODAvYXV0aC1zZXJ2ZXIiLCJzdWIiOiJLcnRmaytNNXdJOFFnalY1TENSaDMxNDBqNXFhOFFLRnhtYlhzbmo1a1BYVU1yVXYiLCJleHAiOjE3NzM2NjkwMzMsImlhdCI6MTc3MzY2ODEzMywianRpIjoiY2RmZTM2YmMtYmVjZC00ZDhjLWEzM2EtMzc0YWFiN2MxMWJkIn0.M6MlKMoA9DfU_BjRJYZskCOcsa7bYObEo2y-Anz3AV_v-6fFDmZmSb8ZsJ2fztVSICr3c2Ui5tpvXOBJX4zFZeEPnW-m3c8LoVwMZDtyTsxF-uQE68UJa7fv7yzfe2AIhMrXKxv89e1jSVpAQAyiubEB3OxERWuSbOmnopT3JoqpH21zPR8R3TQwz1srcwoDnOr-0Sw9rvSxuk1GyspHyPpHUp_fZpqK14FWuzYluCkkNBhm6WwmGzSTWABfAnHQqcUzo5EYP8vrcj2aaYcLKWb0ocbkpfCn6iZx4_RgtCAPKu1k9R5zGjdAsifEMnjRY0wUeWiUkMWhw9y0to960dL1C9fY2WO1DDTU_frkXw17kpIYk34LY3rllwR_lSDZxdk2jgUwldoyy_HQVY9qzHdh7nZRI2Jcx7nQwjLnkVbYm-1UCYtJjHLE0VJdVnq6z0SRcNM1U1v32fB6FJ_DBwuwzMHNIu1zrzjpGvkEppYLdOsoSiADIEzRNRXcZiyOE0L-ZeKzdseTiUmyZEBU-DN-eJS2WYUK-kaPztIMwEWErb9NoNzqngGdtqo2aC3jC6mnetAf8GtVt8arD7CFtNr0EJr3kwbIsOSmOfPHSe2MlTlzWjskdgiJGpyUaPqL2Wxz6RZOBdrZSOxKrP3lHQJ_lsHGku5NJEs8VXNhpd0",
-    "expiresIn": 94881249,
-    "tokenType": "Bearer",
-    "refreshToken": "eyJraWQiOiI3ZThlYTg2MC1iNDliLTRiYTctYTJiOS0xNjY2NzI4Y2I1MzIiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwOi8vdGMtYXV0aC1zZXJ2ZXItc3J2OjgwODAvYXV0aC1zZXJ2ZXIiLCJzdWIiOiJLcnRmaytNNXdJOFFnalY1TENSaDMxNDBqNXFhOFFLRnhtYlhzbmo1a1BYVU1yVXYiLCJleHAiOjE3NzM3NTQ1MzMsImlhdCI6MTc3MzY2ODEzMywianRpIjoiNjliMDI1NmYtODMyMy00MjZiLTkyN2YtYjNmZjczMmE2MTI3In0.dAiyI23ypkW3kV-sDoPqrjdrBVpyWwusLxdNnYyY9zds8E85hTmTZsswTAPiXDaKpLpq0lKBnBsSnw0O2n02V7SZeaPBO_obuLr6X6o9qOuVx7Ul0iK24QpiTmXWh364M5VLTzALgbPyh6JGaHmcIhngvG2w1PrBOfT9njwVwMUfY5W_KLaiSlLe1X0NOrA7jlUTdhzi6WrKwme0fzLsd8uscvQQL5eW0zh2-9paKz_aP0WeWgibEdJx1VDFZz9TGe6_hZOQ7nIuVu8RnAquLiHzEz0TPKzcwL11itrRohLaycAZDUAeLHGV07Kr9hOExqIjE_2RWYAcIqOdegiJmTbpONrtRMz6BYN0U4OvyVM8qBsKk6SCl3YCy3qjYgpsgnIMsJGJuB0EVg0wWQ4986fxYUcV0vmA_BDKBaKDvctwfgNdfiR2Wz6xIAAHjNgemYbRNidR67Qk4PRA9yhY1Y7QPV1oS0a8liQn64Lb0pedKjldp_SkQdG19Plb85KhuxS_wLLYFTyw_H4jp0IYQ1sY-2DC6gmD_d07_iU_Ocs0jt6GcaoaMPLXEEmCCgnJO2Px2yB_BIvXefZ_7eOVCGNb9i51EWUGhlM-EiKW7FyljvlWxr1E1GEE6m8typ7tH0Kkn6iMmvbFBKFruqavviXH1pdep5kUcr5ofmZsNcA",
-    "scope": "read:messages"
-}
-
-
-Ahora, que cosas tengo que considerar? 
-
-01. El primer endpoint se debe generar idealmente una vez al dia, y este se almacene en caché. Y que se manejen otros escenarios, como que por ejemplo durante el dia se borró el cachce .. entonces ,, simplemente si el valor no está en cache entonces que lo vuelva a generar y listo, me comprendes?
-
-02. El accessToken tiene una duración validar esa expiración, guardarla en cacheé y antes de que esta expire .. generar otro token... 
-
-
-
-Te dejo lo que ya tenía programado para realizar las modificaciones:
-
+using Microsoft.Extensions.Caching.Memory;
 using System.Net.Http.Headers;
-using transacciones_flotantes.Service.Interface;
+using System.Text.Json;
 
-namespace transacciones_flotantes.Service
+public class ProveedorTokenService : IProveedorTokenService
 {
-    public class AuthHandler : DelegatingHandler
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IMemoryCache _cache;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<ProveedorTokenService> _logger;
+
+    private static readonly SemaphoreSlim _lock = new(1,1);
+
+    private const string CACHE_TOKEN = "ACCESS_TOKEN";
+    private const string CACHE_KEY = "BYTE_KEY";
+
+    public ProveedorTokenService(
+        IHttpClientFactory httpClientFactory,
+        IMemoryCache cache,
+        IConfiguration configuration,
+        ILogger<ProveedorTokenService> logger)
     {
-        private readonly IProveedorTokenService _tokenProvider;
-        private readonly ILogger<AuthHandler> _logger;
-        public AuthHandler(IProveedorTokenService tokenProvider, ILogger<AuthHandler> logger)
+        _httpClientFactory = httpClientFactory;
+        _cache = cache;
+        _configuration = configuration;
+        _logger = logger;
+    }
+
+    public async Task<string> ObtenerAccessTokenAsync()
+    {
+        if (_cache.TryGetValue(CACHE_TOKEN, out string token))
         {
-            _tokenProvider = tokenProvider;
-            _logger = logger;
+            return token;
         }
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        await _lock.WaitAsync();
+
+        try
         {
-            _logger.LogInformation("***** Petición recibida AuthHandler.SendAsync() *****");
-            try
+            // Double check para evitar race conditions
+            if (_cache.TryGetValue(CACHE_TOKEN, out token))
             {
-                var token = await _tokenProvider.ObtenerAccessTokenAsync();
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.ToString());
-
-
-
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation("Token enviado en Authorization Header : {Token}", token);
-                    _logger.LogInformation("***** Llamado completado con AuthHandler.SendAsync() *****");
-                }
-                return await base.SendAsync(request, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogError(ex, "Error en AuthHandler.SendAsync(). Descripcion: {Message}", ex.Message);
-                }
-                    return new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError)
-                {
-                    Content = new StringContent($"Error en AuthHandler: {ex.Message}")
-                };
+                return token;
             }
 
+            _logger.LogInformation("Generando nuevo accessToken...");
+
+            var key = await ObtenerKeyAsync();
+
+            var tokenResponse = await GenerarTokenAsync(key);
+
+            var expiration = DateTime.UtcNow.AddSeconds(tokenResponse.expiresIn - 60);
+
+            _cache.Set(
+                CACHE_TOKEN,
+                tokenResponse.accessToken,
+                expiration
+            );
+
+            _logger.LogInformation("AccessToken generado y almacenado en cache");
+
+            return tokenResponse.accessToken;
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
+
+    private async Task<string> ObtenerKeyAsync()
+    {
+        if (_cache.TryGetValue(CACHE_KEY, out string key))
+        {
+            return key;
+        }
+
+        _logger.LogInformation("Generando nuevo ByteKey...");
+
+        var client = _httpClientFactory.CreateClient();
+
+        var url = $"{_configuration["ApiSettings:BaseAddressByteKey"]}{_configuration["ApiSettings:EndpointByteKey"]}";
+
+        var response = await client.GetAsync(url);
+
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+
+        var data = JsonSerializer.Deserialize<Dictionary<string,string>>(json);
+
+        key = data["authorization"];
+
+        _cache.Set(
+            CACHE_KEY,
+            key,
+            TimeSpan.FromHours(24)
+        );
+
+        _logger.LogInformation("ByteKey almacenado en cache");
+
+        return key;
+    }
+
+    private async Task<AccessTokenResponse> GenerarTokenAsync(string key)
+    {
+        var client = _httpClientFactory.CreateClient();
+
+        var url = $"{_configuration["ApiSettings:BaseAddressAccessToken"]}{_configuration["ApiSettings:EndpointAccessToken"]}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Basic", key.Replace("Basic ", ""));
+
+        var response = await client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+
+        return JsonSerializer.Deserialize<AccessTokenResponse>(json);
+    }
 }
-
-
-
-
-
-
-
-Y asi se ve el appsettings: 
-
-  "ApiSettings": {
-    "BaseAddressTransaccionesFlotantes": "https://localhost:5002/",
-    "EndpointTransacciones": "transacciones",
-    "BaseAddressAccessToken": "https://apiprocesadortcbppu.banpais.hn/auth-server/",
-    "EndpointAccessToken": "accesstoken",
-    "BaseAddressByteKey": "https://apicreditcardservicede.banpais.hn/gateway/",
-    "EndpointByteKey": "key-byte",
-    "AllowInvalidCerts": "true"
-  },
