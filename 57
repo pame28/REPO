@@ -1,6 +1,3 @@
-Ayudame a modificar este programa:
-
-
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using System.Text.Json;
@@ -14,82 +11,58 @@ app.MapPost("/transacciones", async (HttpContext context) =>
     {
         totalFloating = new
         {
-            totalHNL = 0,
-            total_USD = 0
+            totalHNL = 180.00,
+            totalUSD = 430.00
         },
         authorizations = new[]
         {
             new {
-                transactionType = "COMPRAS",
-                date = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm"),
+                transactionType = "COMPRA",
+                date = "2025-09-12T23:06:33+0000",
+                currency = "USD",
+                amount = 200.00,
+                merchantName = "CARAMELITOS TOP GT",
+                reference = "31341",
+                movementType = "DEBITO"
+            },
+            new {
+                transactionType = "COMPRA",
+                date = "2025-09-12T08:39:20+0000",
+                currency = "USD",
+                amount = 100.00,
+                merchantName = "ELECTRIC HOUSE S.A.",
+                reference = "475062",
+                movementType = "DEBITO"
+            },
+            new {
+                transactionType = "COMPRA",
+                date = "2025-09-12T19:03:07+0000",
+                currency = "USD",
+                amount = 130.00,
+                merchantName = "POOL CLUB",
+                reference = "889852",
+                movementType = "DEBITO"
+            },
+            new {
+                transactionType = "COMPRA",
+                date = "2025-09-12T08:52:14+0000",
                 currency = "HNL",
-                amount = 300.0,
-                merchantName = "WALMART BOULEVARD DEL NOR",
-                reference = "123456",
-                movementType = "C"
+                amount = 180.00,
+                merchantName = "SUBWAY",
+                reference = "719637",
+                movementType = "DEBITO"
             }
         }
     };
 
     context.Response.ContentType = "application/json";
+
     var options = new JsonSerializerOptions
     {
         WriteIndented = true
     };
+
     await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
 });
 
 app.Run("https://localhost:5002/");
-
-
-
-
-
-Para que me responda esto: 
-
-
-{
- "totalFloating": {
- "totalHNL": 180.00,
- "totalUSD": 430.00
- },
- "authorizations": [
- {
- "transactionType": "COMPRA",
- "date": "2025-09-12T23:06:33+0000",
- "currency": "USD",
- "amount": 200.00,
- "merchantName": "CARAMELITOS TOP GT",
- "reference": "31341",
-7
- "movementType": "DEBITO"
- },
- {
- "transactionType": "COMPRA",
- "date": "2025-09-12T08:39:20+0000",
- "currency": "USD",
- "amount": 100.00,
- "merchantName": "ELECTRIC HOUSE S.A.",
- "reference": "475062",
- "movementType": "DEBITO"
- },
- {
- "transactionType": "COMPRA",
- "date": "2025-09-12T19:03:07+0000",
- "currency": "USD",
- "amount": 130.00,
- "merchantName": "POOL CLUB",
- "reference": "889852",
- "movementType": "DEBITO"
- },
- {
- "transactionType": "COMPRA",
- "date": "2025-09-12T08:52:14+0000",
- "currency": "HNL",
- "amount": 180.00,
- "merchantName": "SUBWAY",
- "reference": "719637",
- "movementType": "DEBITO"
- }
- ]
-}
