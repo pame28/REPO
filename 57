@@ -1,123 +1,122 @@
-using Microsoft.Extensions.Caching.Memory;
+Mira como tenia mi program.cs dime si debo realizar una modificación o esta bien lo qu etengo
+
+
+
+using Serilog;
 using System.Net.Http.Headers;
-using System.Text.Json;
+using transacciones_flotantes.Infrastructure.Data;
+using transacciones_flotantes.Repository;
+using transacciones_flotantes.Repository.Interface;
+using transacciones_flotantes.Service;
+using transacciones_flotantes.Service.Interface;
+using transacciones_flotantes.Utils;
 
-public class ProveedorTokenService : IProveedorTokenService
+var builder = WebApplication.CreateBuilder(args);
+
+// -----------------------
+// Validaciones de configuración
+// -----------------------
+var baseAddressToken = builder.Configuration["ApiSettings:BaseAddressAccessToken"]
+    ?? throw new InvalidOperationException("No se configuró ApiSettings:BaseAddressAccessToken");
+
+var baseAddressTransacciones = builder.Configuration["ApiSettings:BaseAddressTransaccionesFlotantes"]
+    ?? throw new InvalidOperationException("No se configuró ApiSettings:BaseAddressTransaccionesFlotantes");
+
+var allowInvalidCertsStr = builder.Configuration["ApiSettings:AllowInvalidCerts"];
+var allowInvalidCerts = bool.TryParse(allowInvalidCertsStr, out var result) && result;
+
+// -----------------------
+// Registro HttpClient: Token
+// -----------------------
+builder.Services.AddHttpClient<IProveedorTokenService, ProveedorTokenService>(client =>
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IMemoryCache _cache;
-    private readonly IConfiguration _configuration;
-    private readonly ILogger<ProveedorTokenService> _logger;
-
-    private static readonly SemaphoreSlim _lock = new(1,1);
-
-    private const string CACHE_TOKEN = "ACCESS_TOKEN";
-    private const string CACHE_KEY = "BYTE_KEY";
-
-    public ProveedorTokenService(
-        IHttpClientFactory httpClientFactory,
-        IMemoryCache cache,
-        IConfiguration configuration,
-        ILogger<ProveedorTokenService> logger)
+    client.BaseAddress = new Uri(baseAddressToken);
+    client.DefaultRequestHeaders.Accept.Add(
+        new MediaTypeWithQualityHeaderValue("application/json"));
+}).ConfigurePrimaryHttpMessageHandler(() =>
+{
+    return new HttpClientHandler
     {
-        _httpClientFactory = httpClientFactory;
-        _cache = cache;
-        _configuration = configuration;
-        _logger = logger;
-    }
+        ServerCertificateCustomValidationCallback = allowInvalidCerts
+            ? (message, cert, chain, errors) => true
+            : null
+    };
+});
 
-    public async Task<string> ObtenerAccessTokenAsync()
+// -----------------------
+// Registro HttpClient: Transacciones con AuthHandler
+// -----------------------
+builder.Services.AddTransient<AuthHandler>();
+builder.Services.AddHttpClient<IProveedorApiClient, ProveedorApiClient>(client =>
+{
+    client.BaseAddress = new Uri(baseAddressTransacciones);
+    client.DefaultRequestHeaders.Accept.Add(
+        new MediaTypeWithQualityHeaderValue("application/json"));
+}).ConfigurePrimaryHttpMessageHandler(() =>
+{
+    return new HttpClientHandler
     {
-        if (_cache.TryGetValue(CACHE_TOKEN, out string token))
-        {
-            return token;
-        }
+        ServerCertificateCustomValidationCallback = allowInvalidCerts
+            ? (message, cert, chain, errors) => true
+            : null
+    };
+}).AddHttpMessageHandler<AuthHandler>();
 
-        await _lock.WaitAsync();
+// -----------------------
+// Caché
+// -----------------------
+builder.Services.AddMemoryCache();
 
-        try
-        {
-            // Double check para evitar race conditions
-            if (_cache.TryGetValue(CACHE_TOKEN, out token))
-            {
-                return token;
-            }
+// -----------------------
+// Dependency Injection
+// -----------------------
+builder.Services.AddScoped<ICatalogoErroresRepository, CatalogoErroresRepository>();
+builder.Services.AddScoped<IParametrosRepository, ParametrosRepositoryImp>();
+builder.Services.AddScoped<IValidationService, ValidationServiceImp>();
+builder.Services.AddScoped<ICurrencyRepository, CurrencyRepository>();
+builder.Services.AddScoped<DBHelper>();
+builder.Services.AddScoped<ITransaccionFlotanteRepository, TransaccionFlotanteRepository>();
+builder.Services.AddScoped<ITransaccionesFlotantesService, TransaccionesFlotantesService>();
+builder.Services.AddScoped<ICurrencyService, CurrencyService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
 
-            _logger.LogInformation("Generando nuevo accessToken...");
 
-            var key = await ObtenerKeyAsync();
 
-            var tokenResponse = await GenerarTokenAsync(key);
+// -----------------------
+// Configuración Serilog
+// -----------------------
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .Enrich.WithThreadId()
+    .WriteTo.Console(
+        outputTemplate: "{Timestamp:dd-MM-yyyy HH:mm:ss.fff} [{ThreadId}] [{Level,-5}] {SourceContext} - {Message:lj}{NewLine}{Exception}"
+    )
+    .WriteTo.File(
+        "logs/log-.txt",
+        rollingInterval: RollingInterval.Day,
+        outputTemplate: "{Timestamp:dd-MM-yyyy HH:mm:ss.fff} [{ThreadId}] [{Level,-5}] {SourceContext} - {Message:lj}{NewLine}{Exception}"
+    )
+    .CreateLogger();
 
-            var expiration = DateTime.UtcNow.AddSeconds(tokenResponse.expiresIn - 60);
+builder.Host.UseSerilog();
 
-            _cache.Set(
-                CACHE_TOKEN,
-                tokenResponse.accessToken,
-                expiration
-            );
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-            _logger.LogInformation("AccessToken generado y almacenado en cache");
+var app = builder.Build();
 
-            return tokenResponse.accessToken;
-        }
-        finally
-        {
-            _lock.Release();
-        }
-    }
-
-    private async Task<string> ObtenerKeyAsync()
-    {
-        if (_cache.TryGetValue(CACHE_KEY, out string key))
-        {
-            return key;
-        }
-
-        _logger.LogInformation("Generando nuevo ByteKey...");
-
-        var client = _httpClientFactory.CreateClient();
-
-        var url = $"{_configuration["ApiSettings:BaseAddressByteKey"]}{_configuration["ApiSettings:EndpointByteKey"]}";
-
-        var response = await client.GetAsync(url);
-
-        response.EnsureSuccessStatusCode();
-
-        var json = await response.Content.ReadAsStringAsync();
-
-        var data = JsonSerializer.Deserialize<Dictionary<string,string>>(json);
-
-        key = data["authorization"];
-
-        _cache.Set(
-            CACHE_KEY,
-            key,
-            TimeSpan.FromHours(24)
-        );
-
-        _logger.LogInformation("ByteKey almacenado en cache");
-
-        return key;
-    }
-
-    private async Task<AccessTokenResponse> GenerarTokenAsync(string key)
-    {
-        var client = _httpClientFactory.CreateClient();
-
-        var url = $"{_configuration["ApiSettings:BaseAddressAccessToken"]}{_configuration["ApiSettings:EndpointAccessToken"]}";
-
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-
-        request.Headers.Authorization =
-            new AuthenticationHeaderValue("Basic", key.Replace("Basic ", ""));
-
-        var response = await client.SendAsync(request);
-
-        response.EnsureSuccessStatusCode();
-
-        var json = await response.Content.ReadAsStringAsync();
-
-        return JsonSerializer.Deserialize<AccessTokenResponse>(json);
-    }
+// -----------------------
+// Middleware
+// -----------------------
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+app.Run();
