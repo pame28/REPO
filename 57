@@ -1,257 +1,66 @@
-System.Text.Json.JsonException: 'The JSON value could not be converted to System.DateTime. Path: $.authorizations[0].date | LineNumber: 8 | BytePositionInLine: 45.'
+17-03-2026 16:17:07.244 [1] [Information] Microsoft.Hosting.Lifetime - Now listening on: http://[::]:8080
+17-03-2026 16:17:07.274 [1] [Information] Microsoft.Hosting.Lifetime - Application started. Press Ctrl+C to shut down.
+17-03-2026 16:17:07.275 [1] [Information] Microsoft.Hosting.Lifetime - Hosting environment: Production
+17-03-2026 16:17:07.275 [1] [Information] Microsoft.Hosting.Lifetime - Content root path: /app
+17-03-2026 16:17:47.267 [10] [Information] Microsoft.AspNetCore.Hosting.Diagnostics - Request starting HTTP/1.1 GET http://api-crypto-as400-des-procesadortc-bp.apps.ocp4bppu.hn.bi-central.local/api/auth/token - null null
+17-03-2026 16:17:47.307 [10] [Warning] Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware - Failed to determine the https port for redirect.
+17-03-2026 16:17:47.314 [10] [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware - Executing endpoint 'Criptografia.Controllers.AuthController.GetToken (Criptografia)'
+17-03-2026 16:17:47.361 [10] [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker - Route matched with {action = "GetToken", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetToken() on controller Criptografia.Controllers.AuthController (Criptografia).
+17-03-2026 16:17:47.365 [10] [Information] Criptografia.Controllers.AuthController - Solicitud recibida para generaciÃ³n de token.
+17-03-2026 16:17:47.367 [10] [Information] Criptografia.Services.AccessTokenService - Iniciando generaciÃ³n de token de autorizaciÃ³n.
+17-03-2026 16:17:47.370 [10] [Information] Criptografia.Repositories.AccessTokenRepository - Iniciando consulta de credenciales en AS400.
+17-03-2026 16:17:47.396 [10] [Error] Criptografia.Repositories.AccessTokenRepository - Error general al obtener credenciales desde AS400.
+System.DllNotFoundException: Dependency unixODBC with minimum version 2.3.1 is required.
+Unable to load shared library 'libodbc.so.2' or one of its dependencies. In order to help diagnose loading problems, consider using a tool like strace. If you're using glibc, consider setting the LD_DEBUG environment variable: 
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/libodbc.so.2: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/libodbc.so.2: cannot open shared object file: No such file or directory
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/liblibodbc.so.2: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/liblibodbc.so.2: cannot open shared object file: No such file or directory
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/libodbc.so.2.so: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/libodbc.so.2.so: cannot open shared object file: No such file or directory
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/liblibodbc.so.2.so: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/liblibodbc.so.2.so: cannot open shared object file: No such file or directory
 
-FormatException: The JSON value is not in a supported DateTime format.
+   at System.Data.Odbc.OdbcConnection.Open()
+   at System.Data.Common.DbConnection.OpenAsync(CancellationToken cancellationToken)
+--- End of stack trace from previous location ---
+   at Criptografia.Repositories.AccessTokenRepository.GetTokenAsync() in /src/Repositories/AccessTokenRepository.cs:line 34
+17-03-2026 16:17:47.415 [10] [Error] Criptografia.Services.AccessTokenService - Error generando el token de autorizaciÃ³n.
+System.DllNotFoundException: Dependency unixODBC with minimum version 2.3.1 is required.
+Unable to load shared library 'libodbc.so.2' or one of its dependencies. In order to help diagnose loading problems, consider using a tool like strace. If you're using glibc, consider setting the LD_DEBUG environment variable: 
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/libodbc.so.2: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/libodbc.so.2: cannot open shared object file: No such file or directory
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/liblibodbc.so.2: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/liblibodbc.so.2: cannot open shared object file: No such file or directory
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/libodbc.so.2.so: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/libodbc.so.2.so: cannot open shared object file: No such file or directory
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/liblibodbc.so.2.so: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/liblibodbc.so.2.so: cannot open shared object file: No such file or directory
 
+   at System.Data.Odbc.OdbcConnection.Open()
+   at System.Data.Common.DbConnection.OpenAsync(CancellationToken cancellationToken)
+--- End of stack trace from previous location ---
+   at Criptografia.Repositories.AccessTokenRepository.GetTokenAsync() in /src/Repositories/AccessTokenRepository.cs:line 34
+   at Criptografia.Services.AccessTokenService.GenerateAuthorizationAsync() in /src/Services/AccessTokenService.cs:line 31
+17-03-2026 16:17:47.416 [10] [Error] Criptografia.Controllers.AuthController - Error en endpoint /api/auth/token
+System.DllNotFoundException: Dependency unixODBC with minimum version 2.3.1 is required.
+Unable to load shared library 'libodbc.so.2' or one of its dependencies. In order to help diagnose loading problems, consider using a tool like strace. If you're using glibc, consider setting the LD_DEBUG environment variable: 
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/libodbc.so.2: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/libodbc.so.2: cannot open shared object file: No such file or directory
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/liblibodbc.so.2: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/liblibodbc.so.2: cannot open shared object file: No such file or directory
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/libodbc.so.2.so: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/libodbc.so.2.so: cannot open shared object file: No such file or directory
+/usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/liblibodbc.so.2.so: cannot open shared object file: No such file or directory
+/app/runtimes/unix/lib/net10.0/liblibodbc.so.2.so: cannot open shared object file: No such file or directory
 
-Mira, esto que te voy a enviar es lo que la el proveedor me va a responder:
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using System.Text.Json;
-
-var builder = WebApplication.CreateBuilder(args);
-var app = builder.Build();
-
-app.MapPost("/transacciones", async (HttpContext context) =>
-{
-    var response = new
-    {
-        totalFloating = new
-        {
-            totalHNL = 180.00,
-            totalUSD = 430.00
-        },
-        authorizations = new[]
-        {
-            new {
-                transactionType = "COMPRA",
-                date = "2025-09-12T23:06:33+0000",
-                currency = "USD",
-                amount = 200.00,
-                merchantName = "CARAMELITOS TOP GT",
-                reference = "31341",
-                movementType = "DEBITO"
-            },
-            new {
-                transactionType = "COMPRA",
-                date = "2025-09-12T08:39:20+0000",
-                currency = "USD",
-                amount = 100.00,
-                merchantName = "ELECTRIC HOUSE S.A.",
-                reference = "475062",
-                movementType = "DEBITO"
-            },
-            new {
-                transactionType = "COMPRA",
-                date = "2025-09-12T19:03:07+0000",
-                currency = "USD",
-                amount = 130.00,
-                merchantName = "POOL CLUB",
-                reference = "889852",
-                movementType = "DEBITO"
-            },
-            new {
-                transactionType = "COMPRA",
-                date = "2025-09-12T08:52:14+0000",
-                currency = "HNL",
-                amount = 180.00,
-                merchantName = "SUBWAY",
-                reference = "719637",
-                movementType = "DEBITO"
-            }
-        }
-    };
-
-    context.Response.ContentType = "application/json";
-
-    var options = new JsonSerializerOptions
-    {
-        WriteIndented = true
-    };
-
-    await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
-});
-
-app.Run("https://localhost:5002/");
-
-
-
-Es una simulación, pero ya estoy 100% segura que será en ese formato.
-
-
-En este código fue en el que tronó using System.Text.Json;
-using transacciones_flotantes.DTOs.Response;
-using transacciones_flotantes.DTOs.TransaccionesFlotantes;
-using transacciones_flotantes.Repository.Interface;
-using transacciones_flotantes.Service.Interface;
-using static transacciones_flotantes.DTOs.Response.ResponseDto;
-using static transacciones_flotantes.DTOs.TransaccionesFlotantes.ProveedorTransaccionesFlotantesResponseDto;
-
-namespace transacciones_flotantes.Service
-{
-    public class TransaccionesFlotantesService : ITransaccionesFlotantesService
-    {
-        private readonly ITransaccionFlotanteRepository _repository;
-        private readonly IProveedorApiClient _proveedorClient;
-        private readonly ICatalogoErroresRepository _catalogoErrores;
-        private readonly ILogger<TransaccionesFlotantesService> _logger;
-        private readonly ICurrencyService _currencyService;
-
-        public TransaccionesFlotantesService(
-            ITransaccionFlotanteRepository repository,
-            IProveedorApiClient proveedorClient,
-            ICatalogoErroresRepository catalogoErrores,
-            ILogger<TransaccionesFlotantesService> logger,
-            ICurrencyService currencyService)
-        {
-            _repository = repository;
-            _proveedorClient = proveedorClient;
-            _catalogoErrores = catalogoErrores;
-            _logger = logger;
-            _currencyService = currencyService;
-        }
-
-        public async Task<LegacyTransaccionesResponseDto> ProcesarAsync(
-            TransaccionesFlotantesRequestDto request)
-        {
-            var start = DateTime.UtcNow;
-            _logger.LogInformation("Inicio procesamiento");
-
-            try
-            {
-                var data = await _repository.ObtenerDatosProveedorAsync(request.CounterpartCard);
-                if (data == null)
-                    return await CrearRespuestaError(2, "Datos proveedor no encontrados");
-
-                var proveedorRequest = new ProveedorTransaccionFlotanteRequestDto
-                {
-                    Card = new()
-                    {
-                        bin = data.bin,
-                        lastFourDigits = data.lastFourDigits
-                    },
-                    Client = new()
-                    {
-                        documentNumber = data.documentNumber,
-                        documentType = data.documentType,
-                        gender = data.gender
-                    }
-                };
-
-
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(
-                    "Request proveedor: {Json}",
-                    JsonSerializer.Serialize(proveedorRequest));
-                }
-                string rawResponse;
-
-                try
-                {
-                    rawResponse = await _proveedorClient.EnviarTransaccionAsync(proveedorRequest);
-                }
-                catch (HttpRequestException ex)
-                {
-                    _logger.LogError(ex, "Proveedor no disponible");
-                    return await CrearRespuestaError(3, "Proveedor no disponible");
-                }
-                catch (TaskCanceledException ex)
-                {
-                    _logger.LogError(ex, "Timeout proveedor");
-                    return await CrearRespuestaError(4, "Timeout proveedor");
-                }
-
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug("Response cruda proveedor: {Raw}", rawResponse);
-                }
-                ProveedorResponseDto proveedorData;
-                try
-                {
-                    proveedorData = JsonSerializer.Deserialize<ProveedorResponseDto>(rawResponse)
-                        ?? throw new Exception("JSON vacío");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "JSON inválido proveedor");
-                    return await CrearRespuestaError(6, "Respuesta inválida proveedor");
-                }
-
-                if (proveedorData.Authorizations.Count() == 0)
-                    return await CrearRespuestaError(2, "Sin autorizaciones");
-
-                var catalogo = await _catalogoErrores.GetCatalogoResponseAsync(1);
-
-                var autorizaciones = await Task.WhenAll(
-                    proveedorData.Authorizations.Select(async a => new LegacyAutorizacionDto
-                    {
-                        Date = a.Date,
-                        Merchant_Name = a.MerchantName,
-                        Amount = a.Amount,
-                        Currency = await _currencyService.ResolverAsync(a.Currency),
-                        Reference = a.Reference,
-                        Transaction_Type = a.TransactionType
-                    }));
-
-
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation(
-                    "Proceso exitoso. Tiempo: {Ms} ms",
-                    (DateTime.UtcNow - start).TotalMilliseconds);
-                }
-                return new LegacyTransaccionesResponseDto
-                {
-                    Result =
-                    {
-                        Codigo = catalogo.Codigo,
-                        Descripcion = catalogo.Descripcion
-                    },
-                    Respuesta = autorizaciones.ToList()
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogCritical(ex, "Error no controlado en servicio");
-                throw;
-            }
-        }
-
-        private async Task<LegacyTransaccionesResponseDto> CrearRespuestaError(
-            int codigo, string detalle)
-        {
-            var catalogo = await _catalogoErrores.GetCatalogoResponseAsync(codigo);
-
-            if (_logger.IsEnabled(LogLevel.Warning))
-            {
-                _logger.LogWarning(
-                "Error controlado {Codigo}: {Detalle}",
-                codigo, detalle);
-            }
-            return new LegacyTransaccionesResponseDto
-            {
-                Result =
-                {
-                    Codigo = catalogo.Codigo,
-                    Descripcion = catalogo.Descripcion
-                },
-                Respuesta = 0
-            };
-        }
-    }
-}
-
-No se si deba cambiar en el dto el tipo de dato o algo :c
-
-
-En este catch cayó :     ProveedorResponseDto proveedorData;
-    try
-    {
-        proveedorData = JsonSerializer.Deserialize<ProveedorResponseDto>(rawResponse)
-            ?? throw new Exception("JSON vacío");
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "JSON inválido proveedor");
-        return await CrearRespuestaError(6, "Respuesta inválida proveedor");
-    }
+   at System.Data.Odbc.OdbcConnection.Open()
+   at System.Data.Common.DbConnection.OpenAsync(CancellationToken cancellationToken)
+--- End of stack trace from previous location ---
+   at Criptografia.Repositories.AccessTokenRepository.GetTokenAsync() in /src/Repositories/AccessTokenRepository.cs:line 34
+   at Criptografia.Services.AccessTokenService.GenerateAuthorizationAsync() in /src/Services/AccessTokenService.cs:line 31
+   at Criptografia.Controllers.AuthController.GetToken() in /src/Controllers/AuthController.cs:line 28
+17-03-2026 16:17:47.424 [10] [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ObjectResultExecutor - Executing ObjectResult, writing value of type '<>f__AnonymousType1`1[[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+17-03-2026 16:17:47.469 [10] [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker - Executed action Criptografia.Controllers.AuthController.GetToken (Criptografia) in 100.0996ms
+17-03-2026 16:17:47.469 [10] [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware - Executed endpoint 'Criptografia.Controllers.AuthController.GetToken (Criptografia)'
+17-03-2026 16:17:47.475 [10] [Information] Microsoft.AspNetCore.Hosting.Diagnostics - Request finished HTTP/1.1 GET http://api-crypto-as400-des-procesadortc-bp.apps.ocp4bppu.hn.bi-central.local/api/auth/token - 500 null application/json; charset=utf-8 210.1905ms
